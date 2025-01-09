@@ -4,6 +4,10 @@ extern crate alloc;
 
 use core::time::Duration;
 
+mod sd;
+
+pub use sd::*;
+
 pub trait Kernel {
     fn sleep(duration: Duration);
 }

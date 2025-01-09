@@ -12,11 +12,28 @@ use bare_test::{
     driver::device_tree::get_device_tree, fdt::PciSpace, mem::mmu::iomap, println, time::delay,
 };
 use log::*;
+use sdif_driver::SDIF;
 
 bare_test::test_setup!();
 
 #[test_case]
 fn test_work() {
+    let fdt = get_device_tree().unwrap();
+
+    let mci0 = fdt.find_compatible(&["phytium,mci"]).next().unwrap();
+
+    let reg = mci0.reg().unwrap().next().unwrap();
+
+    info!("mci0 reg: {:#x}", reg.address);
+
+    let reg_base = iomap((reg.address as usize).into(), reg.size.unwrap());
+
+    let mci0 = SDIF::new(reg_base);
+
+    info!("card detected {:?}", mci0.card_detected());
+
+    info!("blk size: {:#x}", mci0.blksize());
+
     assert!(true);
 }
 
