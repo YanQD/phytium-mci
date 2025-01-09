@@ -10,7 +10,7 @@ use core::time::Duration;
 
 use bare_test::{driver::device_tree::get_device_tree, mem::mmu::iomap, time::delay};
 use log::*;
-use sdif_driver::SDIF;
+use phytium_mci::*;
 
 bare_test::test_setup!();
 
@@ -26,7 +26,7 @@ fn test_work() {
 
     let reg_base = iomap((reg.address as usize).into(), reg.size.unwrap());
 
-    let mci0 = SDIF::new(reg_base);
+    let mci0 = MCI::new(reg_base);
 
     info!("card detected {:?}", mci0.card_detected());
 
@@ -41,10 +41,10 @@ fn sleep(duration: Duration) {
 
 struct KernelImpl;
 
-impl sdif_driver::Kernel for KernelImpl {
+impl Kernel for KernelImpl {
     fn sleep(duration: Duration) {
         sleep(duration);
     }
 }
 
-sdif_driver::set_impl!(KernelImpl);
+set_impl!(KernelImpl);

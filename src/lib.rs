@@ -4,9 +4,9 @@ extern crate alloc;
 
 use core::time::Duration;
 
-mod sd;
+mod mci;
 
-pub use sd::*;
+pub use mci::*;
 
 pub trait Kernel {
     fn sleep(duration: Duration);
@@ -14,11 +14,11 @@ pub trait Kernel {
 
 pub(crate) fn sleep(duration: Duration) {
     extern "Rust" {
-        fn _sdif_driver_sleep(duration: Duration);
+        fn _phytium_mci_sleep(duration: Duration);
     }
 
     unsafe {
-        _sdif_driver_sleep(duration);
+        _phytium_mci_sleep(duration);
     }
 }
 
@@ -26,7 +26,7 @@ pub(crate) fn sleep(duration: Duration) {
 macro_rules! set_impl {
     ($t: ty) => {
         #[no_mangle]
-        unsafe fn _sdif_driver_sleep(duration: core::time::Duration) {
+        unsafe fn _phytium_mci_sleep(duration: core::time::Duration) {
             <$t as $crate::Kernel>::sleep(duration)
         }
     };

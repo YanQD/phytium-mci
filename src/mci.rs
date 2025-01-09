@@ -1,11 +1,11 @@
 use core::ptr::NonNull;
 
-pub struct SDIF {
+pub struct MCI {
     reg_base: usize,
 }
-impl SDIF {
+impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
-        SDIF {
+        MCI {
             reg_base: reg_base.as_ptr() as usize,
         }
     }
