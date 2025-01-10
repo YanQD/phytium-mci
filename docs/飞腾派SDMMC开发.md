@@ -73,7 +73,28 @@
 
 参考[连接 USB 设备 | Microsoft Learn](https://learn.microsoft.com/zh-cn/windows/wsl/connect-usb#install-the-usbipd-win-project)分享USB设备到WSL2
 
-参考[drivers - CH340 Serial device doesn&#39;t appear in /dev/ (WSL) - Ask Ubuntu](https://askubuntu.com/questions/1373910/ch340-serial-device-doesnt-appear-in-dev-wsl/)把USB驱动补全
+### 更换为桥接模式
+
+#### 打开CH340的驱动
+
+**每次启动电脑都要弄**
+
+```shell
+sudo modprobe ch341
+sudo modprobe usbserial
+sudo modprobe cp210x
+sudo modprobe ftdi_sio
+```
+
+#### 变更权限
+
+```shell
+sudo chmod a+rw /dev/ttyUSB0
+```
+
+#### 存在插不稳问题
+
+- [ ] 需要填写脚本
 
 ## 解析OStools代码
 
