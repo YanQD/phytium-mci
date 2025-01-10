@@ -1,8 +1,8 @@
 # 前言
 
-现在对于飞腾派的`arceos`的开发是非常的成熟的,但是对于一个小白是非常麻烦的.
+现在对于飞腾派的 `arceos`的开发是非常的成熟的,但是对于一个小白是非常麻烦的.
 
-> 这里一定要注意可以跟踪驱动的开发进程,也就是看`commit`的过程
+> 这里一定要注意可以跟踪驱动的开发进程,也就是看 `commit`的过程
 
 ```shell
  * 1.0   zhugengyu  2021/12/2    init
@@ -13,7 +13,7 @@
  * 2.1   zhugengyu  2023/10/23   add sdio interrupt handler
 ```
 
-> 这里应该选取所有文件都在的`V1.1`版本.这个版本在总的`V0.2.0`里边
+> 这里应该选取所有文件都在的 `V1.1`版本.这个版本在总的 `V0.2.0`里边
 
 [V0.2.0版本](https://gitee.com/phytium_embedded/phytium-standalone-sdk/tree/v0.2.0/)
 
@@ -23,7 +23,7 @@
 
 萤火工场·CEK8903飞腾派软件开发手册-V1.01(待上传)
 
-- [ ] todo 
+- [ ] todo
 
 [飞腾派软件编程手册V1.0](https://github.com/arceos-usb/arceos_experiment/blob/usb-camera-base/doc/resources/%E9%A3%9E%E8%85%BE%E6%B4%BE%E8%BD%AF%E4%BB%B6%E7%BC%96%E7%A8%8B%E6%89%8B%E5%86%8CV1.0.pdf)
 
@@ -31,14 +31,13 @@
 
 [提交 · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/commits/master)
 
-# blogs 
+# blogs
 
-[Linux MMC 驱动子系统详解 - Buttering's Blog](https://buttering.github.io/EasyBlog/2023/02/07/Linux%20MMC%20%E9%A9%B1%E5%8A%A8%E5%AD%90%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/)
+[Linux MMC 驱动子系统详解 - Buttering&#39;s Blog](https://buttering.github.io/EasyBlog/2023/02/07/Linux%20MMC%20%E9%A9%B1%E5%8A%A8%E5%AD%90%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/)
 
 [【MMC子系统】一、MMC_SD_SDIO介绍 | Donge Blog](https://uniondong.github.io/docs/linux/linux_mmc_subsystem/mmc%E5%AD%90%E7%B3%BB%E7%BB%9F%E4%B8%80mmc_sd_sdio%E4%BB%8B%E7%BB%8D/)
 
 [MMC/SD/SDIO介绍](http://www.wowotech.net/basic_tech/mmc_sd_sdio_intro.html)
-
 
 # 已有工作解读
 
@@ -52,7 +51,7 @@
 
 ### `make disk_img`指令生成
 
-引用了`dosfstools`工具,这个工具是Ubuntu预装的.
+引用了 `dosfstools`工具,这个工具是Ubuntu预装的.
 
 ### 烧录工具
 
@@ -64,9 +63,27 @@
 
 [fsdif.md · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/blob/master/doc/reference/driver/fsdif.md)
 
+# 飞腾派烧录和运行ArceOS
 
+## 环境搭建
+
+### WSL2环境搭建
+
+参考[arceos/README.md at bsp/phytium_pi · qclic/arceos](https://github.com/qclic/arceos/blob/bsp/phytium_pi/README.md)搭建好基础环境
+
+参考[连接 USB 设备 | Microsoft Learn](https://learn.microsoft.com/zh-cn/windows/wsl/connect-usb#install-the-usbipd-win-project)分享USB设备到WSL2
+
+参考[drivers - CH340 Serial device doesn&#39;t appear in /dev/ (WSL) - Ask Ubuntu](https://askubuntu.com/questions/1373910/ch340-serial-device-doesnt-appear-in-dev-wsl/)把USB驱动补全
+
+## 解析OStools代码
+
+- [ ] todo 了解关于串口的打开的代码
 
 # 可能需要
 
 `gdb`调试
 
+# LOG
+
+- 1.9 更换仓库名称为phytium-mci,仓库地址[qclic/phytium-mci: sd mmc driver](https://github.com/qclic/phytium-mci)
+-
