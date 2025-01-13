@@ -1,4 +1,4 @@
-# 前言
+****# 前言
 
 现在对于飞腾派的 `arceos`的开发是非常的成熟的,但是对于一个小白是非常麻烦的.
 
@@ -214,6 +214,35 @@ args = "-smp 2"
 ## 解析OStools代码
 
 - [ ] todo 了解关于串口的打开的代码
+
+# 裸机驱动开发
+
+仓库地址:https://github.com/qclic/phytium-mci
+
+## 尝试运行
+
+类似于`ArceOS-Phytium`的同样运行原理,用`ostool`编译/烧录/运行相关的程序代码.
+
+> 一定要记得`reset`.
+
+生成的`.bare-test.toml`如下所示:
+
+```toml
+serial = "COM7"
+baud_rate = 115200
+net = "以太网"
+dtb_file = "frimware/phytium.dtb"
+```
+
+## 裸机驱动
+
+参照:[fsdif.md · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/blob/master/doc/reference/driver/fsdif.md)
+
+### 了解接口和寄存器
+
+寄存器都存放在`drivers\mmc\fsdif\fsdif_hw.h`里,考虑把它整体先转为`rust`,放在`src\constants.rs`.并且注意在`src\lib.rs`里声明这个模块.
+
+
 
 # 可能需要
 
