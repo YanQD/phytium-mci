@@ -1,14 +1,8 @@
-<<<<<<< HEAD
 #![allow(unused)] 
 
 use core::{ptr::NonNull,time::Duration};
 use bitflags::{bitflags, Flags};
 use crate::{constants::{FSDIF_BUS_MODE_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::FsdifError, sleep};
-=======
-use core::{ptr::NonNull,time::Duration};
-use bitflags::{bitflags, Flags};
-use crate::{constants::{FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_PWREN_OFFSET}, err::FsdifError, sleep};
->>>>>>> b2df698b6f1ddfee21cdd0df5fa5eb39e33bc0b9
 
 /*
  * Create a contiguous bitmask starting at bit position @l and ending at
