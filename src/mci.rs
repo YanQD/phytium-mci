@@ -1,35 +1,208 @@
+#![allow(unused)] 
 use core::ptr::NonNull;
+use core::time::Duration;
+use crate::constants::*;
+use crate::regs::*;
+use crate::err::{FsdifError, FsdifResult};
 
 pub struct MCI {
-    reg_base: usize,
+    reg: Reg,
 }
 impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
         MCI {
-            reg_base: reg_base.as_ptr() as usize,
+            reg: Reg::new(reg_base),
         }
     }
 
-    fn read(&self, offset: usize) -> u32 {
-        unsafe {
-            let ptr = self.reg_base + offset;
-            (ptr as *const u32).read_volatile()
-        }
+    fn read(&self, offset: u32) -> u32 {
+        self.reg.read_32(offset)
     }
 
+    ///! 可能需要修改为 read_reg 版本 
     pub fn vid(&self) -> u32 {
-        self.read(0x6c)
+        self.read(FSDIF_VID_OFFSET)
     }
 
     pub fn uid(&self) -> u32 {
-        self.read(0x68)
+        self.read(FSDIF_UID_OFFSET)
     }
 
     pub fn card_detected(&self) -> bool {
-        self.read(0x50) == 0
+        self.read(FSDIF_CARD_DETECT_OFFSET) == 0
     }
 
     pub fn blksize(&self) -> u32 {
-        self.read(0x1c)
+        self.read(FSDIF_BLK_SIZ_OFFSET)
     }
+
+    /*
+    trans_size: Burst size of multiple transaction;
+    rx_wmark: FIFO threshold watermark level when receiving data to card.
+    tx_wmark: FIFO threshold watermark level when transmitting data to card
+    */
+    pub fn fifoth_set(&self,
+        trans_size:FsdifFifoThDmaTransSize,
+        rx_wmark:u32,
+        tx_wmark:u32){
+        let trans_size:u32 = trans_size.into();
+        let val = 
+        (FsdifFifoTh::DMA_TRANS_MASK & (trans_size << 28).into()) |
+        (FsdifFifoTh::RX_WMARK_MASK & (rx_wmark << 16).into()) |
+        (FsdifFifoTh::TX_WMARK_MASK & tx_wmark.into());
+        self.reg.write_reg(val);
+    }
+
+    /* FSDIF_CLK_SRC_OFFSET 和 FSDIF_CLKDIV_OFFSET 两个寄存器配合完成卡时钟和驱动采样相位调整
+    UHS_REG_EXT 配置一级分频，CLK_DIV 决定CARD工作时钟频率, DRV 和 SAMP 分别控制驱动相位和采样相位粗调
+        分配系数 = bit [14 : 8] + 1
+    CLKDIV 配置二级分频, DIVIDER , DRV 和 SAMP 分别控制驱动相位和采样相位精调
+        分配系数 = bit [7: 0] * 2
+    */
+    pub fn uhs_reg_set(&self,drv_phase: u32, samp_phase: u32, clk_div: u32) {
+        self.reg.modify_reg(|reg|{
+            uhs_clk_drv(drv_phase) | uhs_clk_samp(samp_phase) |uhs_clk_div(clk_div)}
+        );
+    }
+
+    pub fn power_set(&self, enable:bool){
+        self.reg.modify_reg(|reg| {
+            if enable {
+                FsdifPwrEn::ENABLE | reg
+            } else {
+                !FsdifPwrEn::ENABLE & reg
+            }
+        });
+    }
+
+    pub fn clock_set(&self, enable:bool){
+        self.reg.modify_reg(|reg| {
+            if enable {
+                FsdifClkEn::CCLK_ENABLE | reg
+            } else {
+                !FsdifClkEn::CCLK_ENABLE & reg
+            }
+        });
+    }
+
+    pub fn clock_src_set(&self, enable:bool){
+        self.reg.modify_reg(|reg| {
+            if enable {
+                FsdifClkSrc::UHS_EXT_CLK_ENA |reg
+            } else {
+                !FsdifClkSrc::UHS_EXT_CLK_ENA & reg
+            }
+        });
+        
+    }
+
+    pub fn voltage_1_8v_set(&self,enable:bool){
+        self.reg.modify_reg(|reg| {
+            if enable {
+                FsdifUhsReg::VOLT_180 | reg
+            } else {
+                !FsdifUhsReg::VOLT_180 & reg
+            }
+        });
+    }
+
+    pub fn bus_width_set(&self, width: u32) -> FsdifResult {
+        let reg_val:FsdifCType;
+        if width == 1 {
+            reg_val = FsdifCType::CARD0_WIDTH1_8BIT;
+        } else if width == 4 {
+            reg_val = FsdifCType::CARD0_WIDTH2_4BIT;
+        } else if width == 8 {
+            reg_val = FsdifCType::CARD0_WIDTH1_8BIT;
+        } else {
+            return Err(FsdifError::NotSupport);
+        }
+        self.reg.write_reg(reg_val);
+        Ok(())
+    }
+
+    pub fn reset(&self) -> FsdifResult {
+        /* set fifo */
+        self.fifoth_set(
+            FsdifFifoThDmaTransSize::DmaTrans8, 
+            FSDIF_RX_WMARK, 
+            FSDIF_TX_WMARK);
+        /* set card threshold */
+        self.reg.write_reg( 
+            FsdifCardThrctl::CARDRD |
+            FsdifFifoDepth::Depth8.card_thrctl_threshold().into());
+        /* disable clock and update ext clk */
+        self.clock_set(true);
+        /* set 1st clock */
+        self.init_external_clk()?;
+        /* power on */
+        self.power_set(true);
+        self.clock_set(false);
+        self.clock_src_set(true);
+        /* set voltage as 3.3v */
+        self.voltage_1_8v_set(false);
+        /* set bus width as 1 */
+        self.bus_width_set(1)?;
+        /* reset controller and card */
+
+
+        Ok(())
+    }
+
+    pub fn init_external_clk(&self) -> FsdifResult {
+        let reg_val = uhs_reg(0, 0, 0x5) | FsdifClkSrc::UHS_EXT_CLK_ENA;
+        if 0x502 == reg_val.bits() {
+            return Err(FsdifError::NotSupport);
+        }
+        //? 这里可能需要抽象出一个update_external_clk的函数
+        self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
+        self.uhs_reg_set(0,0,0x5);
+        self.reg.modify_reg(|reg|{
+            FsdifClkSrc::UHS_EXT_CLK_ENA | reg
+        });
+        self.reg.wait_for(|reg|{
+            (FsdifClkSts::READY & reg).bits() != 0
+        },Duration::from_millis((FSDIF_TIMEOUT/100).into()),Some(100))?;
+        Ok(())
+    }
+
+}
+
+
+// 定义传输模式枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifTransMode {
+    DmaTransMode,      // DMA传输模式
+    PioTransMode,      // PIO传输模式（通过读/写Fifo）
+}
+
+// 定义中断类型枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifIntrType {
+    GeneralIntr,       // 属于控制器的中断状态
+    DmaIntr,           // 属于DMA的中断状态
+}
+
+// 定义事件类型枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifEvtType {
+    CardDetected = 0,  // 卡检测事件
+    CmdDone,           // 命令传输完成事件
+    DataDone,          // 包含数据的命令传输完成事件
+    SdioIrq,           // SDIO卡自定义事件
+    ErrOccured,        // 传输中出现错误
+
+    NumOfEvt,          // 事件数量
+}
+
+// 定义时钟速度枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifClkSpeed {
+    ClkSpeed400KHz = 400_000,
+    ClkSpeed25Mhz = 25_000_000,
+    ClkSpeed26Mhz = 26_000_000, // mmc
+    ClkSpeed50Mhz = 50_000_000,
+    ClkSpeed52Mhz = 52_000_000, // mmc
+    ClkSpeed66Mhz = 66_000_000, // mmc
+    ClkSpeed100Mhz = 100_000_000,
 }

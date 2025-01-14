@@ -1,3 +1,4 @@
+#![allow(unused)] 
 /** @name Register Map
  *
  * Register offsets from the base address of an SD device.
