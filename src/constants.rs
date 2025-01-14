@@ -47,3 +47,7 @@ pub const FSDIF_CLK_SRC_OFFSET: u32 = 0x108; // the UHS register extension
 pub const FSDIF_EMMC_DDR_REG_OFFSET: u32 = 0x10C; // the EMMC DDR reg
 pub const FSDIF_ENABLE_SHIFT_OFFSET: u32 = 0x110; // the enable phase shift reg
 pub const FSDIF_DATA_OFFSET: u32 = 0x200; // the data FIFO access
+
+pub const FSDIF_TIMEOUT:u32 = 50000; /* timeout for retries */
+pub const FSDIF_DELAY_US:u32 = 5;
+pub const FSDIF_MAX_FIFO_CNT:u32 = 0x800;
