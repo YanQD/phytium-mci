@@ -1,6 +1,5 @@
 #[derive(Debug)]
 pub enum FsdifError {
-    Success,
     Timeout,
     NotInit,
     ShortBuf,
@@ -13,3 +12,5 @@ pub enum FsdifError {
     DmaBufUnalign,
     InvalidTiming,
 }
+
+pub type FsdifResult<T=()> = Result<T, FsdifError>;
