@@ -4,6 +4,9 @@ extern crate alloc;
 
 use core::time::Duration;
 
+mod constants;
+mod regs;
+mod err;
 mod mci;
 
 pub use mci::*;
