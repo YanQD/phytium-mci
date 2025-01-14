@@ -1,17 +1,33 @@
 #![allow(unused)] 
+#![feature(asm)]
+use core::arch::asm;
 use core::ptr::NonNull;
 use core::time::Duration;
 use crate::constants::*;
 use crate::regs::*;
 use crate::err::{FsdifError, FsdifResult};
 
+pub struct MCIConfig {
+    trans_mode: FsDifTransMode, /* Trans mode, PIO/DMA */
+}
+
+impl MCIConfig {
+    pub fn new() -> Self {
+        MCIConfig {
+            trans_mode: FsDifTransMode::PioTransMode,
+        }
+    }
+}
+
 pub struct MCI {
     reg: Reg,
+    config: MCIConfig,
 }
 impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
         MCI {
             reg: Reg::new(reg_base),
+            config: MCIConfig::new(),
         }
     }
 
@@ -121,6 +137,26 @@ impl MCI {
         Ok(())
     }
 
+    pub fn ctrl_reset(&self, reset_bits: FsdifCtrl) -> FsdifResult {
+        self.reg.write_reg(reset_bits.clone());
+        self.reg.wait_for(|reg| {
+            (reset_bits & reg).bits() != 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        Ok(())
+    }
+
+    pub fn send_private_cmd(&self, cmd:FsdifCmd, arg: u32) -> FsdifResult {
+        self.reg.wait_for(|reg| {
+            (FsdifStatus::DATA_BUSY & reg).bits() != 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        dsb(); /* drain writebuffer */
+        self.reg.write_reg(FsdifCmd::START | cmd);
+        self.reg.wait_for(|reg|{
+            (FsdifCmd::START & reg).bits() != 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        Ok(())
+    }
+
     pub fn reset(&self) -> FsdifResult {
         /* set fifo */
         self.fifoth_set(
@@ -144,6 +180,14 @@ impl MCI {
         /* set bus width as 1 */
         self.bus_width_set(1)?;
         /* reset controller and card */
+        if self.config.trans_mode == FsDifTransMode::DmaTransMode {
+            self.ctrl_reset(FsdifCtrl::FIFO_RESET | FsdifCtrl::DMA_RESET)?;
+        } else {
+            self.ctrl_reset(FsdifCtrl::FIFO_RESET)?;
+        }
+        /* send private command to update clock */
+        self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?;
+
 
 
         Ok(())
@@ -205,4 +249,13 @@ pub enum FsDifClkSpeed {
     ClkSpeed52Mhz = 52_000_000, // mmc
     ClkSpeed66Mhz = 66_000_000, // mmc
     ClkSpeed100Mhz = 100_000_000,
+}
+
+
+
+#[inline(always)]
+fn dsb() {
+    unsafe {
+        asm!("dsb",":",":",":","memory");
+    }
 }

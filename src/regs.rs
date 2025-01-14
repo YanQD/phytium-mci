@@ -99,6 +99,7 @@ pub trait FlagReg: Flags<Bits = u32> {
 
 // FSDIF_CNTRL_OFFSET x0 Register
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct FsdifCtrl: u32 {
         const CONTROLLER_RESET = 1 << 0; // RW 复位控制器，除 DMA，FIFO
         const FIFO_RESET = 1 << 1; // RW 复位 FIFO, 1 有效
@@ -346,6 +347,12 @@ bitflags! {
 
 impl FlagReg for FsdifCmd {
     const REG: u32 = FSDIF_CMD_OFFSET; // 假设FSDIF_CMD_OFFSET是对应的寄存器偏移量
+}
+
+impl From<u32> for FsdifCmd {
+    fn from(val: u32) -> Self {
+        FsdifCmd::from_bits_truncate(val)
+    }
 }
 
 pub fn cmd_card_num_set(reg: Reg, num: u32) {
