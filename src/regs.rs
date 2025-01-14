@@ -2,7 +2,7 @@
 
 use core::{ptr::NonNull,time::Duration};
 use bitflags::{bitflags, Flags};
-use crate::{constants::{FSDIF_BUS_MODE_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::FsdifError, sleep};
+use crate::{constants::{FSDIF_BUS_MODE_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::{FsdifError, FsdifResult}, sleep};
 
 /*
  * Create a contiguous bitmask starting at bit position @l and ending at
@@ -80,7 +80,7 @@ impl Reg {
         f: F,
         interval: Duration,
         try_count: Option<usize>,
-    ) -> Result<(), FsdifError> {
+    ) -> FsdifResult {
         for _ in 0..try_count.unwrap_or(usize::MAX) {
             if f(self.read_reg::<R>()) {
                 return Ok(());
@@ -90,8 +90,7 @@ impl Reg {
         }
         Err(FsdifError::Timeout)
     }
-
-
+    
 }
 
 pub trait FlagReg: Flags<Bits = u32> {
@@ -407,19 +406,9 @@ pub fn fifo_cnt_get(reg: Reg) -> u32 {
 // FSDIF_FIFOTH_OFFSET Register
 bitflags! {
     pub struct FsdifFifoTh: u32 {
-        const DMA_TRANS_1 = 0b000;
-        const DMA_TRANS_4 = 0b001;
-        const DMA_TRANS_8 = 0b010;
-        const DMA_TRANS_16 = 0b011;
-        const DMA_TRANS_32 = 0b100;
-        const DMA_TRANS_64 = 0b101;
-        const DMA_TRANS_128 = 0b110;
-        const DMA_TRANS_256 = 0b111;
         const DMA_TRANS_MASK = genmask!(30, 28); /* 多次传输的突发大小 */
         const RX_WMARK_MASK = genmask!(27, 16);  /* 当接收数据给卡时FIFO的阈值 */
         const TX_WMARK_MASK = genmask!(11, 0);   /* 当发送数据给卡时FIFO的阈值 */
-        const RX_WMARK = 0x7;
-        const TX_WMARK = 0x100;
     }
 }
 
@@ -427,17 +416,31 @@ impl FlagReg for FsdifFifoTh {
     const REG: u32 = FSDIF_FIFOTH_OFFSET;
 }
 
-/*
-    trans_size: Burst size of multiple transaction;
-    rx_wmark: FIFO threshold watermark level when receiving data to card.
-    tx_wmark: FIFO threshold watermark level when transmitting data to card
-*/
-pub fn fifoth(reg:Reg,trans_size:u32,rx_wmark:u32,tx_wmark:u32){
-    let val = (FsdifFifoTh::DMA_TRANS_MASK.bits() & (trans_size << 28)) |
-                (FsdifFifoTh::RX_WMARK_MASK.bits() & (rx_wmark << 16)) |
-                (FsdifFifoTh::TX_WMARK_MASK.bits() & tx_wmark);
-    reg.write_reg(FsdifFifoTh::from_bits_truncate(val));
+impl From<u32> for FsdifFifoTh {
+    fn from(val: u32) -> Self {
+        FsdifFifoTh::from_bits_truncate(val)
+    }
 }
+
+pub enum FsdifFifoThDmaTransSize {
+    DmaTrans1 = 0b000,
+    DmaTrans4 = 0b001,
+    DmaTrans8 = 0b010,
+    DmaTrans16 = 0b011,
+    DmaTrans32 = 0b100,
+    DmaTrans64 = 0b101,
+    DmaTrans128 = 0b110,
+    DmaTrans256 = 0b111
+}
+
+impl From<FsdifFifoThDmaTransSize> for u32 {
+    fn from(val: FsdifFifoThDmaTransSize) -> Self {
+        val as u32
+    }
+}
+
+pub const FSDIF_RX_WMARK:u32 = 0x7;
+pub const FSDIF_TX_WMARK:u32 = 0x100;
 
 pub fn dma_trans_size_set(reg:Reg,size:u32){
     reg.modify_reg::<FsdifFifoTh>(|reg| {
@@ -579,16 +582,31 @@ bitflags! {
         const CARDRD = 1 << 0;   /* RW 读卡threshold使能 */
         const BUSY_CLR = 1 << 1; /* RW busy清中断 */
         const CARDWR = 1 << 2;   /* RO 写卡threshold使能 */
-        const FIFO_DEPTH_8 = 1 << 23;
-        const FIFO_DEPTH_16 = 1 << 24;
-        const FIFO_DEPTH_32 = 1 << 25;
-        const FIFO_DEPTH_64 = 1 << 26;
-        const FIFO_DEPTH_128 = 1 << 27;
     }
 }
 
 impl FlagReg for FsdifCardThrctl {
     const REG: u32 = FSDIF_CARD_THRCTL_OFFSET; // 假设 FSDIF_CARD_THRCTL_OFFSET 是对应的寄存器偏移量
+}
+
+impl From<u32> for FsdifCardThrctl {
+    fn from(val: u32) -> Self {
+        FsdifCardThrctl::from_bits_truncate(val)
+    }
+}
+
+pub enum FsdifFifoDepth {
+    Depth8 = 23,
+    Depth16 = 24,
+    Depth32 = 25,
+    Depth64 = 26,
+    Depth128 = 27,
+}
+
+impl FsdifFifoDepth {
+    pub fn card_thrctl_threshold(self) -> u32 {
+        1 << self as u32
+    }
 }
 
 // 读卡 Threshold
@@ -624,16 +642,8 @@ pub fn uhs_clk_drv(x: u32) -> FsdifClkSrc {
     FsdifClkSrc::UHS_CLK_DRV_MASK & FsdifClkSrc::from_bits_truncate(x << 24)
 }
 
-/* FSDIF_CLK_SRC_OFFSET 和 FSDIF_CLKDIV_OFFSET 两个寄存器配合完成卡时钟和驱动采样相位调整
-    UHS_REG_EXT 配置一级分频，CLK_DIV 决定CARD工作时钟频率, DRV 和 SAMP 分别控制驱动相位和采样相位粗调
-        分配系数 = bit [14 : 8] + 1
-    CLKDIV 配置二级分频, DIVIDER , DRV 和 SAMP 分别控制驱动相位和采样相位精调
-        分配系数 = bit [7: 0] * 2
-*/
-pub fn uhs_reg_set(reg: Reg,drv_phase: u32, samp_phase: u32, clk_div: u32) {
-    reg.modify_reg(|reg|{
-        uhs_clk_drv(drv_phase) | uhs_clk_samp(samp_phase) |uhs_clk_div(clk_div)}
-    );
+pub fn uhs_reg(drv_phase: u32, samp_phase: u32, clk_div: u32) -> FsdifClkSrc {
+    uhs_clk_div(clk_div) | uhs_clk_samp(samp_phase) | uhs_clk_drv(drv_phase)
 }
 
 pub fn uhs_clk_div_set(reg: Reg, x: u32) {
