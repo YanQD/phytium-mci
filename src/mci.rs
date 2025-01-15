@@ -3,6 +3,9 @@
 use core::arch::asm;
 use core::ptr::NonNull;
 use core::time::Duration;
+use log::debug;
+use log::info;
+
 use crate::constants::*;
 use crate::regs::*;
 use crate::err::{FsdifError, FsdifResult};
@@ -142,19 +145,19 @@ impl MCI {
     pub fn ctrl_reset(&self, reset_bits: FsdifCtrl) -> FsdifResult {
         self.reg.write_reg(reset_bits.clone());
         self.reg.wait_for(|reg| {
-            (reset_bits & reg).bits() != 0
+            (reset_bits & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         Ok(())
     }
 
     pub fn send_private_cmd(&self, cmd:FsdifCmd, arg: u32) -> FsdifResult {
         self.reg.wait_for(|reg| {
-            (FsdifStatus::DATA_BUSY & reg).bits() != 0
+            (FsdifStatus::DATA_BUSY & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
-        dsb(); /* drain writebuffer */
+        unsafe { dsb() };/* drain writebuffer */
         self.reg.write_reg(FsdifCmd::START | cmd);
         self.reg.wait_for(|reg|{
-            (FsdifCmd::START & reg).bits() != 0
+            (FsdifCmd::START & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         Ok(())
     }
@@ -176,30 +179,39 @@ impl MCI {
             FsdifFifoThDmaTransSize::DmaTrans8, 
             FSDIF_RX_WMARK, 
             FSDIF_TX_WMARK);
+        debug!("fifoth set success");
         /* set card threshold */
         self.reg.write_reg( 
             FsdifCardThrctl::CARDRD |
             FsdifFifoDepth::Depth8.card_thrctl_threshold().into());
+        debug!("card threshold set success");
         /* disable clock and update ext clk */
         self.clock_set(true);
+        debug!("clock set success");
         /* set 1st clock */
         self.init_external_clk()?;
+        debug!("external clock init success");
         /* power on */
         self.power_set(true);
         self.clock_set(false);
         self.clock_src_set(true);
+        debug!("power on success");
         /* set voltage as 3.3v */
         self.voltage_1_8v_set(false);
+        debug!("voltage set to 3.3v");
         /* set bus width as 1 */
         self.bus_width_set(1)?;
+        debug!("bus width set to 1");
         /* reset controller and card */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
             self.ctrl_reset(FsdifCtrl::FIFO_RESET | FsdifCtrl::DMA_RESET)?;
         } else {
             self.ctrl_reset(FsdifCtrl::FIFO_RESET)?;
         }
+        debug!("controller reset success");
         /* send private command to update clock */
         self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?;
+        debug!("send private command success");
         /* reset card for no-removeable media, e.g. eMMC */
         if self.config.non_removable {
             self.reg.modify_reg(|reg|{
@@ -210,36 +222,40 @@ impl MCI {
                 !FsdifCardReset::ENABLE & reg
             });
         }
+        debug!("card reset success");
         /* clear interrupt status */
         self.reg.write_reg(FsdifInt::empty());
         let reg_val = self.reg.read_reg::<FsdifRawInts>();
         self.reg.write_reg(reg_val);
-        
         self.reg.write_reg(FsdifDmacIntEn::empty());
         let reg_val = self.reg.read_reg::<FsdifDmacStatus>();
         self.reg.write_reg(reg_val);
+        debug!("clear interrupt status success");
         /* enable card detect interrupt */
         if !self.config.non_removable {
             self.reg.modify_reg(|reg|{
                 FsdifInt::CD_BIT | reg
             });
         }
+        debug!("enable card detect interrupt success");
         /* enable controller and internal DMA */
         self.reg.modify_reg(|reg|{
             FsdifCtrl::INT_ENABLE | FsdifCtrl::USE_INTERNAL_DMAC | reg
         });
+        debug!("enable controller and internal DMA success");
         /* reset descriptors and dma */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
             self.descriptor_set(0);
             self.idma_reset();
         }
+        debug!("reset descriptors and dma success");
         Ok(())
     }
 
     pub fn init_external_clk(&self) -> FsdifResult {
         let reg_val = uhs_reg(0, 0, 0x5) | FsdifClkSrc::UHS_EXT_CLK_ENA;
         if 0x502 == reg_val.bits() {
-            return Err(FsdifError::NotSupport);
+            debug!("invalid uhs config");
         }
         //? 这里可能需要抽象出一个update_external_clk的函数
         self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
@@ -294,11 +310,7 @@ pub enum FsDifClkSpeed {
     ClkSpeed100Mhz = 100_000_000,
 }
 
-
-
 #[inline(always)]
-fn dsb() {
-    unsafe {
-        asm!("dsb",":",":",":","memory");
-    }
+pub unsafe fn dsb() {
+    core::arch::asm!("dsb sy", options(nostack, preserves_flags));
 }

@@ -27,6 +27,8 @@ fn test_work() {
     let reg_base = iomap((reg.address as usize).into(), reg.size.unwrap());
 
     let mci0 = MCI::new(reg_base);
+    //? 初始化 MCI
+    mci0.reset().unwrap_or_else(|e| info!("reset failed: {:?}", e));
 
     info!("card detected {:?}", mci0.card_detected());
 
