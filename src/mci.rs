@@ -9,12 +9,14 @@ use crate::err::{FsdifError, FsdifResult};
 
 pub struct MCIConfig {
     trans_mode: FsDifTransMode, /* Trans mode, PIO/DMA */
+    non_removable: bool,        /* Non-removable media, e.g. eMMC */
 }
 
 impl MCIConfig {
     pub fn new() -> Self {
         MCIConfig {
             trans_mode: FsDifTransMode::PioTransMode,
+            non_removable: false,
         }
     }
 }
@@ -157,6 +159,17 @@ impl MCI {
         Ok(())
     }
 
+    pub fn descriptor_set(&self, desc: u32) {
+        self.reg.write_reg(FsdifDescListAddrH::empty());
+        self.reg.write_reg(FsdifDescListAddrL::from_bits_truncate(desc));
+    }
+
+    pub fn idma_reset(&self) {
+        let mut reg_val = self.reg.read_reg::<FsdifBusMode>();
+        reg_val |= FsdifBusMode::SWR;
+        self.reg.write_reg(reg_val);
+    }
+
     pub fn reset(&self) -> FsdifResult {
         /* set fifo */
         self.fifoth_set(
@@ -187,9 +200,39 @@ impl MCI {
         }
         /* send private command to update clock */
         self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?;
-
-
-
+        /* reset card for no-removeable media, e.g. eMMC */
+        if self.config.non_removable {
+            self.reg.modify_reg(|reg|{
+                FsdifCardReset::ENABLE | reg
+            });
+        }else {
+            self.reg.modify_reg(|reg|{
+                !FsdifCardReset::ENABLE & reg
+            });
+        }
+        /* clear interrupt status */
+        self.reg.write_reg(FsdifInt::empty());
+        let reg_val = self.reg.read_reg::<FsdifRawInts>();
+        self.reg.write_reg(reg_val);
+        
+        self.reg.write_reg(FsdifDmacIntEn::empty());
+        let reg_val = self.reg.read_reg::<FsdifDmacStatus>();
+        self.reg.write_reg(reg_val);
+        /* enable card detect interrupt */
+        if !self.config.non_removable {
+            self.reg.modify_reg(|reg|{
+                FsdifInt::CD_BIT | reg
+            });
+        }
+        /* enable controller and internal DMA */
+        self.reg.modify_reg(|reg|{
+            FsdifCtrl::INT_ENABLE | FsdifCtrl::USE_INTERNAL_DMAC | reg
+        });
+        /* reset descriptors and dma */
+        if self.config.trans_mode == FsDifTransMode::DmaTransMode {
+            self.descriptor_set(0);
+            self.idma_reset();
+        }
         Ok(())
     }
 
