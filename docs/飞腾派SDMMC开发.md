@@ -1,4 +1,4 @@
-****# 前言
+# 前言
 
 现在对于飞腾派的 `arceos`的开发是非常的成熟的,但是对于一个小白是非常麻烦的.
 
@@ -242,7 +242,57 @@ dtb_file = "frimware/phytium.dtb"
 
 寄存器都存放在`drivers\mmc\fsdif\fsdif_hw.h`里,考虑把它整体先转为`rust`,放在`src\constants.rs`.并且注意在`src\lib.rs`里声明这个模块.
 
+### 接口移植
 
+**FSdifCfgInitialize**:初始化SDIF控制器初始化
+
+> FSdifCfgInitialize 调用了 FSdifReset
+> 1. 说明有的接口是做了但是不开放的,要考虑
+> 2. 要首先实现这个 FSdifReset
+
+**FSdifDeInitialize**:解除SDIF控制器初始化
+
+### SD卡的空间设置
+
+> 这里的第一反应是去看Win32DiskImager,但是没有得到具体答案.
+
+这里直接登录烧录进去的`ubuntu`系统.
+
+> 这里注意`飞腾派V3版本ubuntu镜像 241212\更新日志.txt`里有很多我们需要的信息
+> 用户名:user
+> 密码:user
+
+查看分区:
+```shell
+user@Phytium-Pi:~$ lsblk
+NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+loop0         7:0    0     4K  1 loop /snap/bare/5
+loop1         7:1    0  68.9M  1 loop /snap/core22/1720
+loop2         7:2    0  64.7M  1 loop /snap/cups/1069
+loop3         7:3    0 483.3M  1 loop /snap/gnome-42-2204/178
+loop4         7:4    0  91.7M  1 loop /snap/gtk-common-themes/1535
+loop5         7:5    0  38.6M  1 loop /snap/snapd/23259
+loop6         7:6    0  38.7M  1 loop /snap/snapd/23546
+mmcblk0     179:0    0 116.5G  0 disk
+└─mmcblk0p1 179:1    0 116.5G  0 part /
+```
+可以看到我们插入的128G的SD卡还有116.5G,是被设置为了`disk`.
+这时候我们就需要它的地址.
+
+查看起止地址:`sudo fdisk -l /dev/mmcblk0`
+
+```shell
+user@Phytium-Pi:~$ sudo fdisk -l /dev/mmcblk0
+Disk /dev/mmcblk0：116.52 GiB，125103505408 字节，244342784 个扇区
+单元：扇区 / 1 * 512 = 512 字节
+扇区大小(逻辑/物理)：512 字节 / 512 字节
+I/O 大小(最小/最佳)：512 字节 / 512 字节
+磁盘标签类型：dos
+磁盘标识符：0x0001a0bd
+
+设备           启动   起点      末尾      扇区   大小 Id 类型
+/dev/mmcblk0p1      131072 244342783 244211712 116.5G 83 Linux
+```
 
 # 可能需要
 
