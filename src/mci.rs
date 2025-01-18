@@ -4,12 +4,17 @@ use core::arch::asm;
 use core::ptr::NonNull;
 use core::time::Duration;
 use log::debug;
+use log::error;
 use log::info;
+use log::warn;
+use bitflags::{bitflags, Flags};
 
 use crate::constants::*;
 use crate::regs::*;
 use crate::err::{FsdifError, FsdifResult};
+use crate::set_reg32_bits;
 
+//* 辅助数据结构 */
 pub struct MCIConfig {
     trans_mode: FsDifTransMode, /* Trans mode, PIO/DMA */
     non_removable: bool,        /* Non-removable media, e.g. eMMC */
@@ -24,15 +29,52 @@ impl MCIConfig {
     }
 }
 
+pub struct MCITiming {
+    use_hold: bool,
+    clk_div: u32,
+    clk_src: u32,
+    shift: u32,
+}
+
+impl MCITiming {
+    pub fn new() -> Self {
+        MCITiming {
+            use_hold: false,
+            clk_div: 0,
+            clk_src: 0,
+            shift: 0,
+        }
+    }
+}
+
+trait PadDelay {
+    fn pad_delay(&self,id: u32);
+}
+
+impl PadDelay for MCITiming {
+    fn pad_delay(&self, id: u32) {
+        todo!()
+    }
+}
+
+
+//* 核心数据结构 */
 pub struct MCI {
-    reg: Reg,
     config: MCIConfig,
+    reg: Reg,
+    is_ready: bool,
+    prev_cmd: u32,
+    curr_timing: MCITiming,
 }
 impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
         MCI {
             reg: Reg::new(reg_base),
             config: MCIConfig::new(),
+            //* 暂时无脑True */
+            is_ready: true,
+            prev_cmd: 0,
+            curr_timing: MCITiming::new(),
         }
     }
 
@@ -55,6 +97,27 @@ impl MCI {
 
     pub fn blksize(&self) -> u32 {
         self.read(FSDIF_BLK_SIZ_OFFSET)
+    }
+
+    pub fn blksize_set(&self, blksize: u32) {
+        self.reg.write_reg(FsdifBlkSiz::from_bits_truncate(blksize));
+    }
+
+    pub fn init_external_clk(&self) -> FsdifResult {
+        let reg_val = uhs_reg(0, 0, 0x5) | FsdifClkSrc::UHS_EXT_CLK_ENA;
+        if 0x502 == reg_val.bits() {
+            debug!("invalid uhs config");
+        }
+        //? 这里可能需要抽象出一个update_external_clk的函数
+        self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
+        self.uhs_reg_set(0,0,0x5);
+        self.reg.modify_reg(|reg|{
+            FsdifClkSrc::UHS_EXT_CLK_ENA | reg
+        });
+        self.reg.wait_for(|reg|{
+            (FsdifClkSts::READY & reg).bits() != 0
+        },Duration::from_millis((FSDIF_TIMEOUT/100).into()),Some(100))?;
+        Ok(())
     }
 
     /*
@@ -154,6 +217,7 @@ impl MCI {
         self.reg.wait_for(|reg| {
             (FsdifStatus::DATA_BUSY & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        self.reg.write_reg(FsdifCmdArg::from_bits_truncate(arg));
         unsafe { dsb() };/* drain writebuffer */
         self.reg.write_reg(FsdifCmd::START | cmd);
         self.reg.wait_for(|reg|{
@@ -170,6 +234,31 @@ impl MCI {
     pub fn idma_reset(&self) {
         let mut reg_val = self.reg.read_reg::<FsdifBusMode>();
         reg_val |= FsdifBusMode::SWR;
+        self.reg.write_reg(reg_val);
+    }
+
+    pub fn poll_wait_busy_card(&self) -> FsdifResult {
+        let busy_bits = FsdifStatus::DATA_BUSY | FsdifStatus::DATA_STATE_MC_BUSY;
+        let reg_val = self.reg.read_reg::<FsdifStatus>();
+        if reg_val.contains(busy_bits.clone()) {
+           warn!("Card is busy, waiting ...");
+        }
+        self.reg.wait_for(|reg|{
+            (busy_bits & reg).bits() == 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        Ok(())
+    }
+
+    pub fn trans_bytes_set(&self, bytes: u32) {
+        self.reg.write_reg(FsdifBytCnt::from_bits_truncate(bytes));
+    }
+
+    pub fn raw_status_get(&self) -> FsdifRawInts{
+        return self.reg.read_reg::<FsdifRawInts>();
+    }
+
+    pub fn raw_status_clear(&self) {
+        let reg_val = self.raw_status_get();
         self.reg.write_reg(reg_val);
     }
 
@@ -251,26 +340,268 @@ impl MCI {
         debug!("reset descriptors and dma success");
         Ok(())
     }
+}
 
-    pub fn init_external_clk(&self) -> FsdifResult {
-        let reg_val = uhs_reg(0, 0, 0x5) | FsdifClkSrc::UHS_EXT_CLK_ENA;
-        if 0x502 == reg_val.bits() {
-            debug!("invalid uhs config");
+
+//* PIO 相关的函数 */
+impl MCI {
+    pub fn pio_write_data<'a>(&self, data: &[u32]) -> FsdifResult {
+        self.reg.write_reg(FsdifCmd::DAT_WRITE);
+        for i in 0..data.len() {
+            self.reg.write_reg(FsdifData::from_bits_truncate(data[i]));
         }
-        //? 这里可能需要抽象出一个update_external_clk的函数
-        self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
-        self.uhs_reg_set(0,0,0x5);
-        self.reg.modify_reg(|reg|{
-            FsdifClkSrc::UHS_EXT_CLK_ENA | reg
-        });
-        self.reg.wait_for(|reg|{
-            (FsdifClkSts::READY & reg).bits() != 0
-        },Duration::from_millis((FSDIF_TIMEOUT/100).into()),Some(100))?;
         Ok(())
     }
 
+    pub fn pio_read_data(&self, data: &mut [u32]) -> FsdifResult {
+        if data.len() > FSDIF_MAX_FIFO_CNT as usize {
+            return Err(FsdifError::NotSupport);
+        }
+        for i in 0..data.len() {
+            data[i] = self.reg.read_reg::<FsdifData>().bits();
+        }
+        Ok(())
+    }
+
+    pub fn pio_transfer(&self, cmd_data: &FSdifCmdData) -> FsdifResult {
+        let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
+        if self.is_ready{
+            error!("device is not yet initialized!!!");
+            return Err(FsdifError::NotInit);
+        }
+        if self.config.trans_mode != FsDifTransMode::PioTransMode {
+            return Err(FsdifError::InvalidState);
+        }
+        /* for removable media, check if card exists */
+        if !self.config.non_removable && !self.card_detected() {
+            error!("card is not detected !!!");
+            return Err(FsdifError::NoCard);
+        }
+        /* wait previous command finished and card not busy */
+        self.poll_wait_busy_card()?;
+        /* reset fifo and not use DMA */
+        self.reg.modify_reg(|reg|{
+            !FsdifCtrl::USE_INTERNAL_DMAC & reg
+        });
+        self.ctrl_reset(FsdifCtrl::FIFO_RESET)?;
+        self.reg.modify_reg(|reg|{
+            !FsdifBusMode::DE & reg
+        });
+        /* write data */
+        if cmd_data.data.buf.len() > 0 {
+            /* while in PIO mode, max data transferred is 0x800 */
+            if cmd_data.data.buf.len() > FSDIF_MAX_FIFO_CNT as usize {
+                error!("Fifo do not support writing more than {:x}.",FSDIF_MAX_FIFO_CNT);
+                return Err(FsdifError::NotSupport);
+            }
+            /* set transfer data length and block size */
+            self.trans_bytes_set(cmd_data.data.buf.len() as u32);
+            self.blksize_set(cmd_data.data.blksz);
+            /* if need to write, write to fifo before send command */
+            if !read { 
+                /* invalide buffer for data to write */
+                unsafe { dsb() };
+                self.pio_write_data(cmd_data.data.buf)?;
+            }
+        }
+        self.transfer_cmd(cmd_data)?;
+        Ok(())
+    }
+
+    pub fn poll_wait_pio_end(self,cmd_data: &mut FSdifCmdData) -> FsdifResult{
+        let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
+        if !self.is_ready {
+            error!("device is not yet initialized!!!");
+            return Err(FsdifError::NotInit);
+        }
+        if FsDifTransMode::PioTransMode != self.config.trans_mode {
+            error!("device is not configure in PIO transfer mode.");
+            return Err(FsdifError::InvalidState);
+        }
+        info!("wait for PIO cmd to finish ...");
+        self.reg.wait_for(|reg|{
+            (FsdifRawInts::CMD_BIT & reg).contains(FsdifRawInts::CMD_BIT)
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        /* if need to read data, read fifo after send command */
+        if read {
+            info!("wait for PIO data to read ...");
+            self.reg.wait_for(|reg|{
+                (FsdifRawInts::DTO_BIT & reg).contains(FsdifRawInts::DTO_BIT)
+            }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+            /* clear status to ack */
+            self.raw_status_clear();
+            info!("card cnt: 0x{:x}, fifo cnt: 0x{:x}",
+            self.reg.read_reg::<FsdifTranCardCnt>(),
+            self.reg.read_reg::<FsdifTranFifoCnt>());
+        }
+        /* clear status to ack cmd done */
+        self.raw_status_clear();
+        self.get_cmd_response(cmd_data);
+        Ok(())
+    }
+}
+struct FsdifBuf {
+    buf: &'static mut [u32],
+    buf_dma: u32,
+    blksz: u32,
+    blkcnt: u32,
+}
+pub struct FSdifCmdData {
+    cmdidx: u32,
+    cmdarg: u32,
+    response: [u32; 4],
+    flag: CmdFlag,
+    data: FsdifBuf,
+    success: bool
 }
 
+bitflags! {
+    pub struct CmdFlag: u32 {
+        const NEED_INIT = 0x1;
+        const EXP_RESP = 0x2;
+        const EXP_LONG_RESP = 0x4;
+        const NEED_RESP_CRC = 0x8;
+        const EXP_DATA = 0x10;
+        const WRITE_DATA = 0x20;
+        const READ_DATA = 0x40;
+        const NEED_AUTO_STOP = 0x80;
+        const ADTC = 0x100;
+        const SWITCH_VOLTAGE = 0x200;
+        const ABORT = 0x400;
+        const AUTO_CMD12 = 0x800;
+    }
+}
+
+//* CMD 相关的方法 */
+impl MCI {
+    const FSDIF_EXT_APP_CMD: u32 = 55;
+    const FSDIF_SWITCH_VOLTAGE:u32 = 11;
+    pub fn transfer_cmd(&self, cmd_data: &FSdifCmdData) -> FsdifResult {
+        let mut raw_cmd = FsdifCmd::empty();
+        if self.curr_timing.use_hold {
+            raw_cmd |= FsdifCmd::USE_HOLD_REG;
+        }
+        if cmd_data.flag.contains(CmdFlag::ABORT) {
+            raw_cmd |= FsdifCmd::STOP_ABORT;
+        }
+        /* 命令需要进行卡初始化，如CMD-0 */
+        if cmd_data.flag.contains(CmdFlag::NEED_INIT) {
+            raw_cmd |= FsdifCmd::INIT;
+        }
+        /* 命令涉及电压切换 */
+        if cmd_data.flag.contains(CmdFlag::SWITCH_VOLTAGE) {
+            raw_cmd |= FsdifCmd::VOLT_SWITCH;
+        }
+        /* 命令传输过程伴随数据传输 */
+        if cmd_data.flag.contains(CmdFlag::EXP_DATA) {
+            raw_cmd |= FsdifCmd::DAT_EXP;
+            if cmd_data.flag.contains(CmdFlag::WRITE_DATA) {
+                raw_cmd |= FsdifCmd::DAT_WRITE;
+            }
+        }
+        /* 命令需要进行CRC校验 */
+        if cmd_data.flag.contains(CmdFlag::NEED_RESP_CRC) {
+            raw_cmd |= FsdifCmd::RESP_CRC;
+        }
+        /* 命令需要响应回复 */
+        if cmd_data.flag.contains(CmdFlag::EXP_RESP) {
+            raw_cmd |= FsdifCmd::RESP_EXP;
+            if cmd_data.flag.contains(CmdFlag::EXP_LONG_RESP) {
+                raw_cmd |= FsdifCmd::RESP_LONG;
+            }
+        }
+        raw_cmd |= FsdifCmd::from_bits_truncate(set_reg32_bits!(cmd_data.cmdidx, 5, 0));
+        debug!("============[{}-{}]@0x{:x} begin ============",
+        {
+            if self.prev_cmd == Self::FSDIF_EXT_APP_CMD {
+                "ACMD"
+            } else {
+                "CMD"
+            }
+        },
+        cmd_data.cmdidx,
+        self.reg.addr.as_ptr() as usize );
+        debug!("    cmd: 0x{:x}", raw_cmd.bits());
+        debug!("    arg: 0x{:x}", cmd_data.cmdarg);
+        /* enable related interrupt */
+        self.interrupt_mask_set(FsDifIntrType::GeneralIntr, FsdifInt::INTS_CMD_MASK.bits(), true);
+        self.send_private_cmd(raw_cmd, cmd_data.cmdarg);
+        info!("cmd send done");
+        Ok(())
+    }
+    pub fn get_cmd_response(&self,cmd_data: &mut FSdifCmdData) -> FsdifResult{
+        let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
+        if !self.is_ready {
+            error!("device is not yet initialized!!!");
+            return Err(FsdifError::NotInit);
+        }
+        if read {
+            if FsDifTransMode::PioTransMode == self.config.trans_mode {
+                self.pio_read_data(cmd_data.data.buf)?;
+            }
+        }
+        /* check response of cmd */
+        if cmd_data.flag.contains(CmdFlag::EXP_RESP) {
+            if cmd_data.flag.contains(CmdFlag::EXP_LONG_RESP) {
+                cmd_data.response[0] = self.reg.read_reg::<FsdifResp0>().bits();
+                cmd_data.response[1] = self.reg.read_reg::<FsdifResp1>().bits();
+                cmd_data.response[2] = self.reg.read_reg::<FsdifResp2>().bits();
+                cmd_data.response[3] = self.reg.read_reg::<FsdifResp3>().bits();
+                debug!("    resp: 0x{:x}-0x{:x}-0x{:x}-0x{:x}",
+                cmd_data.response[0],cmd_data.response[1],cmd_data.response[2],cmd_data.response[3]);
+            }else {
+                cmd_data.response[0] = self.reg.read_reg::<FsdifResp0>().bits();
+                cmd_data.response[1] = 0;
+                cmd_data.response[2] = 0;
+                cmd_data.response[3] = 0;
+                debug!("    resp: 0x{:x}",cmd_data.response[0]);
+            }
+        }
+        cmd_data.success = true;
+        debug!("============[{}-{}]@0x{:x} begin ============",
+        {
+            if self.prev_cmd == Self::FSDIF_EXT_APP_CMD {
+                "ACMD"
+            } else {
+                "CMD"
+            }
+        },
+        cmd_data.cmdidx,
+        self.reg.addr.as_ptr() as usize );
+        /* disable related interrupt */
+        self.interrupt_mask_set(FsDifIntrType::GeneralIntr,(FsdifInt::INTS_CMD_MASK|FsdifInt::INTS_DATA_MASK).bits(),false);
+        info!("cmd send done ...");
+        Ok(())
+    }
+}
+
+//* Interrupt 相关的方法 */
+impl MCI {
+    pub fn interrupt_mask_get(&self, tp: FsDifIntrType) -> u32 {
+        let mut mask = 0;
+        if FsDifIntrType::GeneralIntr == tp {
+            mask = self.reg.read_reg::<FsdifInt>().bits();
+        } else if FsDifIntrType::DmaIntr == tp {
+            mask = self.reg.read_reg::<FsdifDmacIntEn>().bits();
+        }
+        //? 这里不知道要不要用Some作为返回值 
+        mask
+    }
+
+    pub fn interrupt_mask_set(&self, tp: FsDifIntrType, set_mask: u32, enable: bool) {
+        let mut mask = self.interrupt_mask_get(tp);
+        if enable {
+            mask |= set_mask;
+        } else {
+            mask &= !set_mask;
+        }
+        if FsDifIntrType::GeneralIntr == tp {
+            self.reg.write_reg(FsdifInt::from_bits_truncate(mask));
+        } else if FsDifIntrType::DmaIntr == tp {
+            self.reg.write_reg(FsdifDmacIntEn::from_bits_truncate(mask));
+        }
+    }
+}
 
 // 定义传输模式枚举
 #[derive(Debug, PartialEq)]
@@ -281,6 +612,7 @@ pub enum FsDifTransMode {
 
 // 定义中断类型枚举
 #[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
 pub enum FsDifIntrType {
     GeneralIntr,       // 属于控制器的中断状态
     DmaIntr,           // 属于DMA的中断状态
@@ -294,7 +626,6 @@ pub enum FsDifEvtType {
     DataDone,          // 包含数据的命令传输完成事件
     SdioIrq,           // SDIO卡自定义事件
     ErrOccured,        // 传输中出现错误
-
     NumOfEvt,          // 事件数量
 }
 

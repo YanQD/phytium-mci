@@ -5,6 +5,7 @@ extern crate alloc;
 use core::time::Duration;
 
 mod constants;
+#[macro_use]
 mod regs;
 mod err;
 mod mci;

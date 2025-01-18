@@ -2,7 +2,7 @@
 
 use core::{ptr::NonNull,time::Duration};
 use bitflags::{bitflags, Flags};
-use crate::{constants::{FSDIF_BUS_MODE_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DESC_LIST_ADDRH_OFFSET, FSDIF_DESC_LIST_ADDRL_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::{FsdifError, FsdifResult}, sleep};
+use crate::{constants::{FSDIF_BLK_SIZ_OFFSET, FSDIF_BUS_MODE_OFFSET, FSDIF_BYT_CNT_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_ARG_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DATA_OFFSET, FSDIF_DESC_LIST_ADDRH_OFFSET, FSDIF_DESC_LIST_ADDRL_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_RESP0_OFFSET, FSDIF_RESP1_OFFSET, FSDIF_RESP2_OFFSET, FSDIF_RESP3_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_TRAN_CARD_CNT_OFFSET, FSDIF_TRAN_FIFO_CNT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::{FsdifError, FsdifResult}, sleep};
 
 /*
  * Create a contiguous bitmask starting at bit position @l and ending at
@@ -381,6 +381,7 @@ pub fn cmd_indx_get(reg: Reg) -> u32 {
 
 // FSDIF_STATUS_OFFSET Register
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct FsdifStatus: u32 {
         const FIFO_RX = 1 << 0;     /* RO, 达到 FIFO_RX 标记 */
         const FIFO_TX = 1 << 1;     /* RO, 达到 FIFO_TX 标记 */
@@ -706,4 +707,104 @@ bitflags! {
 
 impl FlagReg for FsdifDescListAddrL {
     const REG: u32 = FSDIF_DESC_LIST_ADDRL_OFFSET; // 假设 FSDIF_DESC_LIST_ADDRL_OFFSET 是对应的寄存器偏移量
+}
+
+/// FSDIF_DATA_OFFSET Register
+bitflags! {
+    pub struct FsdifData: u32 {
+        
+    }
+}
+impl FlagReg for FsdifData {
+    const REG: u32 = FSDIF_DATA_OFFSET; // 假设 FSDIF_DATA_OFFSET 是对应的寄存器偏移量
+}
+
+/// FSDIF_BYT_CNT_OFFSET Register
+bitflags! {
+    pub struct FsdifBytCnt: u32 {
+        
+    }
+}
+impl FlagReg for FsdifBytCnt {
+    const REG: u32 = FSDIF_BYT_CNT_OFFSET; // 假设 FSDIF_BYT_CNT_OFFSET 是对应的寄存器偏移量
+}
+
+/// FSDIF_BLK_SIZ_OFFSET Register
+bitflags! {
+    pub struct FsdifBlkSiz: u32 {
+        
+    }
+}
+impl FlagReg for FsdifBlkSiz {
+    const REG: u32 = FSDIF_BLK_SIZ_OFFSET; // 假设 FSDIF_BLK_SIZ_OFFSET 是对应的寄存器偏移量
+}
+
+/// FSDIF_TRAN_CARD_CNT_OFFSET Register
+bitflags! {
+    pub struct FsdifTranCardCnt:u32 {
+
+    }
+}
+impl FlagReg for FsdifTranCardCnt {
+    const REG: u32 = FSDIF_TRAN_CARD_CNT_OFFSET;
+}
+
+/// FSDIF_TRAN_FIFO_CNT_OFFSET Register
+bitflags! {
+    pub struct FsdifTranFifoCnt:u32 {
+
+    }
+}
+impl FlagReg for FsdifTranFifoCnt {
+    const REG: u32 = FSDIF_TRAN_FIFO_CNT_OFFSET;
+}
+
+/// FSDIF_RESP0_OFFSET Register
+bitflags! {
+    pub struct FsdifResp0:u32 {
+
+    }
+}
+impl FlagReg for FsdifResp0 {
+    const REG: u32 = FSDIF_RESP0_OFFSET;
+}
+
+/// FSDIF_RESP1_OFFSET Register
+bitflags! {
+    pub struct FsdifResp1:u32 {
+
+    }
+}
+impl FlagReg for FsdifResp1 {
+    const REG: u32 = FSDIF_RESP1_OFFSET;
+}
+
+/// FSDIF_RESP2_OFFSET Register
+bitflags! {
+    pub struct FsdifResp2:u32 {
+
+    }
+}
+impl FlagReg for FsdifResp2 {
+    const REG: u32 = FSDIF_RESP2_OFFSET;
+}
+
+/// FSDIF_RESP3_OFFSET Register
+bitflags! {
+    pub struct FsdifResp3:u32 {
+
+    }
+}
+impl FlagReg for FsdifResp3 {
+    const REG: u32 = FSDIF_RESP3_OFFSET;
+}
+
+/// FSDIF_CMD_ARG_OFFSET Register
+bitflags! {
+    pub struct FsdifCmdArg:u32 {
+
+    }
+}
+impl FlagReg for FsdifCmdArg {
+    const REG: u32 = FSDIF_CMD_ARG_OFFSET;
 }
