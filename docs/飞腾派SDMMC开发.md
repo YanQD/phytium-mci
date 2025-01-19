@@ -293,6 +293,12 @@ I/O 大小(最小/最佳)：512 字节 / 512 字节
 设备           启动   起点      末尾      扇区   大小 Id 类型
 /dev/mmcblk0p1      131072 244342783 244211712 116.5G 83 Linux
 ```
+按byte读取sd卡内容:
+```shell
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=1 count=1024
+hexdump -C output.bin
+```
+
 
 # 可能需要
 
