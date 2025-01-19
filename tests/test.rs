@@ -34,6 +34,25 @@ fn test_work() {
 
     info!("blk size: {:#x}", mci0.blksize());
 
+    let mut data: [u32; 512] = [1u32; 512];
+
+    let buf = FsdifBuf {
+        buf: &mut data,
+        buf_dma: 0,
+        blkcnt: 1,
+        blksz: 512,
+    };
+
+    let cmd_data = FSdifCmdData {
+        cmdidx: 6,
+        cmdarg: 131072+512,
+        flag: CmdFlag::WRITE_DATA | CmdFlag::EXP_DATA,
+        data: buf,
+        success: false,
+        response: [0; 4],
+    };
+    let _ = mci0.pio_transfer(&cmd_data);
+
     assert!(true);
 }
 
