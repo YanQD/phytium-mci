@@ -204,19 +204,13 @@ impl FlagReg for FsdifTimeout {
     const REG: u32 = FSDIF_TMOUT_OFFSET;
 }
 
-fn timeout_set(reg:Reg,data_timeout:u32,resp_timeout:u32){
-    if data_timeout > FsdifTimeout::MAX_DATA_TIMEOUT.bits() {
-        panic!("data_timeout is too large");
-    }
-    if resp_timeout > FsdifTimeout::MAX_RESP_TIMEOUT.bits() {
-        panic!("resp_timeout is too large");
-    }
-    reg.write_reg(
+impl FsdifTimeout {
+    pub fn timeout_data(data_timeout:FsdifTimeout,resp_timeout:FsdifTimeout) -> FsdifTimeout{
         FsdifTimeout::from_bits_truncate(
-        (genmask!(31,8) & (data_timeout << 8)) |
-        (genmask!(7,0) & resp_timeout)
+            (genmask!(31,8) & (data_timeout.bits() << 8)) | 
+            (genmask!(7,0) & resp_timeout.bits())
         )
-    );
+    }
 }
 
 // FSDIF_CTYPE_OFFSET Register

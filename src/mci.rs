@@ -275,14 +275,14 @@ impl MCI {
             FsdifFifoDepth::Depth8.card_thrctl_threshold().into());
         debug!("card threshold set success");
         /* disable clock and update ext clk */
-        self.clock_set(true);
+        self.clock_set(false);
         debug!("clock set success");
         /* set 1st clock */
         self.init_external_clk()?;
         debug!("external clock init success");
         /* power on */
         self.power_set(true);
-        self.clock_set(false);
+        self.clock_set(true);
         self.clock_src_set(true);
         debug!("power on success");
         /* set voltage as 3.3v */
@@ -332,6 +332,11 @@ impl MCI {
             FsdifCtrl::INT_ENABLE | FsdifCtrl::USE_INTERNAL_DMAC | reg
         });
         debug!("enable controller and internal DMA success");
+        /* set data and resp timeout */
+        self.reg.write_reg(FsdifTimeout::timeout_data(
+            FsdifTimeout::MAX_DATA_TIMEOUT, 
+            FsdifTimeout::MAX_RESP_TIMEOUT));
+        debug!("set data and resp timeout success");
         /* reset descriptors and dma */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
             self.descriptor_set(0);
@@ -365,7 +370,7 @@ impl MCI {
 
     pub fn pio_transfer(&self, cmd_data: &FSdifCmdData) -> FsdifResult {
         let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
-        if self.is_ready{
+        if !self.is_ready{
             error!("device is not yet initialized!!!");
             return Err(FsdifError::NotInit);
         }
@@ -440,19 +445,19 @@ impl MCI {
         Ok(())
     }
 }
-struct FsdifBuf {
-    buf: &'static mut [u32],
-    buf_dma: u32,
-    blksz: u32,
-    blkcnt: u32,
+pub struct FsdifBuf<'a> {
+    pub buf: &'a mut [u32],
+    pub buf_dma: u32,
+    pub blksz: u32,
+    pub blkcnt: u32,
 }
-pub struct FSdifCmdData {
-    cmdidx: u32,
-    cmdarg: u32,
-    response: [u32; 4],
-    flag: CmdFlag,
-    data: FsdifBuf,
-    success: bool
+pub struct FSdifCmdData<'a> {
+    pub cmdidx: u32,
+    pub cmdarg: u32,
+    pub response: [u32; 4],
+    pub flag: CmdFlag,
+    pub data: FsdifBuf<'a>,
+    pub success: bool
 }
 
 bitflags! {
