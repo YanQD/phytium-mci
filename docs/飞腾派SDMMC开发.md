@@ -296,8 +296,13 @@ I/O 大小(最小/最佳)：512 字节 / 512 字节
 按byte读取sd卡内容:
 ```shell
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=1 count=1024
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=2 skip=999
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=3 skip=998
 hexdump -C output.bin
 ```
+# 遇到的问题
+
+- [ ] 一直存在FsdifCtrl的CONTROLLER_RESET一直为1的情况
 
 
 # 可能需要
