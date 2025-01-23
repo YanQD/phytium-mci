@@ -2,7 +2,7 @@
 
 use core::{ptr::NonNull,time::Duration};
 use bitflags::{bitflags, Flags};
-use crate::{constants::{FSDIF_BLK_SIZ_OFFSET, FSDIF_BUS_MODE_OFFSET, FSDIF_BYT_CNT_OFFSET, FSDIF_CARD_DETECT_OFFSET, FSDIF_CARD_RESET_OFFSET, FSDIF_CARD_THRCTL_OFFSET, FSDIF_CARD_WRTPRT_OFFSET, FSDIF_CKSTS_OFFSET, FSDIF_CLKDIV_OFFSET, FSDIF_CLKENA_OFFSET, FSDIF_CLK_SRC_OFFSET, FSDIF_CMD_ARG_OFFSET, FSDIF_CMD_OFFSET, FSDIF_CNTRL_OFFSET, FSDIF_CTYPE_OFFSET, FSDIF_DATA_OFFSET, FSDIF_DESC_LIST_ADDRH_OFFSET, FSDIF_DESC_LIST_ADDRL_OFFSET, FSDIF_DMAC_INT_EN_OFFSET, FSDIF_DMAC_STATUS_OFFSET, FSDIF_EMMC_DDR_REG_OFFSET, FSDIF_FIFOTH_OFFSET, FSDIF_INT_MASK_OFFSET, FSDIF_MASKED_INTS_OFFSET, FSDIF_PWREN_OFFSET, FSDIF_RAW_INTS_OFFSET, FSDIF_RESP0_OFFSET, FSDIF_RESP1_OFFSET, FSDIF_RESP2_OFFSET, FSDIF_RESP3_OFFSET, FSDIF_STATUS_OFFSET, FSDIF_TMOUT_OFFSET, FSDIF_TRAN_CARD_CNT_OFFSET, FSDIF_TRAN_FIFO_CNT_OFFSET, FSDIF_UHS_REG_OFFSET}, err::{FsdifError, FsdifResult}, sleep};
+use crate::{constants::*, err::{FsdifError, FsdifResult}, sleep};
 
 /*
  * Create a contiguous bitmask starting at bit position @l and ending at
@@ -120,7 +120,7 @@ bitflags! {
 }
 
 impl FlagReg for FsdifCtrl {
-    const REG: u32 = FSDIF_PWREN_OFFSET;
+    const REG: u32 = FSDIF_CNTRL_OFFSET;
 }
 
 // FSDIF_PWREN_OFFSET 0x4 Register
@@ -131,20 +131,37 @@ bitflags! {
 }
 
 impl FlagReg for FsdifPwrEn {
-    const REG: u32 = FSDIF_CNTRL_OFFSET;
+    const REG: u32 = FSDIF_PWREN_OFFSET;
 }
 
 // FSDIF_CLKDIV_OFFSET 0x8 Register
-/* CLK_SAMPLE 和 CLK_SAMPLE 必须小于 CLK_DIVIDER */
 bitflags! {
     pub struct FsdifClkDiv: u32 {
-        const CLK_DIVIDER = 0x3ff;
-        const CLK_SAMPLE_H = 1 << 23;
-        const CLK_SAMPLE_L = 1 << 16;
-        const CLK_DRV_H = 1 << 15;
-        const CLK_DRV_L = 1 << 8;
-        const CLK_DIVDER = 1 << 7;
-        const CLK_DIVDER_EN = 1 << 0;
+        const CLK_DIVIDER = 0x3ff; /* CLK_SAMPLE 和 CLK_SAMPLE 必须小于 CLK_DIVIDER */
+        const CLK_DIVDER_BIT0 = 1 << 0; /* 时钟分频参数设置，分频参数=2*CLK_DIVIDER */
+        const CLK_DIVDER_BIT1 = 1 << 1;
+        const CLK_DIVDER_BIT2 = 1 << 2;
+        const CLK_DIVDER_BIT3 = 1 << 3;
+        const CLK_DIVDER_BIT4 = 1 << 4;
+        const CLK_DIVDER_BIT5 = 1 << 5;
+        const CLK_DIVDER_BIT6 = 1 << 6;
+        const CLK_DIVDER_BIT7 = 1 << 7;
+        const CLK_DRV_BIT0 = 1 << 8; /* 输出相位区间设置 */
+        const CLK_DRV_BIT1 = 1 << 9;
+        const CLK_DRV_BIT2 = 1 << 10;
+        const CLK_DRV_BIT3 = 1 << 11;
+        const CLK_DRV_BIT4 = 1 << 12;
+        const CLK_DRV_BIT5 = 1 << 13;
+        const CLK_DRV_BIT6 = 1 << 14;
+        const CLK_DRV_BIT7 = 1 << 15;
+        const CLK_SAMPLE_BIT0 = 1 << 16; /* 采样相位区间设置 */
+        const CLK_SAMPLE_BIT1 = 1 << 17;
+        const CLK_SAMPLE_BIT2 = 1 << 18;
+        const CLK_SAMPLE_BIT3 = 1 << 19;
+        const CLK_SAMPLE_BIT4 = 1 << 20;
+        const CLK_SAMPLE_BIT5 = 1 << 21;
+        const CLK_SAMPLE_BIT6 = 1 << 22;
+        const CLK_SAMPLE_BIT7 = 1 << 23;
     }
 }
 
@@ -152,32 +169,24 @@ impl FlagReg for FsdifClkDiv {
     const REG: u32 = FSDIF_CLKDIV_OFFSET;
 }
 
-pub fn clk_sample_set(reg:Reg,x:u32){
-    reg.modify_reg::<FsdifClkDiv>(|reg| {
-        reg | FsdifClkDiv::from_bits_truncate(set_reg32_bits!(x, 23, 16))
-    });
-}
-
-pub fn clk_drv_set(reg:Reg,x:u32){
-    reg.modify_reg::<FsdifClkDiv>(|reg| {
-        reg | FsdifClkDiv::from_bits_truncate(set_reg32_bits!(x, 15, 8))
-    });
-}
-
-pub fn clk_divider_set(reg:Reg,x:u32){
-    reg.modify_reg::<FsdifClkDiv>(|reg| {
-        reg | FsdifClkDiv::from_bits_truncate(set_reg32_bits!(x, 7, 0))
-    });
-}
-
-pub fn clk_div(reg:Reg,samp:u32,drv:u32,div:u32){
-    clk_sample_set(reg,samp);
-    clk_drv_set(reg,drv);
-    clk_divider_set(reg,div);
-}
-
-pub fn clk_divider_get(reg:Reg) -> u32 {
-    (reg.read_reg::<FsdifClkDiv>() & FsdifClkDiv::CLK_DIVIDER).bits()
+impl FsdifClkDiv {
+    pub fn clk_sample_set(x:u32) -> Self {
+        Self::from_bits_truncate(set_reg32_bits!(x, 23, 16))
+    }
+    pub fn clk_drv_set(x:u32) -> Self {
+        Self::from_bits_truncate(set_reg32_bits!(x, 15, 8))
+    }
+    pub fn clk_divider_set(x:u32) -> Self {
+        Self::from_bits_truncate(set_reg32_bits!(x, 7, 0))
+    }
+    pub fn clk_div(x:u32,samp:u32,drv:u32,div:u32) -> Self {
+        Self::clk_sample_set(samp) | 
+        Self::clk_drv_set(drv) | 
+        Self::clk_divider_set(div)
+    }
+    pub fn clk_divider_get(div_reg:u32) -> Self {
+        FsdifClkDiv::from_bits_truncate(get_reg32_bits!(div_reg, 7, 0))
+    }
 }
 
 // FSDIF_CLKENA_OFFSET Register
@@ -197,6 +206,38 @@ bitflags! {
     pub struct FsdifTimeout: u32 {
         const MAX_DATA_TIMEOUT = 0xffffff; /* RW 读卡超时（以卡时钟为单位） */
         const MAX_RESP_TIMEOUT = 0xff; /* RW 响应超时（以卡时钟为单位） */
+        const RESP_TIMEOUT_BIT0 = 1 << 0; /* RW 响应超时的第0位 */
+        const RESP_TIMEOUT_BIT1 = 1 << 1; /* RW 响应超时的第1位 */
+        const RESP_TIMEOUT_BIT2 = 1 << 2; /* RW 响应超时的第2位 */
+        const RESP_TIMEOUT_BIT3 = 1 << 3; /* RW 响应超时的第3位 */
+        const RESP_TIMEOUT_BIT4 = 1 << 4; /* RW 响应超时的第4位 */
+        const RESP_TIMEOUT_BIT5 = 1 << 5; /* RW 响应超时的第5位 */
+        const RESP_TIMEOUT_BIT6 = 1 << 6; /* RW 响应超时的第6位 */
+        const RESP_TIMEOUT_BIT7 = 1 << 7; /* RW 响应超时的第7位 */
+        const DATA_TIMEOUT_BIT0 = 1 << 8; /* RW 读卡超时的第0位 */
+        const DATA_TIMEOUT_BIT1 = 1 << 9; /* RW 读卡超时的第1位 */
+        const DATA_TIMEOUT_BIT2 = 1 << 10; /* RW 读卡超时的第2位 */
+        const DATA_TIMEOUT_BIT3 = 1 << 11; /* RW 读卡超时的第3位 */
+        const DATA_TIMEOUT_BIT4 = 1 << 12; /* RW 读卡超时的第4位 */
+        const DATA_TIMEOUT_BIT5 = 1 << 13; /* RW 读卡超时的第5位 */
+        const DATA_TIMEOUT_BIT6 = 1 << 14; /* RW 读卡超时的第6位 */
+        const DATA_TIMEOUT_BIT7 = 1 << 15; /* RW 读卡超时的第7位 */
+        const DATA_TIMEOUT_BIT8 = 1 << 16; /* RW 读卡超时的第8位 */
+        const DATA_TIMEOUT_BIT9 = 1 << 17; /* RW 读卡超时的第9位 */
+        const DATA_TIMEOUT_BIT10 = 1 << 18; /* RW 读卡超时的第10位 */
+        const DATA_TIMEOUT_BIT11 = 1 << 19; /* RW 读卡超时的第11位 */
+        const DATA_TIMEOUT_BIT12 = 1 << 20; /* RW 读卡超时的第12位 */
+        const DATA_TIMEOUT_BIT13 = 1 << 21; /* RW 读卡超时的第13位 */
+        const DATA_TIMEOUT_BIT14 = 1 << 22; /* RW 读卡超时的第14位 */
+        const DATA_TIMEOUT_BIT15 = 1 << 23; /* RW 读卡超时的第15位 */
+        const DATA_TIMEOUT_BIT16 = 1 << 24; /* RW 读卡超时的第16位 */
+        const DATA_TIMEOUT_BIT17 = 1 << 25; /* RW 读卡超时的第17位 */
+        const DATA_TIMEOUT_BIT18 = 1 << 26; /* RW 读卡超时的第18位 */
+        const DATA_TIMEOUT_BIT19 = 1 << 27; /* RW 读卡超时的第19位 */
+        const DATA_TIMEOUT_BIT20 = 1 << 28; /* RW 读卡超时的第20位 */
+        const DATA_TIMEOUT_BIT21 = 1 << 29; /* RW 读卡超时的第21位 */
+        const DATA_TIMEOUT_BIT22 = 1 << 30; /* RW 读卡超时的第22位 */
+        const DATA_TIMEOUT_BIT23 = 1 << 31; /* RW 读卡超时的第23位 */
     }
 }
 
@@ -336,6 +377,12 @@ bitflags! {
         const RESP_CRC = 1 << 8;               /* 1：检查响应 CRC */
         const RESP_LONG = 1 << 7;              /* 0：等待卡的短响应 1：等待卡的长响应 */
         const RESP_EXP = 1 << 6;               /* 1：等待卡的响应，0：命令不需要卡响应 */
+        const CMD_INDEX_BIT5 = 1 << 5;         /* 命令索引号的第5位 */
+        const CMD_INDEX_BIT4 = 1 << 4;         /* 命令索引号的第4位 */
+        const CMD_INDEX_BIT3 = 1 << 3;         /* 命令索引号的第3位 */
+        const CMD_INDEX_BIT2 = 1 << 2;         /* 命令索引号的第2位 */
+        const CMD_INDEX_BIT1 = 1 << 1;         /* 命令索引号的第1位 */
+        const CMD_INDEX_BIT0 = 1 << 0;         /* 命令索引号的第0位 */
     }
 }
 
@@ -349,10 +396,13 @@ impl From<u32> for FsdifCmd {
     }
 }
 
-pub fn cmd_card_num_set(reg: Reg, num: u32) {
-    reg.modify_reg::<FsdifCmd>(|reg| {
-        reg | FsdifCmd::from_bits_truncate(set_reg32_bits!(num, 20, 16))
-    });
+impl FsdifCmd {
+    pub fn index_set(x:u32) -> Self {
+        Self::from_bits_truncate(set_reg32_bits!(x, 5, 0))
+    }
+    pub fn index_get(&self) -> u32 {
+        (self.bits() & genmask!(5, 0)) >> 0
+    }
 }
 
 /* 1: 流数据传输指令 */
@@ -381,9 +431,32 @@ bitflags! {
         const FIFO_TX = 1 << 1;     /* RO, 达到 FIFO_TX 标记 */
         const FIFO_EMPTY = 1 << 2;  /* RO, FIFO empty */
         const FIFO_FULL = 1 << 3;   /* RO, FIFO full */
+        const CMD_FSM_BIT0 = 1 << 4; /* RO CMD FSM 状态 */
+        const CMD_FSM_BIT1 = 1 << 5; /* RO CMD FSM 状态 */
+        const CMD_FSM_BIT2 = 1 << 6; /* RO CMD FSM 状态 */
+        const CMD_FSM_BIT3 = 1 << 7; /* RO CMD FSM 状态 */
         const DATA3_STATUS = 1 << 8; /* RO DATA[3] 卡在位检测，1：在位 */
         const DATA_BUSY = 1 << 9;   /* RO 1: 卡 busy */
         const DATA_STATE_MC_BUSY = 1 << 10;  /* RO DATA TX|RX FSM busy  */
+        const RESP_INDEX_BIT0 = 1 << 11; /* RO 响应索引号的第0位 */
+        const RESP_INDEX_BIT1 = 1 << 12; /* RO 响应索引号的第1位 */
+        const RESP_INDEX_BIT2 = 1 << 13; /* RO 响应索引号的第2位 */
+        const RESP_INDEX_BIT3 = 1 << 14; /* RO 响应索引号的第3位 */
+        const RESP_INDEX_BIT4 = 1 << 15; /* RO 响应索引号的第4位 */
+        const RESP_INDEX_BIT5 = 1 << 16; /* RO 响应索引号的第5位 */
+        const FIFO_CNT_BIT0 = 1 << 17;   /* RO FIFO 中的数据计数的第0位 */
+        const FIFO_CNT_BIT1 = 1 << 18;   /* RO FIFO 中的数据计数的第1位 */
+        const FIFO_CNT_BIT2 = 1 << 19;   /* RO FIFO 中的数据计数的第2位 */
+        const FIFO_CNT_BIT3 = 1 << 20;   /* RO FIFO 中的数据计数的第3位 */
+        const FIFO_CNT_BIT4 = 1 << 21;   /* RO FIFO 中的数据计数的第4位 */
+        const FIFO_CNT_BIT5 = 1 << 22;   /* RO FIFO 中的数据计数的第5位 */
+        const FIFO_CNT_BIT6 = 1 << 23;   /* RO FIFO 中的数据计数的第6位 */
+        const FIFO_CNT_BIT7 = 1 << 24;   /* RO FIFO 中的数据计数的第7位 */
+        const FIFO_CNT_BIT8 = 1 << 25;   /* RO FIFO 中的数据计数的第8位 */
+        const FIFO_CNT_BIT9 = 1 << 26;   /* RO FIFO 中的数据计数的第9位 */
+        const FIFO_CNT_BIT10 = 1 << 27;  /* RO FIFO 中的数据计数的第10位 */
+        const FIFO_CNT_BIT11 = 1 << 28;  /* RO FIFO 中的数据计数的第11位 */
+        const FIFO_CNT_BIT12 = 1 << 29;  /* RO FIFO 中的数据计数的第12位 */
         const DMA_ACK = 1 << 30;    /* RO DMA 确认 */
         const DMA_REQ = 1 << 31;    /* RO DMA 请求 */
     }
@@ -411,6 +484,33 @@ bitflags! {
         const DMA_TRANS_MASK = genmask!(30, 28); /* 多次传输的突发大小 */
         const RX_WMARK_MASK = genmask!(27, 16);  /* 当接收数据给卡时FIFO的阈值 */
         const TX_WMARK_MASK = genmask!(11, 0);   /* 当发送数据给卡时FIFO的阈值 */
+        const TX_WMARK_BIT0 = 1 << 0;            /* TX_WMARK 的第0位 */
+        const TX_WMARK_BIT1 = 1 << 1;            /* TX_WMARK 的第1位 */
+        const TX_WMARK_BIT2 = 1 << 2;            /* TX_WMARK 的第2位 */
+        const TX_WMARK_BIT3 = 1 << 3;            /* TX_WMARK 的第3位 */
+        const TX_WMARK_BIT4 = 1 << 4;            /* TX_WMARK 的第4位 */
+        const TX_WMARK_BIT5 = 1 << 5;            /* TX_WMARK 的第5位 */
+        const TX_WMARK_BIT6 = 1 << 6;            /* TX_WMARK 的第6位 */
+        const TX_WMARK_BIT7 = 1 << 7;            /* TX_WMARK 的第7位 */
+        const TX_WMARK_BIT8 = 1 << 8;            /* TX_WMARK 的第8位 */
+        const TX_WMARK_BIT9 = 1 << 9;            /* TX_WMARK 的第9位 */
+        const TX_WMARK_BIT10 = 1 << 10;          /* TX_WMARK 的第10位 */
+        const TX_WMARK_BIT11 = 1 << 11;          /* TX_WMARK 的第11位 */
+        const RX_WMARK_BIT0 = 1 << 16;           /* RX_WMARK 的第0位 */
+        const RX_WMARK_BIT1 = 1 << 17;           /* RX_WMARK 的第1位 */
+        const RX_WMARK_BIT2 = 1 << 18;           /* RX_WMARK 的第2位 */
+        const RX_WMARK_BIT3 = 1 << 19;           /* RX_WMARK 的第3位 */
+        const RX_WMARK_BIT4 = 1 << 20;           /* RX_WMARK 的第4位 */
+        const RX_WMARK_BIT5 = 1 << 21;           /* RX_WMARK 的第5位 */
+        const RX_WMARK_BIT6 = 1 << 22;           /* RX_WMARK 的第6位 */
+        const RX_WMARK_BIT7 = 1 << 23;           /* RX_WMARK 的第7位 */
+        const RX_WMARK_BIT8 = 1 << 24;           /* RX_WMARK 的第8位 */
+        const RX_WMARK_BIT9 = 1 << 25;           /* RX_WMARK 的第9位 */
+        const RX_WMARK_BIT10 = 1 << 26;          /* RX_WMARK 的第10位 */
+        const RX_WMARK_BIT11 = 1 << 27;          /* RX_WMARK 的第11位 */
+        const DMA_TRANS_BIT0 = 1 << 28;          /* DMA */
+        const DMA_TRANS_BIT1 = 1 << 29;          /* DMA */
+        const DMA_TRANS_BIT2 = 1 << 30;          /* DMA */
     }
 }
 
@@ -524,6 +624,9 @@ bitflags! {
         const SWR = 1 << 0; /* RW 软复位，复位idma内部寄存器 */
         const FB = 1 << 1;  /* RW 固定burst */
         const DE = 1 << 7;  /* RW idma使能 */
+        const PBL_BIT0 = 1 << 8; /* R0 传输突发长度 */
+        const PBL_BIT1 = 1 << 9; /* R0 传输突发长度 */
+        const PBL_BIT2 = 1 << 10; /* R0 传输突发长度 */
     }
 }
 
@@ -541,10 +644,33 @@ bitflags! {
         const TI = 1 << 0;  /* RW 发送中断。表示链表的数据发送完成 */
         const RI = 1 << 1;  /* RW 接收中断。表示链表的数据接收完成 */
         const FBE = 1 << 2; /* RW 致命总线错误中断 */
-        const DU = 1 << 4;  /* RW 链表不可用中断 */
+        const DU_BIT0 = 1 << 3;  /* RW 链表不可用中断 */
+        const DU_BIT1 = 1 << 4;  /* RW 链表不可用中断 */
         const CES = 1 << 5; /* RW 卡错误汇总 */
         const NIS = 1 << 8; /* RW 正常中断汇总 */
         const AIS = 1 << 9; /* RW 异常中断汇总 */
+        const EB_BIT0 = 1 << 10; 
+        const EB_BIT1 = 1 << 11; 
+        const EB_BIT2 = 1 << 12;
+        const FSM_BIT0 = 1 << 13;
+        const FSM_BIT1 = 1 << 14;
+        const FSM_BIT2 = 1 << 15;
+        const FSM_BIT3 = 1 << 16;
+        const FSM_BIT4 = 1 << 17;
+        const FSM_BIT5 = 1 << 18;
+        const FSM_BIT6 = 1 << 19;
+        const FSM_BIT7 = 1 << 20;
+        const FSM_BIT8 = 1 << 21;
+        const FSM_BIT9 = 1 << 22;
+        const FSM_BIT10 = 1 << 23;
+        const FSM_BIT11 = 1 << 24;
+        const FSM_BIT12 = 1 << 25;
+        const FSM_BIT13 = 1 << 26;
+        const FSM_BIT14 = 1 << 27;
+        const FSM_BIT15 = 1 << 28;
+        const FSM_BIT16 = 1 << 29;
+        const FSM_BIT17 = 1 << 30;
+        const FSM_BIT18 = 1 << 31;
         const ALL_BITS = 0x3ff;
         const STATUS_EB_TX = 0b001;
         const STATUS_EB_RX = 0b010;
@@ -584,6 +710,19 @@ bitflags! {
         const CARDRD = 1 << 0;   /* RW 读卡threshold使能 */
         const BUSY_CLR = 1 << 1; /* RW busy清中断 */
         const CARDWR = 1 << 2;   /* RO 写卡threshold使能 */
+        const FIFO_DEPTH_BIT0 = 1 << 16; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT1 = 1 << 17; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT2 = 1 << 18; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT3 = 1 << 19; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT4 = 1 << 20; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT5 = 1 << 21; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT6 = 1 << 22; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT7 = 1 << 23; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT8 = 1 << 24; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT9 = 1 << 25; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT10 = 1 << 26; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT11 = 1 << 27; /* RW FIFO深度 */
+        const FIFO_DEPTH_BIT12 = 1 << 28; /* RW FIFO深度 */
     }
 }
 
@@ -623,8 +762,29 @@ bitflags! {
         const UHS_EXT_CLK_ENA = 1 << 1;          /* RW 外部时钟，CIU时钟使能 */
         const UHS_EXT_CLK_MUX = 1 << 31;         /* RW 外部时钟选择 */
         const UHS_CLK_DIV_MASK = genmask!(14, 8); /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT0 = 1 << 8;         /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT1 = 1 << 9;         /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT2 = 1 << 10;        /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT3 = 1 << 11;        /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT4 = 1 << 12;        /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT5 = 1 << 13;        /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
+        const UHS_CLK_DIV_BIT6 = 1 << 14;        /* RW 分频系数，ciu_f = clk_div_ctrl + 1, min=1*/
         const UHS_CLK_SAMP_MASK = genmask!(22, 16); /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT0 = 1 << 16;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT1 = 1 << 17;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT2 = 1 << 18;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT3 = 1 << 19;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT4 = 1 << 20;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT5 = 1 << 21;         /* RW 采样相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_SAMP_BIT6 = 1 << 22;         /* RW 采样相位参数，相对于ciu时钟相位点 */
         const UHS_CLK_DRV_MASK = genmask!(30, 24); /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT0 = 1 << 24;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT1 = 1 << 25;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT2 = 1 << 26;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT3 = 1 << 27;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT4 = 1 << 28;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT5 = 1 << 29;         /* RW 输出相位参数，相对于ciu时钟相位点 */
+        const UHS_CLK_DRV_BIT6 = 1 << 30;         /* RW 输出相位参数，相对于ciu时钟相位点 */
     }
 }
 
@@ -632,20 +792,24 @@ impl FlagReg for FsdifClkSrc {
     const REG: u32 = FSDIF_CLK_SRC_OFFSET; // 假设 FSDIF_CLK_SRC_OFFSET 是对应的寄存器偏移量
 }
 
-pub fn uhs_clk_div(x: u32) -> FsdifClkSrc {
-    FsdifClkSrc::UHS_CLK_DIV_MASK & FsdifClkSrc::from_bits_truncate(x << 8)
-}
+impl FsdifClkSrc {
+    pub fn uhs_clk_div(x: u32) -> Self {
+        Self::UHS_CLK_DIV_MASK & Self::from_bits_truncate(x << 8)
+    }
+    
+    pub fn uhs_clk_samp(x: u32) -> Self {
+        Self::UHS_CLK_SAMP_MASK & Self::from_bits_truncate(x << 16)
+    }
+    
+    pub fn uhs_clk_drv(x: u32) -> Self {
+        Self::UHS_CLK_DRV_MASK & Self::from_bits_truncate(x << 24)
+    }
 
-pub fn uhs_clk_samp(x: u32) -> FsdifClkSrc {
-    FsdifClkSrc::UHS_CLK_SAMP_MASK & FsdifClkSrc::from_bits_truncate(x << 16)
-}
-
-pub fn uhs_clk_drv(x: u32) -> FsdifClkSrc {
-    FsdifClkSrc::UHS_CLK_DRV_MASK & FsdifClkSrc::from_bits_truncate(x << 24)
-}
-
-pub fn uhs_reg(drv_phase: u32, samp_phase: u32, clk_div: u32) -> FsdifClkSrc {
-    uhs_clk_div(clk_div) | uhs_clk_samp(samp_phase) | uhs_clk_drv(drv_phase)
+    pub fn uhs_reg(drv_phase: u32, samp_phase: u32, clk_div: u32) -> Self {
+        Self::uhs_clk_div(clk_div) | 
+        Self::uhs_clk_samp(samp_phase) | 
+        Self::uhs_clk_drv(drv_phase)
+    }
 }
 
 pub fn uhs_clk_div_set(reg: Reg, x: u32) {
@@ -684,7 +848,38 @@ impl FlagReg for FsdifEmmcDdrReg {
 /// FSDIF_DESC_LIST_ADDRH_OFFSET Register
 bitflags! {
     pub struct FsdifDescListAddrH: u32 {
-        
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 
@@ -695,7 +890,38 @@ impl FlagReg for FsdifDescListAddrH {
 /// FSDIF_DESC_LIST_ADDRL_OFFSET Register
 bitflags! {
     pub struct FsdifDescListAddrL: u32 {
-        
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 
@@ -706,7 +932,38 @@ impl FlagReg for FsdifDescListAddrL {
 /// FSDIF_DATA_OFFSET Register
 bitflags! {
     pub struct FsdifData: u32 {
-        
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifData {
@@ -716,7 +973,38 @@ impl FlagReg for FsdifData {
 /// FSDIF_BYT_CNT_OFFSET Register
 bitflags! {
     pub struct FsdifBytCnt: u32 {
-        
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifBytCnt {
@@ -726,7 +1014,39 @@ impl FlagReg for FsdifBytCnt {
 /// FSDIF_BLK_SIZ_OFFSET Register
 bitflags! {
     pub struct FsdifBlkSiz: u32 {
-        
+        const BIT0 = 1 << 0; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT1 = 1 << 1; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT2 = 1 << 2; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT3 = 1 << 3; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT4 = 1 << 4; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT5 = 1 << 5; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT6 = 1 << 6; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT7 = 1 << 7; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT8 = 1 << 8; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT9 = 1 << 9; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT10 = 1 << 10; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT11 = 1 << 11; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT12 = 1 << 12; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT13 = 1 << 13; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT14 = 1 << 14; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT15 = 1 << 15; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT16 = 1 << 16; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT17 = 1 << 17; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT18 = 1 << 18; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT19 = 1 << 19; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT20 = 1 << 20; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT21 = 1 << 21; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT22 = 1 << 22; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT23 = 1 << 23; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT24 = 1 << 24; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT25 = 1 << 25; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT26 = 1 << 26; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT27 = 1 << 27; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT28 = 1 << 28; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT29 = 1 << 29; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT30 = 1 << 30; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const BIT31 = 1 << 31; /* RW 1: 512字节块大小，0：512字节块大小 */
+        const ALL_BITS = 0xFFFFFFFF;
     }
 }
 impl FlagReg for FsdifBlkSiz {
@@ -736,7 +1056,38 @@ impl FlagReg for FsdifBlkSiz {
 /// FSDIF_TRAN_CARD_CNT_OFFSET Register
 bitflags! {
     pub struct FsdifTranCardCnt:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifTranCardCnt {
@@ -746,7 +1097,38 @@ impl FlagReg for FsdifTranCardCnt {
 /// FSDIF_TRAN_FIFO_CNT_OFFSET Register
 bitflags! {
     pub struct FsdifTranFifoCnt:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifTranFifoCnt {
@@ -756,7 +1138,38 @@ impl FlagReg for FsdifTranFifoCnt {
 /// FSDIF_RESP0_OFFSET Register
 bitflags! {
     pub struct FsdifResp0:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifResp0 {
@@ -766,7 +1179,38 @@ impl FlagReg for FsdifResp0 {
 /// FSDIF_RESP1_OFFSET Register
 bitflags! {
     pub struct FsdifResp1:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifResp1 {
@@ -776,7 +1220,38 @@ impl FlagReg for FsdifResp1 {
 /// FSDIF_RESP2_OFFSET Register
 bitflags! {
     pub struct FsdifResp2:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifResp2 {
@@ -786,7 +1261,38 @@ impl FlagReg for FsdifResp2 {
 /// FSDIF_RESP3_OFFSET Register
 bitflags! {
     pub struct FsdifResp3:u32 {
-
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifResp3 {
@@ -795,10 +1301,405 @@ impl FlagReg for FsdifResp3 {
 
 /// FSDIF_CMD_ARG_OFFSET Register
 bitflags! {
-    pub struct FsdifCmdArg:u32 {
-
+    pub struct FsdifCmdArg: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
     }
 }
 impl FlagReg for FsdifCmdArg {
     const REG: u32 = FSDIF_CMD_ARG_OFFSET;
+}
+
+/// FSDIF_DEBNCE_OFFSET Register
+bitflags! {
+    pub struct FsdifDebnce: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifDebnce {
+    const REG: u32 = FSDIF_DEBNCE_OFFSET;
+}
+
+/// FSDIF_UID_OFFSET Register
+bitflags! {
+    pub struct FsdifUid: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifUid {
+    const REG: u32 = FSDIF_UID_OFFSET;
+}
+
+/// FSDIF_VID_OFFSET Register
+bitflags! {
+    pub struct FsdifVid: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifVid {
+    const REG: u32 = FSDIF_VID_OFFSET;
+}
+
+/// FSDIF_HWCONF_OFFSET Register
+bitflags! {
+    pub struct FsdifHwconf: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifHwconf {
+    const REG: u32 = FSDIF_HWCONF_OFFSET;
+}
+/// FSDIF_CUR_DESC_ADDRL_OFFSET Register
+bitflags! {
+    pub struct FsdifCurDescAddrL: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifCurDescAddrL {
+    const REG: u32 = FSDIF_CUR_DESC_ADDRL_OFFSET;
+}
+/// FSDIF_CUR_DESC_ADDRH_OFFSET Register
+bitflags! {
+    pub struct FsdifCurDescAddrH: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifCurDescAddrH {
+    const REG: u32 = FSDIF_CUR_DESC_ADDRH_OFFSET;
+}
+/// FSDIF_CUR_BUF_ADDRL_OFFSET Register
+bitflags! {
+    pub struct FsdifCurBufAddrL: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifCurBufAddrL {
+    const REG: u32 = FSDIF_CUR_BUF_ADDRL_OFFSET;
+}
+/// FSDIF_CUR_BUF_ADDRH_OFFSET Register
+bitflags! {
+    pub struct FsdifCurBufAddrH: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifCurBufAddrH {
+    const REG: u32 = FSDIF_CUR_BUF_ADDRH_OFFSET;
+}
+/// FSDIF_ENABLE_SHIFT_OFFSET Register
+bitflags! {
+    pub struct FsdifEnableShift: u32 {
+        const BIT0 = 1 << 0;
+        const BIT1 = 1 << 1;
+        const BIT2 = 1 << 2;
+        const BIT3 = 1 << 3;
+        const BIT4 = 1 << 4;
+        const BIT5 = 1 << 5;
+        const BIT6 = 1 << 6;
+        const BIT7 = 1 << 7;
+        const BIT8 = 1 << 8;
+        const BIT9 = 1 << 9;
+        const BIT10 = 1 << 10;
+        const BIT11 = 1 << 11;
+        const BIT12 = 1 << 12;
+        const BIT13 = 1 << 13;
+        const BIT14 = 1 << 14;
+        const BIT15 = 1 << 15;
+        const BIT16 = 1 << 16;
+        const BIT17 = 1 << 17;
+        const BIT18 = 1 << 18;
+        const BIT19 = 1 << 19;
+        const BIT20 = 1 << 20;
+        const BIT21 = 1 << 21;
+        const BIT22 = 1 << 22;
+        const BIT23 = 1 << 23;
+        const BIT24 = 1 << 24;
+        const BIT25 = 1 << 25;
+        const BIT26 = 1 << 26;
+        const BIT27 = 1 << 27;
+        const BIT28 = 1 << 28;
+        const BIT29 = 1 << 29;
+        const BIT30 = 1 << 30;
+        const BIT31 = 1 << 31;
+    }
+}
+impl FlagReg for FsdifEnableShift {
+    const REG: u32 = FSDIF_ENABLE_SHIFT_OFFSET;
 }

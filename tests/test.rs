@@ -28,13 +28,13 @@ fn test_work() {
 
     let mci0 = MCI::new(reg_base);
     //? 初始化 MCI
-    mci0.reset().unwrap_or_else(|e| info!("reset failed: {:?}", e));
+    mci0.reset().unwrap_or_else(|e| error!("reset failed: {:?}", e));
+    mci0.dump_register();
 
     info!("card detected {:?}", mci0.card_detected());
 
     info!("blk size: {:#x}", mci0.blksize());
-
-    let mut data: [u32; 512] = [1u32; 512];
+    let mut data: [u32; 512] = [0; 512];
 
     let buf = FsdifBuf {
         buf: &mut data,
@@ -43,16 +43,37 @@ fn test_work() {
         blksz: 512,
     };
 
-    let cmd_data = FSdifCmdData {
-        cmdidx: 6,
-        cmdarg: 131072+512,
-        flag: CmdFlag::WRITE_DATA | CmdFlag::EXP_DATA,
+    let mut cmd_data = FSdifCmdData {
+        cmdidx: 17, //24
+        cmdarg: 131072*512,
+        flag: CmdFlag::WRITE_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP,
         data: buf,
         success: false,
         response: [0; 4],
     };
-    let _ = mci0.pio_transfer(&cmd_data);
 
+    cmd_data.flag = CmdFlag::READ_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP;
+    let _ = mci0.block_size_set(512);
+    let _ = mci0.block_count_set(1);
+    let r = mci0.pio_transfer(&cmd_data);
+    match r {
+        Ok(_) => {
+            info!("pio_transfer success");
+        }
+        Err(e) => {
+            info!("pio_transfer failed: {:?}", e);
+        }
+    }
+    let r = mci0.poll_wait_pio_end(&mut cmd_data);
+    match r {
+        Ok(_) => {
+            info!("pio_transfer success");
+        }
+        Err(e) => {
+            info!("pio_transfer failed: {:?}", e);
+        }
+    }
+    mci0.dump_register();
     assert!(true);
 }
 

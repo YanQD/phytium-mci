@@ -9,6 +9,8 @@ mod constants;
 mod regs;
 mod err;
 mod mci;
+mod mci_timing;
+mod mci_config;
 
 pub use mci::*;
 

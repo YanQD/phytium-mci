@@ -1,6 +1,7 @@
 #![allow(unused)] 
 #![feature(asm)]
 use core::arch::asm;
+use core::default;
 use core::ptr::NonNull;
 use core::time::Duration;
 use log::debug;
@@ -10,53 +11,11 @@ use log::warn;
 use bitflags::{bitflags, Flags};
 
 use crate::constants::*;
+use crate::mci_timing::*;
+use crate::mci_config::*;
 use crate::regs::*;
 use crate::err::{FsdifError, FsdifResult};
 use crate::set_reg32_bits;
-
-//* 辅助数据结构 */
-pub struct MCIConfig {
-    trans_mode: FsDifTransMode, /* Trans mode, PIO/DMA */
-    non_removable: bool,        /* Non-removable media, e.g. eMMC */
-}
-
-impl MCIConfig {
-    pub fn new() -> Self {
-        MCIConfig {
-            trans_mode: FsDifTransMode::PioTransMode,
-            non_removable: false,
-        }
-    }
-}
-
-pub struct MCITiming {
-    use_hold: bool,
-    clk_div: u32,
-    clk_src: u32,
-    shift: u32,
-}
-
-impl MCITiming {
-    pub fn new() -> Self {
-        MCITiming {
-            use_hold: false,
-            clk_div: 0,
-            clk_src: 0,
-            shift: 0,
-        }
-    }
-}
-
-trait PadDelay {
-    fn pad_delay(&self,id: u32);
-}
-
-impl PadDelay for MCITiming {
-    fn pad_delay(&self, id: u32) {
-        todo!()
-    }
-}
-
 
 //* 核心数据结构 */
 pub struct MCI {
@@ -103,17 +62,26 @@ impl MCI {
         self.reg.write_reg(FsdifBlkSiz::from_bits_truncate(blksize));
     }
 
+    pub fn clk_freq_set(&self, clk_hz: u32) {
+        let mut reg_val = FsdifCmd::UPD_CLK;
+        let cmd_reg = self.reg.read_reg::<FsdifCmd>();
+        let cur_cmd_index =  cmd_reg.index_get();
+        if cur_cmd_index == FsDifSDIndivCommand::VoltageSwitch as u32 {
+            reg_val |= FsdifCmd::VOLT_SWITCH;
+        }
+        if clk_hz >0 && self.config.get
+    }
+
     pub fn init_external_clk(&self) -> FsdifResult {
-        let reg_val = uhs_reg(0, 0, 0x5) | FsdifClkSrc::UHS_EXT_CLK_ENA;
+        let reg_val = 
+        FsdifClkSrc::uhs_reg(0, 0, 0x5) | 
+        FsdifClkSrc::UHS_EXT_CLK_ENA;
         if 0x502 == reg_val.bits() {
-            debug!("invalid uhs config");
+            info!("invalid uhs config"); //* 经过检查没问题 */
         }
         //? 这里可能需要抽象出一个update_external_clk的函数
         self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
-        self.uhs_reg_set(0,0,0x5);
-        self.reg.modify_reg(|reg|{
-            FsdifClkSrc::UHS_EXT_CLK_ENA | reg
-        });
+        self.reg.write_reg(reg_val);
         self.reg.wait_for(|reg|{
             (FsdifClkSts::READY & reg).bits() != 0
         },Duration::from_millis((FSDIF_TIMEOUT/100).into()),Some(100))?;
@@ -134,6 +102,7 @@ impl MCI {
         (FsdifFifoTh::DMA_TRANS_MASK & (trans_size << 28).into()) |
         (FsdifFifoTh::RX_WMARK_MASK & (rx_wmark << 16).into()) |
         (FsdifFifoTh::TX_WMARK_MASK & tx_wmark.into());
+        info!("fifoth set to 0x{:x}",val); //* 经检查无问题 */
         self.reg.write_reg(val);
     }
 
@@ -145,7 +114,7 @@ impl MCI {
     */
     pub fn uhs_reg_set(&self,drv_phase: u32, samp_phase: u32, clk_div: u32) {
         self.reg.modify_reg(|reg|{
-            uhs_clk_drv(drv_phase) | uhs_clk_samp(samp_phase) |uhs_clk_div(clk_div)}
+            FsdifClkSrc::uhs_reg(drv_phase, samp_phase, clk_div)}
         );
     }
 
@@ -157,6 +126,7 @@ impl MCI {
                 !FsdifPwrEn::ENABLE & reg
             }
         });
+        info!("power set to 0x{:x}",self.reg.read_reg::<FsdifPwrEn>());
     }
 
     pub fn clock_set(&self, enable:bool){
@@ -167,6 +137,7 @@ impl MCI {
                 !FsdifClkEn::CCLK_ENABLE & reg
             }
         });
+        info!("clock set to 0x{:x}",self.reg.read_reg::<FsdifClkEn>()); //* 经检查无问题 */ */
     }
 
     pub fn clock_src_set(&self, enable:bool){
@@ -177,7 +148,7 @@ impl MCI {
                 !FsdifClkSrc::UHS_EXT_CLK_ENA & reg
             }
         });
-        
+        info!("clock src set to 0x{:x}",self.reg.read_reg::<FsdifClkSrc>()); //* 经检查已无误 */
     }
 
     pub fn voltage_1_8v_set(&self,enable:bool){
@@ -188,12 +159,13 @@ impl MCI {
                 !FsdifUhsReg::VOLT_180 & reg
             }
         });
+        info!("voltage set to 0x{:x}",self.reg.read_reg::<FsdifUhsReg>()); //* 经检查已无误 */
     }
 
     pub fn bus_width_set(&self, width: u32) -> FsdifResult {
         let reg_val:FsdifCType;
         if width == 1 {
-            reg_val = FsdifCType::CARD0_WIDTH1_8BIT;
+            reg_val = FsdifCType::CARD0_WIDTH2_1BIT;
         } else if width == 4 {
             reg_val = FsdifCType::CARD0_WIDTH2_4BIT;
         } else if width == 8 {
@@ -202,14 +174,25 @@ impl MCI {
             return Err(FsdifError::NotSupport);
         }
         self.reg.write_reg(reg_val);
+        info!("bus width set to 0x{:x}",self.reg.read_reg::<FsdifCType>());
         Ok(())
     }
 
     pub fn ctrl_reset(&self, reset_bits: FsdifCtrl) -> FsdifResult {
-        self.reg.write_reg(reset_bits.clone());
+        self.reg.modify_reg(|reg| {
+            reset_bits | reg
+        });
         self.reg.wait_for(|reg| {
             (reset_bits & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        /* update clock after reset */
+        self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?;
+        /* for fifo reset, need to check if fifo empty */
+        if reset_bits.contains(FsdifCtrl::FIFO_RESET) {
+            self.reg.wait_for(|reg| {
+                (FsdifStatus::FIFO_EMPTY & reg).bits() != 0
+            }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        }
         Ok(())
     }
 
@@ -218,7 +201,7 @@ impl MCI {
             (FsdifStatus::DATA_BUSY & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         self.reg.write_reg(FsdifCmdArg::from_bits_truncate(arg));
-        unsafe { dsb() };/* drain writebuffer */
+        // unsafe { dsb() };/* drain writebuffer */
         self.reg.write_reg(FsdifCmd::START | cmd);
         self.reg.wait_for(|reg|{
             (FsdifCmd::START & reg).bits() == 0
@@ -262,44 +245,62 @@ impl MCI {
         self.reg.write_reg(reg_val);
     }
 
+    pub fn busy_card_reset(&self) -> FsdifResult {
+        self.reg.modify_reg(|reg| {
+            FsdifCtrl::CONTROLLER_RESET | reg
+        });
+        self.reg.wait_for(|reg|{
+            self.reg.modify_reg(|reg| {
+                FsdifCtrl::CONTROLLER_RESET | reg
+            });
+            (FsdifStatus::DATA_BUSY & reg).bits() == 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        Ok(())
+    }
+
     pub fn reset(&self) -> FsdifResult {
+        /* check FsdifCtrl */
+        info!("FsdifCtrl: 0x{:x}",self.reg.read_reg::<FsdifCtrl>());
         /* set fifo */
         self.fifoth_set(
             FsdifFifoThDmaTransSize::DmaTrans8, 
             FSDIF_RX_WMARK, 
-            FSDIF_TX_WMARK);
+            FSDIF_TX_WMARK); //* 经检查已无误 */
         debug!("fifoth set success");
         /* set card threshold */
         self.reg.write_reg( 
             FsdifCardThrctl::CARDRD |
             FsdifFifoDepth::Depth8.card_thrctl_threshold().into());
+        info!("card threshold set to 0x{:x}",
+        (FsdifCardThrctl::CARDRD |
+        FsdifFifoDepth::Depth8.card_thrctl_threshold().into()).bits()); //* 经检查已无误 */
         debug!("card threshold set success");
         /* disable clock and update ext clk */
-        self.clock_set(false);
+        self.clock_set(false); //* 经检查已无误 */
         debug!("clock set success");
         /* set 1st clock */
-        self.init_external_clk()?;
+        self.init_external_clk()?; //* 经检查已无误 */
         debug!("external clock init success");
         /* power on */
-        self.power_set(true);
-        self.clock_set(true);
-        self.clock_src_set(true);
+        self.power_set(true); //* 经检查已无误 */
+        self.clock_set(true); //* 经检查已无误 */
+        self.clock_src_set(true); //* 经检查已无误 */
         debug!("power on success");
         /* set voltage as 3.3v */
-        self.voltage_1_8v_set(false);
+        self.voltage_1_8v_set(false); //* 经检查已无误 */
         debug!("voltage set to 3.3v");
         /* set bus width as 1 */
-        self.bus_width_set(1)?;
+        self.bus_width_set(1)?; //* 经检查已无误 */
         debug!("bus width set to 1");
         /* reset controller and card */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
             self.ctrl_reset(FsdifCtrl::FIFO_RESET | FsdifCtrl::DMA_RESET)?;
         } else {
-            self.ctrl_reset(FsdifCtrl::FIFO_RESET)?;
+            self.ctrl_reset(FsdifCtrl::FIFO_RESET)?; //* 经检查已无误 */
         }
         debug!("controller reset success");
         /* send private command to update clock */
-        self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?;
+        self.send_private_cmd(FsdifCmd::UPD_CLK, 0)?; //? 暂时不知道怎么检查 ?/
         debug!("send private command success");
         /* reset card for no-removeable media, e.g. eMMC */
         if self.config.non_removable {
@@ -311,14 +312,19 @@ impl MCI {
                 !FsdifCardReset::ENABLE & reg
             });
         }
+        info!("card reset to 0x{:x}",self.reg.read_reg::<FsdifCardReset>());
         debug!("card reset success");
-        /* clear interrupt status */
+        /* clear interrupt status */ //* 经检查已无误 */
         self.reg.write_reg(FsdifInt::empty());
+        info!("clear interrupt status to 0x{:x}",self.reg.read_reg::<FsdifInt>());
         let reg_val = self.reg.read_reg::<FsdifRawInts>();
         self.reg.write_reg(reg_val);
+        info!("clear interrupt status to 0x{:x}",self.reg.read_reg::<FsdifRawInts>());
         self.reg.write_reg(FsdifDmacIntEn::empty());
+        info!("clear interrupt status to 0x{:x}",self.reg.read_reg::<FsdifDmacIntEn>());
         let reg_val = self.reg.read_reg::<FsdifDmacStatus>();
         self.reg.write_reg(reg_val);
+        info!("clear interrupt status to 0x{:x}",self.reg.read_reg::<FsdifDmacStatus>());
         debug!("clear interrupt status success");
         /* enable card detect interrupt */
         if !self.config.non_removable {
@@ -326,16 +332,19 @@ impl MCI {
                 FsdifInt::CD_BIT | reg
             });
         }
+        info!("enable card detect interrupt to 0x{:x}",self.reg.read_reg::<FsdifInt>());
         debug!("enable card detect interrupt success");
         /* enable controller and internal DMA */
         self.reg.modify_reg(|reg|{
             FsdifCtrl::INT_ENABLE | FsdifCtrl::USE_INTERNAL_DMAC | reg
         });
+        info!("enable controller and internal DMA to 0x{:x}",self.reg.read_reg::<FsdifCtrl>()); //* 经检查已无误 */
         debug!("enable controller and internal DMA success");
         /* set data and resp timeout */
         self.reg.write_reg(FsdifTimeout::timeout_data(
             FsdifTimeout::MAX_DATA_TIMEOUT, 
             FsdifTimeout::MAX_RESP_TIMEOUT));
+        info!("set data and resp timeout to 0x{:x}",self.reg.read_reg::<FsdifTimeout>());
         debug!("set data and resp timeout success");
         /* reset descriptors and dma */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
@@ -347,6 +356,54 @@ impl MCI {
     }
 }
 
+//* Timing 相关的函数 */
+impl MCI {
+    pub fn timing_setting_get(&self) -> MCITiming {
+        
+    }
+    //? 这里需要定义一些const的MCITiming
+}
+
+//* CMD 相关的函数 */
+impl MCI {
+    pub fn block_size_set(&self, blksize: u32) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SetBlockLength as u32,
+            cmdarg: blksize,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        Ok(())
+    }
+    pub fn block_count_set(&self, blkcnt: u32) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SetBlockCount as u32,
+            cmdarg: blkcnt,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        Ok(())
+    }
+
+}
 
 //* PIO 相关的函数 */
 impl MCI {
@@ -370,6 +427,10 @@ impl MCI {
 
     pub fn pio_transfer(&self, cmd_data: &FSdifCmdData) -> FsdifResult {
         let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
+        //? 实验性代码
+        /* enable related interrupt */
+        self.interrupt_mask_set(FsDifIntrType::GeneralIntr, FsdifInt::INTS_DATA_MASK.bits(), true);
+        //? 实验性代码
         if !self.is_ready{
             error!("device is not yet initialized!!!");
             return Err(FsdifError::NotInit);
@@ -405,7 +466,7 @@ impl MCI {
             /* if need to write, write to fifo before send command */
             if !read { 
                 /* invalide buffer for data to write */
-                unsafe { dsb() };
+                // unsafe { dsb() };
                 self.pio_write_data(cmd_data.data.buf)?;
             }
         }
@@ -413,7 +474,7 @@ impl MCI {
         Ok(())
     }
 
-    pub fn poll_wait_pio_end(self,cmd_data: &mut FSdifCmdData) -> FsdifResult{
+    pub fn poll_wait_pio_end(&self,cmd_data: &mut FSdifCmdData) -> FsdifResult{
         let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
         if !self.is_ready {
             error!("device is not yet initialized!!!");
@@ -425,13 +486,13 @@ impl MCI {
         }
         info!("wait for PIO cmd to finish ...");
         self.reg.wait_for(|reg|{
-            (FsdifRawInts::CMD_BIT & reg).contains(FsdifRawInts::CMD_BIT)
+            (FsdifRawInts::CMD_BIT & reg).bits() != 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         /* if need to read data, read fifo after send command */
         if read {
             info!("wait for PIO data to read ...");
             self.reg.wait_for(|reg|{
-                (FsdifRawInts::DTO_BIT & reg).contains(FsdifRawInts::DTO_BIT)
+                (FsdifRawInts::DTO_BIT & reg).bits() != 0
             }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
             /* clear status to ack */
             self.raw_status_clear();
@@ -575,6 +636,7 @@ impl MCI {
         self.reg.addr.as_ptr() as usize );
         /* disable related interrupt */
         self.interrupt_mask_set(FsDifIntrType::GeneralIntr,(FsdifInt::INTS_CMD_MASK|FsdifInt::INTS_DATA_MASK).bits(),false);
+        self.interrupt_mask_set(FsDifIntrType::DmaIntr,FsdifDmacIntEn::INTS_MASK.bits(),false);
         info!("cmd send done ...");
         Ok(())
     }
@@ -594,6 +656,8 @@ impl MCI {
     }
 
     pub fn interrupt_mask_set(&self, tp: FsDifIntrType, set_mask: u32, enable: bool) {
+        info!("set_mask 0x{:x}",set_mask);
+        info!("enable {}",enable);
         let mut mask = self.interrupt_mask_get(tp);
         if enable {
             mask |= set_mask;
@@ -605,6 +669,56 @@ impl MCI {
         } else if FsDifIntrType::DmaIntr == tp {
             self.reg.write_reg(FsdifDmacIntEn::from_bits_truncate(mask));
         }
+        info!("FsdifInt 0x{:x}",self.reg.read_reg::<FsdifInt>());
+    }
+}
+
+impl MCI {
+    pub fn dump_register(&self) {
+        warn!("cntrl: 0x{:x}", self.reg.read_reg::<FsdifCtrl>());
+        warn!("pwren: 0x{:x}", self.reg.read_reg::<FsdifPwrEn>());
+        warn!("clkdiv: 0x{:x}", self.reg.read_reg::<FsdifClkDiv>());
+        warn!("clkena: 0x{:x}", self.reg.read_reg::<FsdifClkEn>());
+        warn!("tmout: 0x{:x}", self.reg.read_reg::<FsdifTimeout>());
+        warn!("ctype: 0x{:x}", self.reg.read_reg::<FsdifCType>());
+        warn!("blksz: 0x{:x}", self.reg.read_reg::<FsdifBlkSiz>());
+        warn!("blkcnt: 0x{:x}", self.reg.read_reg::<FsdifBytCnt>());
+        warn!("intmask: 0x{:x}", self.reg.read_reg::<FsdifInt>());
+        warn!("cmdarg: 0x{:x}", self.reg.read_reg::<FsdifCmdArg>());
+        warn!("cmd: 0x{:x}", self.reg.read_reg::<FsdifCmd>());
+        warn!("resp0: 0x{:x}", self.reg.read_reg::<FsdifResp0>());
+        warn!("reps1: 0x{:x}", self.reg.read_reg::<FsdifResp1>());
+        warn!("resp2: 0x{:x}", self.reg.read_reg::<FsdifResp2>());
+        warn!("resp3: 0x{:x}", self.reg.read_reg::<FsdifResp3>());
+        warn!("maskints: 0x{:x}", self.reg.read_reg::<FsdifMaskedInts>());
+        warn!("rawints: 0x{:x}", self.reg.read_reg::<FsdifRawInts>());
+        warn!("status: 0x{:x}", self.reg.read_reg::<FsdifStatus>());
+        warn!("fifoth: 0x{:x}", self.reg.read_reg::<FsdifFifoTh>());
+        warn!("carddet: 0x{:x}", self.reg.read_reg::<FsdifCardDetect>());
+        warn!("wrtprt: 0x{:x}", self.reg.read_reg::<FsdifCardWrtp>());
+        warn!("cksts: 0x{:x}", self.reg.read_reg::<FsdifClkSts>());
+        warn!("trans_cardcnt: 0x{:x}", self.reg.read_reg::<FsdifTranCardCnt>());
+        warn!("trans_fifocnt: 0x{:x}", self.reg.read_reg::<FsdifTranFifoCnt>());
+        warn!("debnce: 0x{:x}", self.reg.read_reg::<FsdifDebnce>());
+        warn!("uid: 0x{:x}", self.reg.read_reg::<FsdifUid>());
+        warn!("vid: 0x{:x}", self.reg.read_reg::<FsdifVid>());
+        warn!("hwconf: 0x{:x}", self.reg.read_reg::<FsdifHwconf>());
+        warn!("uhsreg: 0x{:x}", self.reg.read_reg::<FsdifUhsReg>());
+        warn!("cardreset: 0x{:x}", self.reg.read_reg::<FsdifCardReset>());
+        warn!("busmode: 0x{:x}", self.reg.read_reg::<FsdifBusMode>());
+        warn!("descaddrl: 0x{:x}", self.reg.read_reg::<FsdifDescListAddrL>());
+        warn!("descaddrh: 0x{:x}", self.reg.read_reg::<FsdifDescListAddrH>());
+        warn!("dmacstatus: 0x{:x}", self.reg.read_reg::<FsdifDmacStatus>());
+        warn!("dmacinten: 0x{:x}", self.reg.read_reg::<FsdifDmacIntEn>());
+        warn!("curdescaddrl: 0x{:x}", self.reg.read_reg::<FsdifCurDescAddrL>());
+        warn!("curdescaddrh: 0x{:x}", self.reg.read_reg::<FsdifCurDescAddrH>());
+        warn!("curbufaddrl: 0x{:x}", self.reg.read_reg::<FsdifCurBufAddrL>());
+        warn!("curbufaddrh: 0x{:x}", self.reg.read_reg::<FsdifCurBufAddrH>());
+        warn!("card_thrctl: 0x{:x}", self.reg.read_reg::<FsdifCardThrctl>());
+        warn!("clock_src: 0x{:x}", self.reg.read_reg::<FsdifClkSrc>());
+        warn!("emmcddr: 0x{:x}", self.reg.read_reg::<FsdifEmmcDdrReg>());
+        warn!("enableshift: 0x{:x}", self.reg.read_reg::<FsdifEnableShift>());
+
     }
 }
 
@@ -649,4 +763,42 @@ pub enum FsDifClkSpeed {
 #[inline(always)]
 pub unsafe fn dsb() {
     core::arch::asm!("dsb sy", options(nostack, preserves_flags));
+}
+
+pub enum FsDifCommand {
+    GoIdleState        = 0,  /*< Go Idle State */
+    AllSendCid         = 2,  /*< All Send CID */
+    SetDsr             = 4,  /*< Set DSR */
+    SelectCard         = 7,  /*< Select Card */
+    SendCsd            = 9,  /*< Send CSD */
+    SendCid            = 10, /*< Send CID */
+    StopTransmission   = 12, /*< Stop Transmission */
+    SendStatus         = 13, /*< Send Status */
+    GoInactiveState    = 15, /*< Go Inactive State */
+    SetBlockLength     = 16, /*< Set Block Length */
+    ReadSingleBlock    = 17, /*< Read Single Block */
+    ReadMultipleBlock  = 18, /*< Read Multiple Block */
+    SetBlockCount      = 23, /*< Set Block Count */
+    WriteSingleBlock   = 24, /*< Write Single Block */
+    WriteMultipleBlock = 25, /*< Write Multiple Block */
+    ProgramCsd         = 27, /*< Program CSD */
+    SetWriteProtect    = 28, /*< Set Write Protect */
+    ClearWriteProtect  = 29, /*< Clear Write Protect */
+    SendWriteProtect   = 30, /*< Send Write Protect */
+    Erase              = 38, /*< Erase */
+    LockUnlock         = 42, /*< Lock Unlock */
+    ApplicationCommand = 55, /*< Send Application Command */
+    GeneralCommand     = 56, /*< General Purpose Command */
+    ReadOcr            = 58, /*< Read OCR */
+}
+
+pub enum FsDifSDIndivCommand {
+    SendRelativeAddress    = 3,  /*< Send Relative Address */
+    Switch                 = 6,  /*< Switch Function */
+    SendInterfaceCondition = 8,  /*< Send Interface Condition */
+    VoltageSwitch          = 11, /*< Voltage Switch */
+    SpeedClassControl      = 20, /*< Speed Class control */
+    EraseWriteBlockStart   = 32, /*< Write Block Start */
+    EraseWriteBlockEnd     = 33, /*< Write Block End */
+    SendTuningBlock        = 19, /*< Send Tuning Block */
 }
