@@ -103,3 +103,7 @@ pub trait RegError {
 pub trait FlagReg: Flags<Bits = u32> {
     const REG: u32;
 }
+
+pub trait OffSetReg {
+
+}

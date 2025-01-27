@@ -3,6 +3,7 @@ pub mod constants;
 mod regs;
 
 use core::ptr::NonNull;
+use bitflags::Bits;
 use constants::*;
 use err::*;
 use regs::{XReg0,XReg1};
@@ -28,97 +29,116 @@ impl IoPad {
         }
     }
 
-    pub fn func_get<T: FlagReg + XReg0>(&self) -> FioPadFunc {
+    pub fn func_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadFunc {
         let reg_val = self.reg.read_reg::<T>();
-        let func = T::func_get(reg_val.into());
-        return FioPadFunc::from(func);
+        let func = T::func_get(reg_val);
+        func.into()
     }
 
-    pub fn func_set<T: FlagReg + XReg0>(&mut self, func: FioPadFunc) {
+    pub fn func_set<T: FlagReg + XReg0 + Bits>(&mut self, func: FioPadFunc) {
         self.reg.modify_reg::<T>(|reg| {
-            (reg.into() | T::func_set(func.into()).into()).into()
+            reg | T::func_set(func.into())
         });
     }
 
-    pub fn pull_get<T: FlagReg + XReg0>(&self) -> FioPadPull {
+    pub fn pull_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadPull {
         let reg_val = self.reg.read_reg::<T>();
-        let pull = T::pull_get(reg_val.into());
-        return FioPadPull::from(pull);
+        let pull = T::pull_get(reg_val);
+        pull.into()
     }
 
-    pub fn pull_set<T: FlagReg + XReg0>(&mut self, pull: FioPadPull) {
+    pub fn pull_set<T: FlagReg + XReg0 + Bits>(&mut self, pull: FioPadPull) {
         self.reg.modify_reg::<T>(|reg| {
-            (reg.into() | T::pull_set(pull.into()).into()).into()
+            reg | T::pull_set(pull.into())
         });
     }
 
-    pub fn drive_get<T: FlagReg + XReg0>(&self) -> FioPadDrive {
+    pub fn drive_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadDrive {
         let reg_val = self.reg.read_reg::<T>();
-        let drive = T::drive_get(reg_val.into());
-        return FioPadDrive::from(drive);
+        let drive = T::drive_get(reg_val);
+        drive.into()
     }
 
-    pub fn drive_set<T: FlagReg + XReg0>(&mut self, drive: FioPadDrive) {
+    pub fn drive_set<T: FlagReg + XReg0 + Bits>(&mut self, drive: FioPadDrive) {
         self.reg.modify_reg::<T>(|reg| {
-            (reg.into() | T::drive_set(drive.into()).into()).into()
+            reg | T::drive_set(drive.into())
         });
     }
 
-    pub fn config_set<T: FlagReg + XReg0>(&mut self, func: FioPadFunc, pull: FioPadPull, drive: FioPadDrive) {
+    pub fn config_set<T: FlagReg + XReg0 + Bits>(&mut self, func: FioPadFunc, pull: FioPadPull, drive: FioPadDrive) {
         self.reg.modify_reg::<T>(|reg| {
-            (T::func_set(func.into()).into() | T::pull_set(pull.into()).into() | T::drive_set(drive.into()).into()).into()
+            reg | T::func_set(func.into()) | T::pull_set(pull.into()) | T::drive_set(drive.into())
         });
     }
 
-    pub fn config_get <T: FlagReg + XReg0>(&self) -> (FioPadFunc, FioPadPull, FioPadDrive) {
+    pub fn config_get <T: FlagReg + XReg0 + Bits>(&self) -> (FioPadFunc, FioPadPull, FioPadDrive) {
         let reg_val = self.reg.read_reg::<T>();
-        let func = T::func_get(reg_val.into());
-        let pull = T::pull_get(reg_val.into());
-        let drive = T::drive_get(reg_val.into());
+        let func = T::func_get(reg_val);
+        let pull = T::pull_get(reg_val);
+        let drive = T::drive_get(reg_val);
         return (FioPadFunc::from(func), FioPadPull::from(pull), FioPadDrive::from(drive));
     }
 
-    pub fn delay_get <T: FlagReg + XReg1>(&self,dir:FioPadDelayDir,typ:FioPadDelayType) -> FioPadDelay {
+    pub fn delay_get <T: FlagReg + XReg1 + Bits>(&self,dir:FioPadDelayDir,typ:FioPadDelayType) -> FioPadDelay {
         let reg_val = self.reg.read_reg::<T>();
-        let delay:T;
+        let mut delay= 0;
         if dir == FioPadDelayDir::OutputDelay {
             if typ == FioPadDelayType::DelayFineTuning {
-                delay = T::out_delay_delicate_get(reg_val.into());
+                delay = T::out_delay_delicate_get(reg_val);
             } else if typ == FioPadDelayType::DelayCoarseTuning {
-                delay = T::out_delay_rough_get(reg_val.into());
+                delay = T::out_delay_rough_get(reg_val);
             }
         } else if dir == FioPadDelayDir::InputDelay {
             if typ == FioPadDelayType::DelayFineTuning {
-                delay = T::in_delay_delicate_get(reg_val.into());
+                delay = T::in_delay_delicate_get(reg_val);
             } else if typ == FioPadDelayType::DelayCoarseTuning {
-                delay = T::in_delay_rough_get(reg_val.into());
+                delay = T::in_delay_rough_get(reg_val);
             }
         }
         delay.into()
     }
 
-    pub fn delay_set <T: FlagReg + XReg1>(&mut self, dir:FioPadDelayDir, typ:FioPadDelayType, delay: FioPadDelay) {
-        let reg_val = self.reg.read_reg::<T>();
+    pub fn delay_set <T: FlagReg + XReg1 + Bits>(&mut self, dir:FioPadDelayDir, typ:FioPadDelayType, delay: FioPadDelay) {
         if dir == FioPadDelayDir::OutputDelay {
             if typ == FioPadDelayType::DelayFineTuning {
                 self.reg.modify_reg::<T>(|reg| {
-                    (reg.into() | T::out_delay_delicate_set(delay.into()).into()).into()
+                    reg | T::out_delay_delicate_set(delay.into())
                 });
             } else if typ == FioPadDelayType::DelayCoarseTuning {
                 self.reg.modify_reg::<T>(|reg| {
-                    (reg.into() | T::out_delay_rough_set(delay.into()).into()).into()
+                    reg | T::out_delay_rough_set(delay.into())
                 });
             }
         } else if dir == FioPadDelayDir::InputDelay {
             if typ == FioPadDelayType::DelayFineTuning {
                 self.reg.modify_reg::<T>(|reg| {
-                    (reg.into() | T::in_delay_delicate_set(delay.into()).into()).into()
+                    reg | T::in_delay_delicate_set(delay.into())
                 });
             } else if typ == FioPadDelayType::DelayCoarseTuning {
                 self.reg.modify_reg::<T>(|reg| {
-                    (reg.into() | T::in_delay_rough_set(delay.into()).into()).into()
+                    reg | T::in_delay_rough_set(delay.into())
                 });
             }
+        }
+    }
+
+    pub fn delay_enable_set <T: FlagReg + XReg1 + Bits>(&mut self, dir:FioPadDelayDir, enable: bool) {
+        if dir == FioPadDelayDir::OutputDelay {
+            self.reg.modify_reg::<T>(|reg| {
+                if enable {
+                    reg | T::out_delay_en()
+                } else {
+                    reg & !T::out_delay_en()
+                }
+            });
+        } else if dir == FioPadDelayDir::InputDelay {
+            self.reg.modify_reg::<T>(|reg| {
+                if enable {
+                    reg | T::in_delay_en()
+                } else {
+                    reg & !T::in_delay_en()
+                }
+            });
         }
     }
 

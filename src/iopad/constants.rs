@@ -1,5 +1,3 @@
-use super::regs::{XReg0,XReg1};
-
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 pub enum FioPadFunc {
@@ -44,13 +42,6 @@ impl Into<u32> for FioPadFunc {
             FioPadFunc::Func7 => 0b111,
             _ => panic!("Invalid value for FioPadFunc")
         }
-    }
-}
-
-impl<T: XReg0> From<T> for FioPadFunc {
-    fn from(value: T) -> Self {
-        let value:u32 = value.into();
-        value.into()
     }
 }
 
@@ -125,13 +116,6 @@ impl Into<u32> for FioPadDrive {
     }
 }
 
-impl<T: XReg0> From<T> for FioPadDrive {
-    fn from(value: T) -> Self {
-        let value:u32 = value.into();
-        value.into()
-    }
-}
-
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 pub enum FioPadPull {
@@ -161,13 +145,6 @@ impl Into<u32> for FioPadPull {
             FioPadPull::PullUp => 0b10,
             _ => panic!("Invalid value for FioPadPull")
         }
-    }
-}
-
-impl<T: XReg0> From<T> for FioPadPull {
-    fn from(value: T) -> Self {
-        let value:u32 = value.into();
-        value.into()
     }
 }
 
@@ -213,6 +190,7 @@ pub enum FioPadDelayType {
 }
 
 #[derive(Debug)]
+#[derive(Clone, Copy)]
 pub enum FioPadDelay {
     DelayNone = 0,
     Delay1,
@@ -255,13 +233,6 @@ impl Into<u32> for FioPadDelay {
             FioPadDelay::Delay7 => 7,
             _ => panic!("Invalid value for FioPadDelay")
         }
-    }
-}
-
-impl<T: XReg1> From<T> for FioPadDelay {
-    fn from(value: T) -> Self {
-        let value:u32 = value.into();
-        value.into()
     }
 }
 
