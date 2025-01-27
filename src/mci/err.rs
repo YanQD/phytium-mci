@@ -1,3 +1,5 @@
+use super::RegError;
+
 #[derive(Debug)]
 pub enum FsdifError {
     Timeout,
@@ -11,6 +13,12 @@ pub enum FsdifError {
     Busy,
     DmaBufUnalign,
     InvalidTiming,
+}
+
+impl RegError for FsdifError {
+    fn timeout() -> Self {
+        FsdifError::Timeout
+    }
 }
 
 pub type FsdifResult<T=()> = Result<T, FsdifError>;

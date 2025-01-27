@@ -17,6 +17,14 @@
 
 [V0.2.0版本](https://gitee.com/phytium_embedded/phytium-standalone-sdk/tree/v0.2.0/)
 
+# Soc型号
+
+
+这个包括丝印和一些其它的地方都不提及.
+
+> 根据我的查阅应该是E2000Q
+
+
 # 资源
 
 [飞腾派数据手册V1.0版本](https://github.com/arceos-usb/arceos_experiment/blob/usb-camera-base/doc/resources/%E9%A3%9E%E8%85%BE%E6%B4%BE%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8CV1.0%E7%89%88%E6%9C%AC.pdf)
@@ -67,18 +75,18 @@
 
 使用仓库:https://github.com/qclic/arceos/tree/bsp/phytium_pi
 
-注意`clone`下来的是`qcl_dev`分支,本次实验也是使用的这个分支.
+注意 `clone`下来的是 `qcl_dev`分支,本次实验也是使用的这个分支.
 
-如果要切换到`bsp/phytium_pi`分支,执行`git checkout bsp/phytium`.
+如果要切换到 `bsp/phytium_pi`分支,执行 `git checkout bsp/phytium`.
 
 原理:
 
-1. 使用本地`ostool`,可直接访问USB和网卡,可以使用`uboot.rs`脚本执行串口/网卡的选择,并且建立FTP服务器.
-2. 使用`Docker`环境,编译`ArceOS`的镜像.
-3. 使用`ubuntu`或者`debian`的`UBOOT`,使用FTP服务器把编译好的`.bin`文件烧录进`phytium`.
+1. 使用本地 `ostool`,可直接访问USB和网卡,可以使用 `uboot.rs`脚本执行串口/网卡的选择,并且建立FTP服务器.
+2. 使用 `Docker`环境,编译 `ArceOS`的镜像.
+3. 使用 `ubuntu`或者 `debian`的 `UBOOT`,使用FTP服务器把编译好的 `.bin`文件烧录进 `phytium`.
 4. 需要把串口接好,网口无论是通过路由器作为交换机还是直接网线连接物理网卡,都可以.
 
-因此,我们需要构建`windows`上的`rust`开发环境,并且需要搭建一个用于编译的`Docker`环境.
+因此,我们需要构建 `windows`上的 `rust`开发环境,并且需要搭建一个用于编译的 `Docker`环境.
 
 ## 环境搭建
 
@@ -95,6 +103,7 @@ cargo install ostool
 ```
 
 构建过程中出现问题:
+
 ```shell
 error[E0463]: can't find crate for `std`
   |
@@ -104,7 +113,7 @@ error[E0463]: can't find crate for `std`
 ```
 
 > `rustup component add rust-std`安上标准库即可
-> 因为是在`x86`上构建的环境`rustup target add aarch64-unknown-none`添加这个编译目标项
+> 因为是在 `x86`上构建的环境 `rustup target add aarch64-unknown-none`添加这个编译目标项
 
 #### Docker环境搭建
 
@@ -114,7 +123,7 @@ error[E0463]: can't find crate for `std`
 
 ##### 预先pull一个镜像
 
-> 使用的国内能够`pull`下来的镜像
+> 使用的国内能够 `pull`下来的镜像
 
 ```shell
 docker pull doublezonline.cloud/library/rust:slim
@@ -122,7 +131,8 @@ docker pull doublezonline.cloud/library/rust:slim
 
 ##### ~~构建Docker环境(可以不构建)~~
 
-修改`Dockerfile`内容,把第一行换成镜像站下载的名称:
+修改 `Dockerfile`内容,把第一行换成镜像站下载的名称:
+
 ```docker
 FROM doublezonline.cloud/library/rust:slim
 ... ...
@@ -132,15 +142,15 @@ FROM doublezonline.cloud/library/rust:slim
 docker build -t arceos -f Dockerfile .
 ```
 
-##### ~~~~进入docker环境(可以不进入)~~
+##### ~~进入docker环境(可以不进入)~~
 
-> 原本的指令`$(pwd)`不能在`powershell`里被识别,换成`${PWD}`
+> 原本的指令 `$(pwd)`不能在 `powershell`里被识别,换成 `${PWD}`
 
 ```shell
 docker run -it -v ${PWD}:/arceos -w /arceos arceos bash
 ```
 
-##### ~~~~尝试运行ArceOS by QEMU(可以不测试)~~
+##### ~~尝试运行ArceOS by QEMU(可以不测试)~~
 
 ```shell
 make A=examples/helloworld ARCH=aarch64 run
@@ -184,9 +194,9 @@ sudo setcap cap_net_bind_service=+eip $(which ostool)
 ostool run uboot
 ```
 
-会生成一个`.project.toml`,如果需要调整就可以删除它重新生成.
+会生成一个 `.project.toml`,如果需要调整就可以删除它重新生成.
 
-这里由于当前版本的`ostool`不支持选择`platform`.
+这里由于当前版本的 `ostool`不支持选择 `platform`.
 
 ```toml
 [compile]
@@ -206,10 +216,11 @@ args = "-smp 2"
 ... ...
 ```
 
-只需保存你的`[uboot]`的部分,其余部分:
-1. 调整了`make`语句,增加了PLATFORM=aarch64-phytium-pi
-2. 调整`elf`文件名
-3. 如果需要更改`APP`名称,需要修改`make`里的`A=`和`elf`名称
+只需保存你的 `[uboot]`的部分,其余部分:
+
+1. 调整了 `make`语句,增加了PLATFORM=aarch64-phytium-pi
+2. 调整 `elf`文件名
+3. 如果需要更改 `APP`名称,需要修改 `make`里的 `A=`和 `elf`名称
 
 ## 解析OStools代码
 
@@ -221,11 +232,11 @@ args = "-smp 2"
 
 ## 尝试运行
 
-类似于`ArceOS-Phytium`的同样运行原理,用`ostool`编译/烧录/运行相关的程序代码.
+类似于 `ArceOS-Phytium`的同样运行原理,用 `ostool`编译/烧录/运行相关的程序代码.
 
-> 一定要记得`reset`.
+> 一定要记得 `reset`.
 
-生成的`.bare-test.toml`如下所示:
+生成的 `.bare-test.toml`如下所示:
 
 ```toml
 serial = "COM7"
@@ -240,13 +251,14 @@ dtb_file = "frimware/phytium.dtb"
 
 ### 了解接口和寄存器
 
-寄存器都存放在`drivers\mmc\fsdif\fsdif_hw.h`里,考虑把它整体先转为`rust`,放在`src\constants.rs`.并且注意在`src\lib.rs`里声明这个模块.
+寄存器都存放在 `drivers\mmc\fsdif\fsdif_hw.h`里,考虑把它整体先转为 `rust`,放在 `src\constants.rs`.并且注意在 `src\lib.rs`里声明这个模块.
 
 ### 接口移植
 
 **FSdifCfgInitialize**:初始化SDIF控制器初始化
 
 > FSdifCfgInitialize 调用了 FSdifReset
+>
 > 1. 说明有的接口是做了但是不开放的,要考虑
 > 2. 要首先实现这个 FSdifReset
 
@@ -256,13 +268,14 @@ dtb_file = "frimware/phytium.dtb"
 
 > 这里的第一反应是去看Win32DiskImager,但是没有得到具体答案.
 
-这里直接登录烧录进去的`ubuntu`系统.
+这里直接登录烧录进去的 `ubuntu`系统.
 
-> 这里注意`飞腾派V3版本ubuntu镜像 241212\更新日志.txt`里有很多我们需要的信息
+> 这里注意 `飞腾派V3版本ubuntu镜像 241212\更新日志.txt`里有很多我们需要的信息
 > 用户名:user
 > 密码:user
 
 查看分区:
+
 ```shell
 user@Phytium-Pi:~$ lsblk
 NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
@@ -276,7 +289,8 @@ loop6         7:6    0  38.7M  1 loop /snap/snapd/23546
 mmcblk0     179:0    0 116.5G  0 disk
 └─mmcblk0p1 179:1    0 116.5G  0 part /
 ```
-可以看到我们插入的128G的SD卡还有116.5G,是被设置为了`disk`.
+
+可以看到我们插入的128G的SD卡还有116.5G,是被设置为了 `disk`.
 这时候我们就需要它的地址.
 
 查看起止地址:`sudo fdisk -l /dev/mmcblk0`
@@ -293,7 +307,9 @@ I/O 大小(最小/最佳)：512 字节 / 512 字节
 设备           启动   起点      末尾      扇区   大小 Id 类型
 /dev/mmcblk0p1      131072 244342783 244211712 116.5G 83 Linux
 ```
+
 按byte读取sd卡内容:
+
 ```shell
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=1 count=1024
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=2 skip=999

@@ -1,5 +1,12 @@
 #![allow(unused)] 
 #![feature(asm)]
+
+mod regs;
+mod err;
+mod constants;
+mod mci_config;
+mod mci_timing;
+
 use core::arch::asm;
 use core::default;
 use core::ptr::NonNull;
@@ -10,17 +17,19 @@ use log::info;
 use log::warn;
 use bitflags::{bitflags, Flags};
 
-use crate::constants::*;
-use crate::mci_timing::*;
-use crate::mci_config::*;
 use crate::regs::*;
-use crate::err::{FsdifError, FsdifResult};
 use crate::set_reg32_bits;
+
+use regs::*;
+use constants::*;
+use mci_timing::*;
+use mci_config::*;
+use err::{FsdifError, FsdifResult};
 
 //* 核心数据结构 */
 pub struct MCI {
     config: MCIConfig,
-    reg: Reg,
+    reg: FsdifReg,
     is_ready: bool,
     prev_cmd: u32,
     curr_timing: MCITiming,
@@ -28,7 +37,7 @@ pub struct MCI {
 impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
         MCI {
-            reg: Reg::new(reg_base),
+            reg: FsdifReg::new(reg_base),
             config: MCIConfig::new(),
             //* 暂时无脑True */
             is_ready: true,
@@ -62,18 +71,24 @@ impl MCI {
         self.reg.write_reg(FsdifBlkSiz::from_bits_truncate(blksize));
     }
 
-    pub fn clk_freq_set(&self, clk_hz: u32) {
+    pub fn clk_freq_set(&self, clk_hz: u32) -> FsdifResult {
         let mut reg_val = FsdifCmd::UPD_CLK;
         let cmd_reg = self.reg.read_reg::<FsdifCmd>();
         let cur_cmd_index =  cmd_reg.index_get();
         if cur_cmd_index == FsDifSDIndivCommand::VoltageSwitch as u32 {
             reg_val |= FsdifCmd::VOLT_SWITCH;
         }
-        if clk_hz >0 && self.config.get_tuning!=default_tuning {
-            let clk_hz = clk_hz.into();
-            let target_timing = (self.config.get_tuning)(clk_hz,self.config.non_removable);
+        if clk_hz > 0 && self.config.get_tuning as usize != default_tuning as usize {
+            /* select board-related time-tuning configurations */
+            let target_timing = (self.config.get_tuning)(clk_hz.into(),self.config.non_removable);
+            if target_timing == MMC_SD_NULL {
+                error!("No available timeing !!!");
+                return Err(FsdifError::InvalidTiming);
+            }
+            /* update pad delay */
+            
         }
-        // ! 写到这里不想写了
+        Ok(())
     }
 
     pub fn init_external_clk(&self) -> FsdifResult {

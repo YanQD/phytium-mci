@@ -1,6 +1,6 @@
-use crate::{mci_timing::*, FsDifClkSpeed, FsDifTransMode};
+use crate::mci::{mci_timing::*, FsDifClkSpeed, FsDifTransMode};
 
-type GetTuning = fn(clock_freq: FsDifClkSpeed, non_removable: bool) -> MCITiming;
+type GetTuning = fn(clock_freq: FsDifClkSpeed, non_removable: bool) -> &'static MCITiming;
 pub struct MCIConfig {
     pub instance_id: u32,           /* Device instance id */
     pub irq_num: u32,               /* Device IRQ number */
@@ -22,10 +22,3 @@ impl MCIConfig {
     }
 }
 
-pub fn default_tuning(_clock_freq: FsDifClkSpeed, _non_removable: bool) -> MCITiming {
-    MMC_SD_NULL
-}
-
-fn MCIGetTimingSetting(clock_freq: FsDifClkSpeed, non_removable: bool) -> MCITiming {
-    
-}

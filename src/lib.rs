@@ -4,13 +4,10 @@ extern crate alloc;
 
 use core::time::Duration;
 
-mod constants;
 #[macro_use]
 mod regs;
-mod err;
 mod mci;
-mod mci_timing;
-mod mci_config;
+mod iopad;
 
 pub use mci::*;
 
