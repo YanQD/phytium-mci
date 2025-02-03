@@ -1,17 +1,17 @@
+#![allow(unused)] 
 mod err;
 pub mod constants;
-mod regs;
+pub mod regs;
 
 use core::ptr::NonNull;
-use bitflags::Bits;
 use constants::*;
 use err::*;
-use regs::{XReg0,XReg1};
+use regs::{BitsOps, XReg0, XReg1};
 use crate::regs::{FlagReg, Reg};
 
 type IoPadReg = Reg<FioPadError>;
 
-struct IoPad {
+pub struct IoPad {
     reg: IoPadReg,
     is_ready: bool,
 }
@@ -29,49 +29,49 @@ impl IoPad {
         }
     }
 
-    pub fn func_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadFunc {
+    pub fn func_get<T: FlagReg + XReg0 + BitsOps>(&self) -> FioPadFunc {
         let reg_val = self.reg.read_reg::<T>();
         let func = T::func_get(reg_val);
         func.into()
     }
 
-    pub fn func_set<T: FlagReg + XReg0 + Bits>(&mut self, func: FioPadFunc) {
+    pub fn func_set<T: FlagReg + XReg0 + BitsOps>(&mut self, func: FioPadFunc) {
         self.reg.modify_reg::<T>(|reg| {
             reg | T::func_set(func.into())
         });
     }
 
-    pub fn pull_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadPull {
+    pub fn pull_get<T: FlagReg + XReg0 + BitsOps>(&self) -> FioPadPull {
         let reg_val = self.reg.read_reg::<T>();
         let pull = T::pull_get(reg_val);
         pull.into()
     }
 
-    pub fn pull_set<T: FlagReg + XReg0 + Bits>(&mut self, pull: FioPadPull) {
+    pub fn pull_set<T: FlagReg + XReg0 + BitsOps>(&mut self, pull: FioPadPull) {
         self.reg.modify_reg::<T>(|reg| {
             reg | T::pull_set(pull.into())
         });
     }
 
-    pub fn drive_get<T: FlagReg + XReg0 + Bits>(&self) -> FioPadDrive {
+    pub fn drive_get<T: FlagReg + XReg0 + BitsOps>(&self) -> FioPadDrive {
         let reg_val = self.reg.read_reg::<T>();
         let drive = T::drive_get(reg_val);
         drive.into()
     }
 
-    pub fn drive_set<T: FlagReg + XReg0 + Bits>(&mut self, drive: FioPadDrive) {
+    pub fn drive_set<T: FlagReg + XReg0 + BitsOps>(&mut self, drive: FioPadDrive) {
         self.reg.modify_reg::<T>(|reg| {
             reg | T::drive_set(drive.into())
         });
     }
 
-    pub fn config_set<T: FlagReg + XReg0 + Bits>(&mut self, func: FioPadFunc, pull: FioPadPull, drive: FioPadDrive) {
+    pub fn config_set<T: FlagReg + XReg0 + BitsOps>(&mut self, func: FioPadFunc, pull: FioPadPull, drive: FioPadDrive) {
         self.reg.modify_reg::<T>(|reg| {
             reg | T::func_set(func.into()) | T::pull_set(pull.into()) | T::drive_set(drive.into())
         });
     }
 
-    pub fn config_get <T: FlagReg + XReg0 + Bits>(&self) -> (FioPadFunc, FioPadPull, FioPadDrive) {
+    pub fn config_get <T: FlagReg + XReg0 + BitsOps + Copy>(&self) -> (FioPadFunc, FioPadPull, FioPadDrive) {
         let reg_val = self.reg.read_reg::<T>();
         let func = T::func_get(reg_val);
         let pull = T::pull_get(reg_val);
@@ -79,7 +79,7 @@ impl IoPad {
         return (FioPadFunc::from(func), FioPadPull::from(pull), FioPadDrive::from(drive));
     }
 
-    pub fn delay_get <T: FlagReg + XReg1 + Bits>(&self,dir:FioPadDelayDir,typ:FioPadDelayType) -> FioPadDelay {
+    pub fn delay_get <T: FlagReg + XReg1 + BitsOps>(&self,dir:FioPadDelayDir,typ:FioPadDelayType) -> FioPadDelay {
         let reg_val = self.reg.read_reg::<T>();
         let mut delay= 0;
         if dir == FioPadDelayDir::OutputDelay {
@@ -98,7 +98,7 @@ impl IoPad {
         delay.into()
     }
 
-    pub fn delay_set <T: FlagReg + XReg1 + Bits>(&mut self, dir:FioPadDelayDir, typ:FioPadDelayType, delay: FioPadDelay) {
+    pub fn delay_set <T: FlagReg + XReg1 + BitsOps>(&mut self, dir:FioPadDelayDir, typ:FioPadDelayType, delay: FioPadDelay) {
         if dir == FioPadDelayDir::OutputDelay {
             if typ == FioPadDelayType::DelayFineTuning {
                 self.reg.modify_reg::<T>(|reg| {
@@ -122,7 +122,7 @@ impl IoPad {
         }
     }
 
-    pub fn delay_enable_set <T: FlagReg + XReg1 + Bits>(&mut self, dir:FioPadDelayDir, enable: bool) {
+    pub fn delay_enable_set <T: FlagReg + XReg1 + BitsOps>(&mut self, dir:FioPadDelayDir, enable: bool) {
         if dir == FioPadDelayDir::OutputDelay {
             self.reg.modify_reg::<T>(|reg| {
                 if enable {

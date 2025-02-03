@@ -26,6 +26,8 @@ use mci_timing::*;
 use mci_config::*;
 use err::{FsdifError, FsdifResult};
 
+use crate::sleep;
+
 //* 核心数据结构 */
 pub struct MCI {
     config: MCIConfig,
@@ -86,8 +88,131 @@ impl MCI {
                 return Err(FsdifError::InvalidTiming);
             }
             /* update pad delay */
-            
+            if target_timing.pad_delay as usize != fsdif_sdifdelay_null as usize {
+                (target_timing.pad_delay)(self.config.instance_id);
+            }
+            /* update clock source setting */
+            self.update_exteral_clk(FsdifClkSrc::from_bits_retain(target_timing.clk_src))?;
+            self.clock_set(false);
+            /* update clock for clock source */
+            if cur_cmd_index == FsDifSDIndivCommand::VoltageSwitch as u32 {
+                self.send_private_cmd11(reg_val | cmd_reg)?;
+            } else {
+                self.send_private_cmd(reg_val, 0)?;
+            }
+            /* set clock divider */
+            self.reg.write_reg(FsdifClkDiv::from_bits_truncate(target_timing.clk_div));
+            self.reg.write_reg(FsdifEnableShift::from_bits_truncate(target_timing.shift));
+            info!("clk_src: 0x{:x} clk_div: 0x{:x}, shift: 0x{:x}",
+                self.reg.read_reg::<FsdifClkSrc>(),
+                self.reg.read_reg::<FsdifClkDiv>(),
+                self.reg.read_reg::<FsdifEnableShift>());
+            self.clock_set(true);
+            /* update clock for clock divider */
+            if cur_cmd_index == FsDifSDIndivCommand::VoltageSwitch as u32 {
+                self.send_private_cmd11(reg_val | cmd_reg)?;
+            } else {
+                self.send_private_cmd(reg_val, 0)?;
+            }
+        } else {
+            /* close bus clock in case target clock is 0 */
+            self.clock_set(false);
+
+            if cur_cmd_index == FsDifSDIndivCommand::VoltageSwitch as u32 {
+                self.send_private_cmd11(reg_val | cmd_reg)?;
+            } else {
+                self.send_private_cmd(reg_val, 0)?;
+            }
         }
+        Ok(())
+    }
+
+    pub fn select_bus_timing(&self) -> FsdifResult {
+        /* group 1, function 1 ->high speed mode*/
+        
+        /* card is in UHS_I mode */ // todo 暂时不需要
+        Ok(())
+    }
+
+    pub fn check_if_card_busy(&self) -> bool {
+        let reg_val = self.reg.read_reg::<FsdifStatus>();
+        (FsdifStatus::DATA_BUSY & reg_val).bits() != 0
+    }
+
+    pub fn prob_bus_voltage(&self) -> FsdifResult {
+        let mut application_command41_argument = SdOcrFlag::empty(); /* OCR arguments */
+        /* 3.3V voltage should be supported as default */
+        application_command41_argument |= SdOcrFlag::VDD_29_30 | SdOcrFlag::VDD_32_33 | SdOcrFlag::VDD_34_35;
+        /*
+        * If card is high capacity (SDXC or SDHC), and supports 1.8V signaling,
+        * switch to new signal voltage using "signal voltage switch procedure"
+        * described in SD specification
+        */
+        // todo 这里高速的部分用不到
+        // todo card->operationVoltage = kSDMMC_OperationVoltage330V;
+        /* send card active */ //* 空函数 */
+
+        loop {
+            /* card go idle */
+            self.go_idle()?; // CMD0
+            match self.send_interface_condition() { /* CMD8 */
+                Ok(_) => {
+                    /* SDHC or SDXC card */
+                    application_command41_argument |= SdOcrFlag::CARD_CAPACITY_SUPPORT;
+                    // todo card->flags |= (uint32_t)kSD_SupportSdhcFlag;
+                },
+                Err(_) => {
+                    /* SDSC card */
+                    self.go_idle()?; /* make up for legacy card which do not support CMD8 */
+                }
+            }
+            self.application_send_opration_condition(application_command41_argument)?; /* ACMD41 */
+            /* Set card interface condition according to SDHC capability and card's supported interface condition. */
+            /* check if card support 1.8V */ //* 这里可以暂时跳过 */
+            break;
+        }
+
+        Ok(())
+    }
+
+    pub fn card_power_set(&self, enable: bool) {
+        self.reg.modify_reg(|reg| {
+            if enable {
+                FsdifPwrEn::ENABLE | reg
+            } else {
+                !FsdifPwrEn::ENABLE & reg
+            }
+        });
+    }
+
+    //* 因为暂时不会被调用而不去实现 */
+    pub fn io_voltage_switch(&self) {
+        todo!()
+    }
+
+    pub fn switch_to_voltage(&self,voltage:SdmmcOperationVoltage)  {
+        match voltage {
+            SdmmcOperationVoltage::V330V => {
+                self.voltage_1_8v_set(false);
+            }
+            SdmmcOperationVoltage::V300V => {
+                self.voltage_1_8v_set(false);
+            }
+            SdmmcOperationVoltage::V180V => {
+                self.voltage_1_8v_set(true);
+            }
+            _ => {
+                error!("Invalid voltage value !!!");
+            }
+        }
+    }
+
+    pub fn update_exteral_clk(&self,uhs_reg:FsdifClkSrc) -> FsdifResult {
+        self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
+        self.reg.write_reg(uhs_reg);
+        self.reg.wait_for(|reg| {
+            (FsdifClkSts::READY & reg).bits() != 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         Ok(())
     }
 
@@ -96,14 +221,9 @@ impl MCI {
         FsdifClkSrc::uhs_reg(0, 0, 0x5) | 
         FsdifClkSrc::UHS_EXT_CLK_ENA;
         if 0x502 == reg_val.bits() {
-            info!("invalid uhs config"); //* 经过检查没问题 */
+            info!("invalid uhs config"); 
         }
-        //? 这里可能需要抽象出一个update_external_clk的函数
-        self.reg.write_reg(FsdifClkSrc::from_bits_truncate(0));
-        self.reg.write_reg(reg_val);
-        self.reg.wait_for(|reg|{
-            (FsdifClkSts::READY & reg).bits() != 0
-        },Duration::from_millis((FSDIF_TIMEOUT/100).into()),Some(100))?;
+        self.update_exteral_clk(reg_val)?;
         Ok(())
     }
 
@@ -156,7 +276,7 @@ impl MCI {
                 !FsdifClkEn::CCLK_ENABLE & reg
             }
         });
-        info!("clock set to 0x{:x}",self.reg.read_reg::<FsdifClkEn>()); //* 经检查无问题 */ */
+        info!("clock set to 0x{:x}",self.reg.read_reg::<FsdifClkEn>()); 
     }
 
     pub fn clock_src_set(&self, enable:bool){
@@ -167,7 +287,7 @@ impl MCI {
                 !FsdifClkSrc::UHS_EXT_CLK_ENA & reg
             }
         });
-        info!("clock src set to 0x{:x}",self.reg.read_reg::<FsdifClkSrc>()); //* 经检查已无误 */
+        info!("clock src set to 0x{:x}",self.reg.read_reg::<FsdifClkSrc>());  
     }
 
     pub fn voltage_1_8v_set(&self,enable:bool){
@@ -178,7 +298,7 @@ impl MCI {
                 !FsdifUhsReg::VOLT_180 & reg
             }
         });
-        info!("voltage set to 0x{:x}",self.reg.read_reg::<FsdifUhsReg>()); //* 经检查已无误 */
+        info!("voltage set to 0x{:x}",self.reg.read_reg::<FsdifUhsReg>());  
     }
 
     pub fn bus_width_set(&self, width: u32) -> FsdifResult {
@@ -215,12 +335,22 @@ impl MCI {
         Ok(())
     }
 
+    //** 专门给CMD11 也就是 Switch Voltage 设计的 */
+    pub fn send_private_cmd11(&self,cmd:FsdifCmd) -> FsdifResult {
+        unsafe { dsb() };/* drain writebuffer */
+        self.reg.write_reg(FsdifCmd::START | cmd);
+        self.reg.wait_for(|reg|{
+            (FsdifCmd::START & reg).bits() == 0
+        }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+        Ok(())
+    }
+
     pub fn send_private_cmd(&self, cmd:FsdifCmd, arg: u32) -> FsdifResult {
         self.reg.wait_for(|reg| {
             (FsdifStatus::DATA_BUSY & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
         self.reg.write_reg(FsdifCmdArg::from_bits_truncate(arg));
-        // unsafe { dsb() };/* drain writebuffer */
+        unsafe { dsb() };/* drain writebuffer */
         self.reg.write_reg(FsdifCmd::START | cmd);
         self.reg.wait_for(|reg|{
             (FsdifCmd::START & reg).bits() == 0
@@ -284,7 +414,7 @@ impl MCI {
         self.fifoth_set(
             FsdifFifoThDmaTransSize::DmaTrans8, 
             FSDIF_RX_WMARK, 
-            FSDIF_TX_WMARK); //* 经检查已无误 */
+            FSDIF_TX_WMARK);  
         debug!("fifoth set success");
         /* set card threshold */
         self.reg.write_reg( 
@@ -292,30 +422,30 @@ impl MCI {
             FsdifFifoDepth::Depth8.card_thrctl_threshold().into());
         info!("card threshold set to 0x{:x}",
         (FsdifCardThrctl::CARDRD |
-        FsdifFifoDepth::Depth8.card_thrctl_threshold().into()).bits()); //* 经检查已无误 */
+        FsdifFifoDepth::Depth8.card_thrctl_threshold().into()).bits());  
         debug!("card threshold set success");
         /* disable clock and update ext clk */
-        self.clock_set(false); //* 经检查已无误 */
+        self.clock_set(false);  
         debug!("clock set success");
         /* set 1st clock */
-        self.init_external_clk()?; //* 经检查已无误 */
+        self.init_external_clk()?;  
         debug!("external clock init success");
         /* power on */
-        self.power_set(true); //* 经检查已无误 */
-        self.clock_set(true); //* 经检查已无误 */
-        self.clock_src_set(true); //* 经检查已无误 */
+        self.power_set(true);  
+        self.clock_set(true);  
+        self.clock_src_set(true);  
         debug!("power on success");
         /* set voltage as 3.3v */
-        self.voltage_1_8v_set(false); //* 经检查已无误 */
+        self.voltage_1_8v_set(false);  
         debug!("voltage set to 3.3v");
         /* set bus width as 1 */
-        self.bus_width_set(1)?; //* 经检查已无误 */
+        self.bus_width_set(1)?;  
         debug!("bus width set to 1");
         /* reset controller and card */
         if self.config.trans_mode == FsDifTransMode::DmaTransMode {
             self.ctrl_reset(FsdifCtrl::FIFO_RESET | FsdifCtrl::DMA_RESET)?;
         } else {
-            self.ctrl_reset(FsdifCtrl::FIFO_RESET)?; //* 经检查已无误 */
+            self.ctrl_reset(FsdifCtrl::FIFO_RESET)?;  
         }
         debug!("controller reset success");
         /* send private command to update clock */
@@ -333,7 +463,7 @@ impl MCI {
         }
         info!("card reset to 0x{:x}",self.reg.read_reg::<FsdifCardReset>());
         debug!("card reset success");
-        /* clear interrupt status */ //* 经检查已无误 */
+        /* clear interrupt status */  
         self.reg.write_reg(FsdifInt::empty());
         info!("clear interrupt status to 0x{:x}",self.reg.read_reg::<FsdifInt>());
         let reg_val = self.reg.read_reg::<FsdifRawInts>();
@@ -357,7 +487,7 @@ impl MCI {
         self.reg.modify_reg(|reg|{
             FsdifCtrl::INT_ENABLE | FsdifCtrl::USE_INTERNAL_DMAC | reg
         });
-        info!("enable controller and internal DMA to 0x{:x}",self.reg.read_reg::<FsdifCtrl>()); //* 经检查已无误 */
+        info!("enable controller and internal DMA to 0x{:x}",self.reg.read_reg::<FsdifCtrl>());  
         debug!("enable controller and internal DMA success");
         /* set data and resp timeout */
         self.reg.write_reg(FsdifTimeout::timeout_data(
@@ -377,30 +507,14 @@ impl MCI {
 
 //* CMD 相关的函数 */
 impl MCI {
-    pub fn block_size_set(&self, blksize: u32) -> FsdifResult {
+
+    //* CMD0 */
+    pub fn go_idle(&self) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
-            cmdidx: FsDifCommand::SetBlockLength as u32,
-            cmdarg: blksize,
+            cmdidx: FsDifCommand::GoIdleState as u32,
+            cmdarg: 0,
             response: [0; 4],
-            flag: CmdFlag::EXP_RESP,
-            data: FsdifBuf {
-                buf: &mut [],
-                buf_dma: 0,
-                blksz: 0,
-                blkcnt: 0,
-            },
-            success: false,
-        };
-        self.pio_transfer(&cmd_data)?;
-        self.poll_wait_pio_end(&mut cmd_data)?;
-        Ok(())
-    }
-    pub fn block_count_set(&self, blkcnt: u32) -> FsdifResult {
-        let mut cmd_data = FSdifCmdData {
-            cmdidx: FsDifCommand::SetBlockCount as u32,
-            cmdarg: blkcnt,
-            response: [0; 4],
-            flag: CmdFlag::EXP_RESP,
+            flag: CmdFlag::empty(),
             data: FsdifBuf {
                 buf: &mut [],
                 buf_dma: 0,
@@ -414,7 +528,377 @@ impl MCI {
         Ok(())
     }
 
+    //* CMD2 */
+    pub fn all_send_cid(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::AllSendCid as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::EXP_LONG_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        // todo DecodeCid
+        Ok(())
+    }
+
+    //* CMD3 */
+    pub fn send_rca(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifSDIndivCommand::SendRelativeAddress as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        // todo card->relativeAddress = (command.response[0U] >> 16U);
+        Ok(())
+    }
+
+    //* CMD7 */
+    pub fn select_card(&self,relative_address:u32,is_selected:bool) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SelectCard as u32,
+            cmdarg: if is_selected { relative_address << 16 } else { 0 },
+            response: [0; 4],
+            flag: if is_selected{CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC} else {CmdFlag::empty()},
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+
+    //* CMD8 */
+    pub fn send_interface_condition(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifSDIndivCommand::SendInterfaceCondition as u32,
+            cmdarg: 0x1AA,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        let i = 0;
+        while i < FSL_SDMMC_MAX_CMD_RETRIES {
+
+            match self.pio_transfer(&cmd_data) {
+                Ok(_) => break,
+                _ => continue,
+            }
+            match self.poll_wait_pio_end(&mut cmd_data) {
+                Ok(_) => break,
+                _ => continue,
+                
+            }
+            if cmd_data.response[0] & 0xFF != 0xAA {
+                return Err(FsdifError::NotSupport);
+            }
+            i = i + 1;
+        }
+        if i >= FSL_SDMMC_MAX_CMD_RETRIES {
+            return Err(FsdifError::CmdTimeout);
+        }
+        Ok(())
+    }
+
+    //* CMD9 */
+    pub fn send_csd(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SendCsd as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::EXP_LONG_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        /* The response is from bit 127:8 in R2, corrisponding to command.response[3U]:command.response[0U][31U:8]. */
+        // todo SD_DecodeCsd(card, (uint32_t *)(uintptr_t)card->internalBuffer);
+        Ok(())
+    }
+
+    //* CMD11 */
+    pub fn voltage_switch(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifSDIndivCommand::VoltageSwitch as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        /*
+        * Card should drive CMD and DAT[3:0] signals low at the next clock
+        * cycle. Some cards will only drive these
+        * lines low briefly, so we should check as soon as possible
+        */
+        if !self.check_if_card_busy() {
+            /* Delay 1ms to allow card to drive lines low */
+            sleep(Duration::from_millis(1));
+            if !self.check_if_card_busy() {
+                /* Card did not drive CMD and DAT lines low */
+                info!("Card did not drive DAT lines low");
+                return Err(FsdifError::Busy);
+            }
+        }
+
+        /*
+        * Per SD spec (section "Timing to Switch Signal Voltage"),
+        * host must gate clock at least 5ms.
+        */
+        // todo 暂时好像不需要switch
+        // self.clk_freq_set(0);
+        // /* switch io voltage */
+        // self.io_voltage_switch(); 
+
+        // /* Gate for 10ms, even though spec requires 5 */
+        // sleep(Duration::from_millis(10));
+
+        // /* Restart the clock */
+        // self.clk_freq_set(self.config.bus_clk_hz)?;
+
+        /*
+        * If SD does not drive at least one of
+        * DAT[3:0] high within 1ms, switch failed
+        */
+        sleep(Duration::from_millis(1));
+        if self.check_if_card_busy() {
+            info!("Card failed to switch voltages");
+            return Err(FsdifError::Busy);
+        }
+        info!("Card switched to 1.8V signaling");
+        Ok(())
+    }
+
+    //* CMD16 */
+    pub fn block_size_set(&self, blksize: u32) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SetBlockLength as u32,
+            cmdarg: blksize,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+
+    //* CMD23 */
+    pub fn block_count_set(&self, blkcnt: u32) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SetBlockCount as u32,
+            cmdarg: blkcnt,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+
+    //* CMD55 */
+    pub fn send_application_command(&self, relative_address:u32) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::ApplicationCommand as u32,
+            cmdarg: relative_address << 16,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::APPLICATION_COMMAND.bits() == 0 {
+            return Err(FsdifError::NotSupport);
+        }
+        Ok(())
+    }
 }
+
+//* ACMD */
+impl MCI {
+
+    //* ACMD6 */
+    pub fn data_bus_width(&self,width:SdmmcBusWidth) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: SdApplicationCommand::SetBusWidth as u32,
+            cmdarg: match width {
+                SdmmcBusWidth::BusWidth1Bit => 0,
+                SdmmcBusWidth::BusWidth4Bit => 2,
+                default => {
+                    return Err(FsdifError::NotSupport);
+                }
+            }, 
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.send_application_command(0)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+    //* ACMD41 */
+    pub fn application_send_opration_condition(&self,arg: SdOcrFlag) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: SdApplicationCommand::SendOperationCondition as u32,
+            cmdarg: arg.bits(),
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        let i = 0;
+        while i < FSL_SDMMC_MAX_CMD_RETRIES {
+            if let Ok(_) = self.send_application_command(0){
+                match self.pio_transfer(&cmd_data) {
+                    Ok(_) => break,
+                    _ => continue,
+                }
+                match self.poll_wait_pio_end(&mut cmd_data) {
+                    Ok(_) => break,
+                    _ => continue,
+                }
+                /* Wait until card exit busy state. */
+                if cmd_data.response[0] & SdOcrFlag::POWER_UP_BUSY.bits() != 0 {
+                    /* high capacity check */
+                    if  cmd_data.response[0] & SdOcrFlag::CARD_CAPACITY_SUPPORT.bits() !=0 {
+                        // todo card->flags |= (uint32_t)kSD_SupportHighCapacityFlag;
+                        info!("Is high capcity card > 2GB");
+                    }
+                    /* 1.8V support */
+                    if cmd_data.response[0] & SdOcrFlag::SWITCH_18_ACCEPT.bits() != 0 {
+                        // todo card->flags |= (uint32_t)kSD_SupportVoltage180v;
+                        info!("Is UHS card support 1.8v");
+                    }else {
+                        info!("Not UHS card only support 3.3v")
+                    }
+                    // todo card->ocr = command.response[0U];
+                }
+            } else {
+                continue;
+            }
+            i = i + 1;
+            sleep(Duration::from_millis(10));
+        }
+        if i >= FSL_SDMMC_MAX_CMD_RETRIES {
+            return Err(FsdifError::CmdTimeout);
+        }
+        Ok(())
+    }
+
+    //* ACMD51 */
+    pub fn send_scr(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: SdApplicationCommand::SendScr as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::READ_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [0;8],
+                buf_dma: 0,
+                blksz: 8,
+                blkcnt: 1,
+            },
+            success: false,
+        };
+        let relative_address = 0;
+        self.send_application_command(relative_address)?;
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+         /* according to spec. there are two types of Data packet format for SD card
+            1. Usual data (8-bit width), are sent in LSB first
+            2. Wide width data (SD Memory register), are shifted from the MSB bit, 
+        e.g. ACMD13 (SD Status), ACMD51 (SCR) */
+        // todo SDMMCHOST_ConvertDataToLittleEndian(card->host, rawScr, 2U, kSDMMC_DataPacketFormatMSBFirst);
+        /* decode scr */
+        // todo SD_DecodeScr(card, rawScr);
+        Ok(())
+    }
+
+}
+
 
 //* PIO 相关的函数 */
 impl MCI {
@@ -440,7 +924,7 @@ impl MCI {
         let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
         //? 实验性代码
         /* enable related interrupt */
-        self.interrupt_mask_set(FsDifIntrType::GeneralIntr, FsdifInt::INTS_DATA_MASK.bits(), true);
+        // self.interrupt_mask_set(FsDifIntrType::GeneralIntr, FsdifInt::INTS_DATA_MASK.bits(), true);
         //? 实验性代码
         if !self.is_ready{
             error!("device is not yet initialized!!!");
@@ -477,7 +961,7 @@ impl MCI {
             /* if need to write, write to fifo before send command */
             if !read { 
                 /* invalide buffer for data to write */
-                // unsafe { dsb() };
+                unsafe { dsb() };
                 self.pio_write_data(cmd_data.data.buf)?;
             }
         }
@@ -513,7 +997,7 @@ impl MCI {
         }
         /* clear status to ack cmd done */
         self.raw_status_clear();
-        self.get_cmd_response(cmd_data);
+        self.get_cmd_response(cmd_data)?;
         Ok(())
     }
 }
@@ -733,99 +1217,3 @@ impl MCI {
     }
 }
 
-// 定义传输模式枚举
-#[derive(Debug, PartialEq)]
-pub enum FsDifTransMode {
-    DmaTransMode,      // DMA传输模式
-    PioTransMode,      // PIO传输模式（通过读/写Fifo）
-}
-
-// 定义中断类型枚举
-#[derive(Debug, PartialEq)]
-#[derive(Clone, Copy)]
-pub enum FsDifIntrType {
-    GeneralIntr,       // 属于控制器的中断状态
-    DmaIntr,           // 属于DMA的中断状态
-}
-
-// 定义事件类型枚举
-#[derive(Debug, PartialEq)]
-pub enum FsDifEvtType {
-    CardDetected = 0,  // 卡检测事件
-    CmdDone,           // 命令传输完成事件
-    DataDone,          // 包含数据的命令传输完成事件
-    SdioIrq,           // SDIO卡自定义事件
-    ErrOccured,        // 传输中出现错误
-    NumOfEvt,          // 事件数量
-}
-
-// 定义时钟速度枚举
-#[derive(Debug, PartialEq)]
-pub enum FsDifClkSpeed {
-    ClkSpeedClose =  0,
-    ClkSpeed400KHz = 400_000,
-    ClkSpeed25Mhz = 25_000_000,
-    ClkSpeed26Mhz = 26_000_000, // mmc
-    ClkSpeed50Mhz = 50_000_000,
-    ClkSpeed52Mhz = 52_000_000, // mmc
-    ClkSpeed66Mhz = 66_000_000, // mmc
-    ClkSpeed100Mhz = 100_000_000,
-}
-
-impl From<u32> for FsDifClkSpeed {
-    fn from(value: u32) -> Self {
-        match value {
-            400_000 => FsDifClkSpeed::ClkSpeed400KHz,
-            25_000_000 => FsDifClkSpeed::ClkSpeed25Mhz,
-            26_000_000 => FsDifClkSpeed::ClkSpeed26Mhz,
-            50_000_000 => FsDifClkSpeed::ClkSpeed50Mhz,
-            52_000_000 => FsDifClkSpeed::ClkSpeed52Mhz,
-            66_000_000 => FsDifClkSpeed::ClkSpeed66Mhz,
-            100_000_000 => FsDifClkSpeed::ClkSpeed100Mhz,
-            _ => FsDifClkSpeed::ClkSpeedClose,
-        }
-    }
-}
-
-#[inline(always)]
-pub unsafe fn dsb() {
-    core::arch::asm!("dsb sy", options(nostack, preserves_flags));
-}
-
-pub enum FsDifCommand {
-    GoIdleState        = 0,  /*< Go Idle State */
-    AllSendCid         = 2,  /*< All Send CID */
-    SetDsr             = 4,  /*< Set DSR */
-    SelectCard         = 7,  /*< Select Card */
-    SendCsd            = 9,  /*< Send CSD */
-    SendCid            = 10, /*< Send CID */
-    StopTransmission   = 12, /*< Stop Transmission */
-    SendStatus         = 13, /*< Send Status */
-    GoInactiveState    = 15, /*< Go Inactive State */
-    SetBlockLength     = 16, /*< Set Block Length */
-    ReadSingleBlock    = 17, /*< Read Single Block */
-    ReadMultipleBlock  = 18, /*< Read Multiple Block */
-    SetBlockCount      = 23, /*< Set Block Count */
-    WriteSingleBlock   = 24, /*< Write Single Block */
-    WriteMultipleBlock = 25, /*< Write Multiple Block */
-    ProgramCsd         = 27, /*< Program CSD */
-    SetWriteProtect    = 28, /*< Set Write Protect */
-    ClearWriteProtect  = 29, /*< Clear Write Protect */
-    SendWriteProtect   = 30, /*< Send Write Protect */
-    Erase              = 38, /*< Erase */
-    LockUnlock         = 42, /*< Lock Unlock */
-    ApplicationCommand = 55, /*< Send Application Command */
-    GeneralCommand     = 56, /*< General Purpose Command */
-    ReadOcr            = 58, /*< Read OCR */
-}
-
-pub enum FsDifSDIndivCommand {
-    SendRelativeAddress    = 3,  /*< Send Relative Address */
-    Switch                 = 6,  /*< Switch Function */
-    SendInterfaceCondition = 8,  /*< Send Interface Condition */
-    VoltageSwitch          = 11, /*< Voltage Switch */
-    SpeedClassControl      = 20, /*< Speed Class control */
-    EraseWriteBlockStart   = 32, /*< Write Block Start */
-    EraseWriteBlockEnd     = 33, /*< Write Block End */
-    SendTuningBlock        = 19, /*< Send Tuning Block */
-}

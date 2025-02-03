@@ -1,6 +1,6 @@
 use crate::mci::{mci_timing::*, FsDifClkSpeed, FsDifTransMode};
 
-type GetTuning = fn(clock_freq: FsDifClkSpeed, non_removable: bool) -> &'static MCITiming;
+type GetTuning = fn(clock_freq: FsDifClkSpeed, non_removable: bool) -> MCITiming;
 pub struct MCIConfig {
     pub instance_id: u32,           /* Device instance id */
     pub irq_num: u32,               /* Device IRQ number */

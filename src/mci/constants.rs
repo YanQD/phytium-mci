@@ -1,4 +1,174 @@
 #![allow(unused)] 
+use bitflags::bitflags;
+// 定义传输模式枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifTransMode {
+    DmaTransMode,      // DMA传输模式
+    PioTransMode,      // PIO传输模式（通过读/写Fifo）
+}
+
+// 定义中断类型枚举
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum FsDifIntrType {
+    GeneralIntr,       // 属于控制器的中断状态
+    DmaIntr,           // 属于DMA的中断状态
+}
+
+// 定义事件类型枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifEvtType {
+    CardDetected = 0,  // 卡检测事件
+    CmdDone,           // 命令传输完成事件
+    DataDone,          // 包含数据的命令传输完成事件
+    SdioIrq,           // SDIO卡自定义事件
+    ErrOccured,        // 传输中出现错误
+    NumOfEvt,          // 事件数量
+}
+
+// 定义时钟速度枚举
+#[derive(Debug, PartialEq)]
+pub enum FsDifClkSpeed {
+    ClkSpeedClose =  0,
+    ClkSpeed400KHz = 400_000,
+    ClkSpeed25Mhz = 25_000_000,
+    ClkSpeed26Mhz = 26_000_000, // mmc
+    ClkSpeed50Mhz = 50_000_000,
+    ClkSpeed52Mhz = 52_000_000, // mmc
+    ClkSpeed66Mhz = 66_000_000, // mmc
+    ClkSpeed100Mhz = 100_000_000,
+}
+
+impl From<u32> for FsDifClkSpeed {
+    fn from(value: u32) -> Self {
+        match value {
+            400_000 => FsDifClkSpeed::ClkSpeed400KHz,
+            25_000_000 => FsDifClkSpeed::ClkSpeed25Mhz,
+            26_000_000 => FsDifClkSpeed::ClkSpeed26Mhz,
+            50_000_000 => FsDifClkSpeed::ClkSpeed50Mhz,
+            52_000_000 => FsDifClkSpeed::ClkSpeed52Mhz,
+            66_000_000 => FsDifClkSpeed::ClkSpeed66Mhz,
+            100_000_000 => FsDifClkSpeed::ClkSpeed100Mhz,
+            _ => FsDifClkSpeed::ClkSpeedClose,
+        }
+    }
+}
+
+#[inline(always)]
+pub unsafe fn dsb() {
+    core::arch::asm!("dsb sy", options(nostack, preserves_flags));
+}
+
+pub enum FsDifCommand {
+    GoIdleState        = 0,  /*< Go Idle State */
+    AllSendCid         = 2,  /*< All Send CID */
+    SetDsr             = 4,  /*< Set DSR */
+    SelectCard         = 7,  /*< Select Card */
+    SendCsd            = 9,  /*< Send CSD */
+    SendCid            = 10, /*< Send CID */
+    StopTransmission   = 12, /*< Stop Transmission */
+    SendStatus         = 13, /*< Send Status */
+    GoInactiveState    = 15, /*< Go Inactive State */
+    SetBlockLength     = 16, /*< Set Block Length */
+    ReadSingleBlock    = 17, /*< Read Single Block */
+    ReadMultipleBlock  = 18, /*< Read Multiple Block */
+    SetBlockCount      = 23, /*< Set Block Count */
+    WriteSingleBlock   = 24, /*< Write Single Block */
+    WriteMultipleBlock = 25, /*< Write Multiple Block */
+    ProgramCsd         = 27, /*< Program CSD */
+    SetWriteProtect    = 28, /*< Set Write Protect */
+    ClearWriteProtect  = 29, /*< Clear Write Protect */
+    SendWriteProtect   = 30, /*< Send Write Protect */
+    Erase              = 38, /*< Erase */
+    LockUnlock         = 42, /*< Lock Unlock */
+    ApplicationCommand = 55, /*< Send Application Command */
+    GeneralCommand     = 56, /*< General Purpose Command */
+    ReadOcr            = 58, /*< Read OCR */
+}
+
+pub enum FsDifSDIndivCommand {
+    SendRelativeAddress    = 3,  /*< Send Relative Address */
+    Switch                 = 6,  /*< Switch Function */
+    SendInterfaceCondition = 8,  /*< Send Interface Condition */
+    VoltageSwitch          = 11, /*< Voltage Switch */
+    SpeedClassControl      = 20, /*< Speed Class control */
+    EraseWriteBlockStart   = 32, /*< Write Block Start */
+    EraseWriteBlockEnd     = 33, /*< Write Block End */
+    SendTuningBlock        = 19, /*< Send Tuning Block */
+}
+
+pub enum SdApplicationCommand {
+    SetBusWidth = 6,               // Set Bus Width
+    Status = 13,                   // Send SD status
+    SendNumberWriteBlocks = 22,    // Send Number Of Written Blocks
+    SetWriteBlockEraseCount = 23,  // Set Write Block Erase Count
+    SendOperationCondition = 41,   // Send Operation Condition
+    SetClearCardDetect = 42,       // Set Connect/Disconnect pull up on detect pin
+    SendScr = 51,                  // Send Scr
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct SdmmcR1CardStatusFlag: u32 {
+        const OUT_OF_RANGE                  = 1 << 31; // Out of range status bit
+        const ADDRESS_ERROR                 = 1 << 30; // Address error status bit
+        const BLOCK_LENGTH_ERROR            = 1 << 29; // Block length error status bit
+        const ERASE_SEQUENCE_ERROR          = 1 << 28; // Erase sequence error status bit
+        const ERASE_PARAMETER_ERROR         = 1 << 27; // Erase parameter error status bit
+        const WRITE_PROTECT_VIOLATION       = 1 << 26; // Write protection violation status bit
+        const CARD_IS_LOCKED                = 1 << 25; // Card locked status bit
+        const LOCK_UNLOCK_FAILED            = 1 << 24; // Lock/unlock error status bit
+        const COMMAND_CRC_ERROR             = 1 << 23; // CRC error status bit
+        const ILLEGAL_COMMAND               = 1 << 22; // Illegal command status bit
+        const CARD_ECC_FAILED               = 1 << 21; // Card ECC error status bit
+        const CARD_CONTROLLER_ERROR         = 1 << 20; // Internal card controller error status bit
+        const ERROR                         = 1 << 19; // A general or an unknown error status bit
+        const CID_CSD_OVERWRITE             = 1 << 16; // CID/CSD overwrite status bit
+        const WRITE_PROTECT_ERASE_SKIP      = 1 << 15; // Write protection erase skip status bit
+        const CARD_ECC_DISABLED             = 1 << 14; // Card ECC disabled status bit
+        const ERASE_RESET                   = 1 << 13; // Erase reset status bit
+        const READY_FOR_DATA                = 1 << 8;  // Ready for data status bit
+        const SWITCH_ERROR                  = 1 << 7;  // Switch error status bit
+        const APPLICATION_COMMAND           = 1 << 5;  // Application command enabled status bit
+        const AUTHENTICATION_SEQUENCE_ERROR = 1 << 3;  // Error in the sequence of authentication process
+        const SDMMC_R1_ALL_ERROR_FLAG = 0xFFF9E1A8;    // All error status bits
+    }
+}
+
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct SdOcrFlag: u32 {
+        const POWER_UP_BUSY = 1 << 31;                  // Power up busy status
+        const HOST_CAPACITY_SUPPORT = 1 << 30;          // Card capacity status
+        const CARD_CAPACITY_SUPPORT = 1 << 30;          // Card capacity status (same as HostCapacitySupport)
+        const SWITCH_18_REQUEST = 1 << 24;              // Switch to 1.8V request
+        const SWITCH_18_ACCEPT = 1 << 24;               // Switch to 1.8V accepted (same as Switch18Request)
+        const VDD_27_28 = 1 << 15;                      // VDD 2.7-2.8
+        const VDD_28_29 = 1 << 16;                      // VDD 2.8-2.9
+        const VDD_29_30 = 1 << 17;                      // VDD 2.9-3.0
+        const VDD_30_31 = 1 << 18;                      // VDD 2.9-3.0
+        const VDD_31_32 = 1 << 19;                      // VDD 3.0-3.1
+        const VDD_32_33 = 1 << 20;                      // VDD 3.1-3.2
+        const VDD_33_34 = 1 << 21;                      // VDD 3.2-3.3
+        const VDD_34_35 = 1 << 22;                      // VDD 3.3-3.4
+        const VDD_35_36 = 1 << 23;                      // VDD 3.4-3.5
+    }
+}
+
+pub enum SdmmcBusWidth {
+    BusWidth1Bit = 0, // 1-bit bus width
+    BusWidth4Bit = 1, // 4-bit bus width
+    BusWidth8Bit = 2, // 8-bit bus width
+}
+
+pub enum SdmmcOperationVoltage {
+    None = 0,    // Indicate current voltage setting is not set by user
+    V330V = 1,   // Card operation voltage around 3.3V
+    V300V = 2,   // Card operation voltage around 3.0V
+    V180V = 3,   // Card operation voltage around 1.8V
+}
+
 /** @name Register Map
  *
  * Register offsets from the base address of an SD device.
@@ -52,3 +222,8 @@ pub const FSDIF_DATA_OFFSET: u32 = 0x200; // the data FIFO access
 pub const FSDIF_TIMEOUT:u32 = 50000; /* timeout for retries */
 pub const FSDIF_DELAY_US:u32 = 5;
 pub const FSDIF_MAX_FIFO_CNT:u32 = 0x800;
+
+pub const FSL_SDMMC_MAX_CMD_RETRIES:u32 = 10;
+
+pub const FSDIF0_ID: u32 = 0;
+pub const FSDIF1_ID: u32 = 1;

@@ -267,6 +267,7 @@ impl FlagReg for FsdifRawInts {
 
 // FSDIF_CMD_OFFSET Register
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct FsdifCmd: u32 {
         const START = 1 << 31;                /* 启动命令 */
         const USE_HOLD_REG = 1 << 29;         /* 0: 旁路HOLD寄存器，1: 使能HOLD寄存器 */
