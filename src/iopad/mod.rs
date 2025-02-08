@@ -1,7 +1,7 @@
 #![allow(unused)] 
 mod err;
 pub mod constants;
-pub mod regs;
+pub(crate) mod regs;
 
 use core::ptr::NonNull;
 use constants::*;
@@ -17,14 +17,9 @@ pub struct IoPad {
 }
 
 impl IoPad {
-    pub fn new() -> Self {
+    pub fn new(reg_base: NonNull<u8>) -> Self {
         IoPad {
-            reg: IoPadReg::new(
-                {
-                    let addr = PAD_ADDRESS as *mut u8;
-                    NonNull::new(addr).unwrap()
-                }
-            ),
+            reg: IoPadReg::new(reg_base),
             is_ready: true,
         }
     }

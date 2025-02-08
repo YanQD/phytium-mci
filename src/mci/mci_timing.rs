@@ -1,11 +1,14 @@
-use crate::iopad::constants::{FioPadDelay, FioPadDelayDir, FioPadDelayType};
+use bare_test::mem::mmu::iomap;
+use log::debug;
+
+use crate::iopad::constants::{FioPadDelay, FioPadDelayDir, FioPadDelayType, PAD_ADDRESS};
 use crate::iopad::regs::J53Reg1;
 use crate::{iopad::regs::Aj49Reg1, mci::FsDifClkSpeed};
-use crate::iopad::IoPad;
+use crate::iopad::{self, IoPad};
 
 use super::constants::{FSDIF0_ID, FSDIF1_ID};
 
-type PadDelay = fn(id:u32);
+type PadDelay = fn(iopad:&mut IoPad,sdif_id:u32);
 
 #[derive(PartialEq)]
 pub struct MCITiming {
@@ -104,7 +107,7 @@ pub fn default_tuning(_clock_freq: FsDifClkSpeed, _non_removable: bool) ->  MCIT
     MMC_SD_NULL
 }
 
-pub fn mciget_timing_setting(clock_freq: FsDifClkSpeed, non_removable: bool) ->  MCITiming {
+pub fn mci_get_timing_setting(clock_freq: FsDifClkSpeed, non_removable: bool) ->  MCITiming {
     if clock_freq == FsDifClkSpeed::ClkSpeed400KHz {
         return MMC_SD_400K_HZ;
     }
@@ -127,10 +130,9 @@ pub fn mciget_timing_setting(clock_freq: FsDifClkSpeed, non_removable: bool) -> 
 }
 
 
-pub fn fsdif_set_sdifdelay(sdif_id:u32){
+pub fn fsdif_set_sdifdelay(iopad:&mut IoPad,sdif_id:u32){
     type Fsdif0SdCclkOutDelay = Aj49Reg1;
     type Fsdif1SdCclkOutDelay = J53Reg1;
-    let mut iopad = IoPad::new();
     if sdif_id == FSDIF0_ID {
         iopad.delay_set::<Fsdif0SdCclkOutDelay>(
             FioPadDelayDir::OutputDelay,
@@ -158,10 +160,10 @@ pub fn fsdif_set_sdifdelay(sdif_id:u32){
     }
 }
 
-pub fn fsdif_unset_sdifdelay(sdif_id:u32){
+pub fn fsdif_unset_sdifdelay(iopad:&mut IoPad,sdif_id:u32){
     type Fsdif0SdCclkOutDelay = Aj49Reg1;
     type Fsdif1SdCclkOutDelay = J53Reg1;
-    let mut iopad = IoPad::new();
+    debug!("fsdif_unset_sdifdelay,sdif id {}",sdif_id);
     if sdif_id == FSDIF0_ID {
         iopad.delay_set::<Fsdif0SdCclkOutDelay>(
             FioPadDelayDir::OutputDelay,
@@ -189,6 +191,6 @@ pub fn fsdif_unset_sdifdelay(sdif_id:u32){
     }
 }
 
-pub fn fsdif_sdifdelay_null(_sdif_id:u32) {
+pub fn fsdif_sdifdelay_null(_iopad:&mut IoPad,_sdif_id:u32) {
     return;
 }

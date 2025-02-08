@@ -15,9 +15,9 @@ impl MCIConfig {
         MCIConfig {
             instance_id: 0,
             irq_num: 104,
-            trans_mode: FsDifTransMode::PioTransMode,
+            trans_mode: FsDifTransMode::DmaTransMode,
             non_removable: false,
-            get_tuning: default_tuning,
+            get_tuning: mci_get_timing_setting,
         }
     }
 }

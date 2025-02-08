@@ -1,5 +1,6 @@
 #![allow(unused)] 
 use bitflags::bitflags;
+use log::info;
 // 定义传输模式枚举
 #[derive(Debug, PartialEq)]
 pub enum FsDifTransMode {
@@ -131,7 +132,75 @@ bitflags! {
         const SWITCH_ERROR                  = 1 << 7;  // Switch error status bit
         const APPLICATION_COMMAND           = 1 << 5;  // Application command enabled status bit
         const AUTHENTICATION_SEQUENCE_ERROR = 1 << 3;  // Error in the sequence of authentication process
-        const SDMMC_R1_ALL_ERROR_FLAG = 0xFFF9E1A8;    // All error status bits
+        const SDMMC_R1_ALL_ERROR_FLAG = 0xFFF0008;    // All error status bits
+    }
+}
+
+impl SdmmcR1CardStatusFlag {
+    pub fn check(&self) {
+        if self.contains(SdmmcR1CardStatusFlag::OUT_OF_RANGE) {
+            info!("OUT_OF_RANGE");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ADDRESS_ERROR) {
+            info!("ADDRESS_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::BLOCK_LENGTH_ERROR) {
+            info!("BLOCK_LENGTH_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ERASE_SEQUENCE_ERROR) {
+            info!("ERASE_SEQUENCE_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ERASE_PARAMETER_ERROR) {
+            info!("ERASE_PARAMETER_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::WRITE_PROTECT_VIOLATION) {
+            info!("WRITE_PROTECT_VIOLATION");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::CARD_IS_LOCKED) {
+            info!("CARD_IS_LOCKED");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::LOCK_UNLOCK_FAILED) {
+            info!("LOCK_UNLOCK_FAILED");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::COMMAND_CRC_ERROR) {
+            info!("COMMAND_CRC_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ILLEGAL_COMMAND) {
+            info!("ILLEGAL_COMMAND");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::CARD_ECC_FAILED) {
+            info!("CARD_ECC_FAILED");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::CARD_CONTROLLER_ERROR) {
+            info!("CARD_CONTROLLER_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ERROR) {
+            info!("ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::CID_CSD_OVERWRITE) {
+            info!("CID_CSD_OVERWRITE");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::WRITE_PROTECT_ERASE_SKIP) {
+            info!("WRITE_PROTECT_ERASE_SKIP");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::CARD_ECC_DISABLED) {
+            info!("CARD_ECC_DISABLED");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::ERASE_RESET) {
+            info!("ERASE_RESET");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::READY_FOR_DATA) {
+            info!("READY_FOR_DATA");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::SWITCH_ERROR) {
+            info!("SWITCH_ERROR");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::APPLICATION_COMMAND) {
+            info!("APPLICATION_COMMAND");
+        }
+        if self.contains(SdmmcR1CardStatusFlag::AUTHENTICATION_SEQUENCE_ERROR) {
+            info!("AUTHENTICATION_SEQUENCE_ERROR");
+        }
     }
 }
 

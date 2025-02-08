@@ -10,6 +10,7 @@ mod mci;
 mod iopad;
 
 pub use mci::*;
+pub use iopad::*;
 
 pub trait Kernel {
     fn sleep(duration: Duration);

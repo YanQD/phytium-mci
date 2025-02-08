@@ -45,7 +45,7 @@ impl FlagReg for FsdifPwrEn {
 // FSDIF_CLKDIV_OFFSET 0x8 Register
 bitflags! {
     pub struct FsdifClkDiv: u32 {
-        const CLK_DIVIDER = 0x3ff; /* CLK_SAMPLE 和 CLK_SAMPLE 必须小于 CLK_DIVIDER */
+        /* CLK_SAMPLE 和 CLK_SAMPLE 必须小于 CLK_DIVIDER */
         const CLK_DIVDER_BIT0 = 1 << 0; /* 时钟分频参数设置，分频参数=2*CLK_DIVIDER */
         const CLK_DIVDER_BIT1 = 1 << 1;
         const CLK_DIVDER_BIT2 = 1 << 2;
