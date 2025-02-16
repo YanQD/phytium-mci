@@ -238,6 +238,63 @@ pub enum SdmmcOperationVoltage {
     V180V = 3,   // Card operation voltage around 1.8V
 }
 
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum EndianMode {
+    EndianModeBig = 0, /* Big endian mode */
+    EndianModeHalfWordBig = 1, /* Half word big endian mode */
+    EndianModeLittle = 2, /* Little endian mode */
+}
+
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum DataPacketFormat {
+    DataPacketFormatLSBFirst, /* usual data packet format LSB first, MSB last */
+    DataPacketFormatMSBFirst, /* Wide width data packet format MSB first, LSB last */
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// SD card specification version number
+    pub struct SdSpecificationVersion: u8 {
+        /// SD card version 1.0-1.01
+        const VERSION_1_0 = 1 << 0;
+        /// SD card version 1.10
+        const VERSION_1_1 = 1 << 1;
+        /// SD card version 2.00
+        const VERSION_2_0 = 1 << 2;
+        /// SD card version 3.0
+        const VERSION_3_0 = 1 << 3;
+    }
+}
+
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum SwitchMode {
+    Check = 0, /* SD switch mode 0: check function */
+    Set = 1, /* SD switch mode 1: set function */
+}
+
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum GroupNum {
+    TimingMode = 0, /* acess mode group */
+    CommandSystem = 1, /* command system group */
+    DriverStrength = 2, /* driver strength group */
+    CurrentLimit = 3, /* current limit group */
+}
+
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum TimingFunctionNum {
+    SDR12Deafult = 0, /* SDR12 mode & default */
+    SDR25HighSpeed = 1, /* SDR25 mode & high speed */
+    SDR50 = 2, /* SDR50 mode */
+    SDR104 = 3, /* SDR104 mode */
+    DDR50 = 4, /* DDR50 mode */
+}
+
+
 /** @name Register Map
  *
  * Register offsets from the base address of an SD device.

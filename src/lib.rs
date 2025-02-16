@@ -6,8 +6,9 @@ use core::time::Duration;
 
 #[macro_use]
 mod regs;
-mod mci;
-mod iopad;
+pub mod mci;
+pub mod iopad;
+mod tools;
 
 pub use mci::*;
 pub use iopad::*;

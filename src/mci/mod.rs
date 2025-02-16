@@ -6,6 +6,11 @@ mod err;
 mod constants;
 mod mci_config;
 mod mci_timing;
+mod sd_reg;
+mod mci_cid;
+mod mci_csd;
+mod mci_scr;
+mod mci_status;
 
 use core::arch::asm;
 use core::default;
@@ -18,13 +23,17 @@ use log::error;
 use log::info;
 use log::warn;
 use bitflags::{bitflags, Flags};
+use mci_csd::CsdFlags;
+use mci_scr::ScrFlags;
 
 use crate::regs::*;
 use crate::set_reg32_bits;
+use crate::tools::swap_half_word_byte_sequence_u32;
 use crate::IoPad;
 
 use regs::*;
-use constants::*;
+use sd_reg::*;
+pub use constants::*;
 use mci_timing::*;
 use mci_config::*;
 use err::{FsdifError, FsdifResult};
@@ -39,6 +48,10 @@ pub struct MCI {
     prev_cmd: u32,
     curr_timing: MCITiming,
     iopad: IoPad,
+    pub sd_reg: SdReg,
+    block_count: u32,
+    block_size: u32,
+    version: SdSpecificationVersion,
 }
 impl MCI {
     pub fn new(reg_base: NonNull<u8>) -> Self {
@@ -50,6 +63,10 @@ impl MCI {
             prev_cmd: 0,
             curr_timing: MCITiming::new(),
             iopad: IoPad::new(NonNull::dangling()),
+            sd_reg: SdReg::new(),
+            block_count: 0,
+            block_size: 0,
+            version: SdSpecificationVersion::from_bits_truncate(0),
         }
     }
 
@@ -87,6 +104,49 @@ impl MCI {
 
     pub fn blksize_set(&self, blksize: u32) {
         self.reg.write_reg(FsdifBlkSiz::from_bits_truncate(blksize));
+    }
+
+    pub fn convert_data_to_little_endian(&self, data: &mut [u32], word_size: usize, format: DataPacketFormat) {
+       if self.config.endian_mode == EndianMode::EndianModeLittle && 
+            format == DataPacketFormat::DataPacketFormatMSBFirst {
+                for i in 0..word_size {
+                    let val = data[i];
+                    data[i] = val.swap_bytes();
+                }
+            }
+        else if self.config.endian_mode == EndianMode::EndianModeHalfWordBig {
+                for i in 0..word_size {
+                    let val = data[i];
+                    data[i] = swap_half_word_byte_sequence_u32(val);
+                }
+            }
+        else if self.config.endian_mode == EndianMode::EndianModeBig &&
+            format == DataPacketFormat::DataPacketFormatLSBFirst {
+                for i in 0..word_size {
+                    let val = data[i];
+                    data[i] = val.swap_bytes();
+                }
+            }
+    }
+
+    pub fn polling_card_status_busy(&self,timeout_ms:u32) -> FsdifResult {
+        let mut timeout_us = timeout_ms * 1000;
+        loop {
+            let card_busy = self.check_if_card_busy();
+            if !card_busy { 
+                //* CMD13 */
+                if let Ok(_) = self.card_status_send() {
+                    break;
+                }
+            }else {
+                sleep(Duration::from_micros(125));
+                timeout_us -= 125;
+            }
+            if timeout_us == 0 {
+                return Err(FsdifError::Busy);
+            }
+        }
+        Ok(())
     }
 
     pub fn clk_freq_set(&mut self, clk_hz: u32) -> FsdifResult {
@@ -143,10 +203,74 @@ impl MCI {
         Ok(())
     }
 
-    pub fn select_bus_timing(&self) -> FsdifResult {
+    pub fn select_bus_timing(&mut self) -> FsdifResult {
         /* group 1, function 1 ->high speed mode*/
-        
+        match self.select_function(GroupNum::TimingMode, 
+            TimingFunctionNum::SDR25HighSpeed) {
+                Err(_) => {
+                    /* if not support high speed, keep the card work at default mode */
+                    info!("\r\nNote: High speed mode is not supported by card\r\n");
+                },
+                Ok(_) => {
+                    // todo kSD_TimingSDR25HighSpeedMode
+                    // todo bus clock 50MHz
+                    self.clk_freq_set(50_000_000);
+                }
+        }
+
         /* card is in UHS_I mode */ // todo 暂时不需要
+        /* Update io strength according to different bus frequency */ // todo 暂时不需要
+        /* SDR50 and SDR104 mode need tuning */ // todo 暂时不需要
+        Ok(())
+    }
+
+    pub fn select_function(&self, group: GroupNum, function: TimingFunctionNum) -> FsdifResult {
+        /* check if card support CMD6 */ // todo 这里暂时不需要写，后续需要写上，因为需要相应的结构体
+        /* CMD6 */
+        let mut status  = [0u32; 64];
+        /* Check if card support high speed mode. */
+        self.switch_function(SwitchMode::Check, group, function, &mut status);
+        /* convert to little endian sequence */
+        self.convert_data_to_little_endian(&mut status, 5, DataPacketFormat::DataPacketFormatMSBFirst);
+        /* 
+        -functionStatus[0U]---bit511~bit480;
+        -functionStatus[1U]---bit479~bit448;
+        -functionStatus[2U]---bit447~bit416;
+        -functionStatus[3U]---bit415~bit384;
+        -functionStatus[4U]---bit383~bit352;
+        According to the "switch function status[bits 511~0]" return by switch command in mode "check function":
+            -Check if function 1(high speed) in function group 1 is supported by checking if bit 401 is set;
+            -check if function 1 is ready and can be switched by checking if bits 379~376 equal value 1;
+        */
+        let mut function_grop_info = [0u16;6];
+        function_grop_info[5] = status[0] as u16;
+        function_grop_info[4] = (status[1] >> 16) as u16;
+        function_grop_info[3] = status[1] as u16;
+        function_grop_info[2] = (status[2] >> 16) as u16;
+        function_grop_info[1] = status[2] as u16;
+        function_grop_info[0] = (status[3] >> 16) as u16;
+        let current_function_status  = ((status[3] & 0xff) << 8)|(status[4] >> 24);
+        /* check if function is support */
+        let _group = group as usize;
+        let _function = function as u32;
+        if (function_grop_info[_group] & (1<<_function) == 0)||
+            (current_function_status >> (_group * 4) & 0xf != _function) {
+                info!("\r\nError: current card not support function {}\r\n",_function);
+                return Err(FsdifError::NotSupport);
+        }
+        /* Switch to high speed mode. */
+        self.switch_function(SwitchMode::Set, group, function, &mut status);
+        /* convert to little endian sequence */
+        self.convert_data_to_little_endian(&mut status[3..], 2, DataPacketFormat::DataPacketFormatMSBFirst);
+        /* 
+        According to the "switch function status[bits 511~0]" return by switch command in mode "set function":
+            -check if group 1 is successfully changed to function 1 by checking if bits 379~376 equal value 1;
+        */
+        let current_function_status = ((status[3] & 0xff) << 8)|(status[4] >> 24);
+        if (current_function_status >> (_group * 4) & 0xf != _function) {
+            info!("\r\nError: switch function {} failed\r\n",_function);
+            return Err(FsdifError::NotSupport);
+        }
         Ok(())
     }
 
@@ -554,6 +678,175 @@ impl MCI {
     }
 }
 
+//* Decode 相关的函数 */
+impl MCI {
+    pub fn decode_cid(&mut self, rawcid: &[u32]) {
+        self.sd_reg.cid.manufacturer_id = ((rawcid[3] & 0xFF000000 ) >> 24 ) as u8;
+        self.sd_reg.cid.application_id = ((rawcid[3] & 0xFFFF00 ) >> 8 ) as u16;
+
+        self.sd_reg.cid.product_name[0] = (rawcid[3] & 0xFF) as u8;
+        self.sd_reg.cid.product_name[1] = ((rawcid[2] & 0xFF000000 ) >> 24 ) as u8;
+        self.sd_reg.cid.product_name[2] = ((rawcid[2] & 0xFF0000 ) >> 16 ) as u8;
+        self.sd_reg.cid.product_name[3] = ((rawcid[2] & 0xFF00 ) >> 8 ) as u8;
+        self.sd_reg.cid.product_name[4] = (rawcid[2] & 0xFF ) as u8;
+
+        self.sd_reg.cid.product_version = ((rawcid[1] & 0xFF000000 ) >> 24 ) as u8;
+        self.sd_reg.cid.serial_number = ((rawcid[1] & 0xFFFFFF ) << 8 ) |
+                                        ((rawcid[0] & 0xFF000000 ) >> 24 );
+        
+        self.sd_reg.cid.manufacturing_data = ((rawcid[0] & 0xFFF00 ) >> 8 ) as u16;
+    }
+
+    pub fn decode_csd(&mut self, rawcsd: &[u32]) {
+        self.sd_reg.csd.csd_structure = ((rawcsd[3] & 0xC0000000 ) >> 30 ) as u8;
+        self.sd_reg.csd.data_read_access_time1 = ((rawcsd[3] & 0xFF0000 ) >> 16 ) as u8;
+        self.sd_reg.csd.data_read_access_time2 = ((rawcsd[3] & 0xFF00 ) >> 8 ) as u8;
+        self.sd_reg.csd.transfer_speed = (rawcsd[3] & 0xFF) as u8;
+        self.sd_reg.csd.card_command_classes = ((rawcsd[2] & 0xFFF00000 ) >> 20 ) as u16;
+        self.sd_reg.csd.read_block_length = ((rawcsd[2] & 0xF0000 ) >> 16 ) as u8;
+        if rawcsd[2] & 0x8000 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::READ_BLOCK_PARTIAL.bits();
+        }
+        if rawcsd[2] & 0x4000 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::READ_BLOCK_PARTIAL.bits();
+        }
+        if rawcsd[2] & 0x2000 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::READ_BLOCK_MISALIGN.bits();
+        }
+        if rawcsd[2] & 0x1000 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::DSR_IMPLEMENTED.bits();
+        }
+        if self.sd_reg.csd.csd_structure == 0 {
+            info!("   csd structure: 1.0");
+            self.sd_reg.csd.device_size = ((rawcsd[2] & 0x3FF) << 2) | 
+                                          ((rawcsd[1] & 0xC0000000) >> 30);
+            self.sd_reg.csd.read_current_vdd_min = ((rawcsd[1] & 0x38000000) >> 27) as u8;
+            self.sd_reg.csd.read_current_vdd_max = ((rawcsd[1] & 0x7000000) >> 24) as u8;
+            self.sd_reg.csd.write_current_vdd_min = ((rawcsd[1] & 0xE00000) >> 20) as u8;
+            self.sd_reg.csd.write_current_vdd_max = ((rawcsd[1] & 0x1C0000) >> 18) as u8;
+            self.sd_reg.csd.device_size_multiplier = ((rawcsd[1] & 0x38000) >> 15) as u8;
+            /* Get card total block count and block size. */
+            self.block_count = (self.sd_reg.csd.device_size + 1) << 
+                               (self.sd_reg.csd.device_size_multiplier + 2);
+            self.block_size = 1 << self.sd_reg.csd.read_block_length;
+            // ! 这里的512 不知道要不要设置为常量
+            if self.block_size > 512 {
+                self.block_count = self.block_count * self.block_size;
+                self.block_size = 512;
+                self.block_count = self.block_count / self.block_size;
+            }
+        } else if self.sd_reg.csd.csd_structure == 1 {
+            info!("   csd structure: 2.0");
+            self.block_size = 512;
+            self.sd_reg.csd.device_size = ((rawcsd[2] & 0x3F) << 16) | 
+                                          ((rawcsd[1] & 0xFFFF0000) >> 16);
+            if self.sd_reg.csd.device_size >= 0xFFF {
+                // todo card->flags |= (uint32_t)kSD_SupportSdxcFlag;
+            }
+            self.block_count = (self.sd_reg.csd.device_size + 1) * 1024;
+        } else {
+            info!("unknown SD CSD structure version 0x{:x}",
+            self.sd_reg.csd.csd_structure);
+            /* not support csd version */
+        }
+
+        if ((rawcsd[1] & 0x4000) >> 14) as u8!= 0 {
+            self.sd_reg.csd.flags |= CsdFlags::ERASE_BLOCK_ENABLED.bits();
+        }
+
+        self.sd_reg.csd.erase_sector_size = ((rawcsd[1] & 0x3F80) >> 7) as u8;
+        self.sd_reg.csd.write_protect_group_size = (rawcsd[1] & 0x7F) as u8;
+
+        if (rawcsd[0] & 0x80000000) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::WRITE_PROTECT_GROUP_ENABLED.bits();
+        }
+
+        self.sd_reg.csd.write_speed_factor = ((rawcsd[0] & 0x1C000000) >> 26) as u8;
+        self.sd_reg.csd.write_block_length = ((rawcsd[0] & 0x3C00000) >> 22) as u8;
+
+        if ((rawcsd[0] & 0x200000) >> 21) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::WRITE_BLOCK_PARTIAL.bits();
+        }
+        if ((rawcsd[0] & 0x8000) >> 15) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::FILE_FORMAT_GROUP.bits();
+        }
+        if ((rawcsd[0] & 0x4000) >> 14) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::COPY.bits();
+        }
+        if ((rawcsd[0] & 0x2000) >> 13) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::PERMANENT_WRITE_PROTECT.bits();
+        }
+        if ((rawcsd[0] & 0x1000) >> 12) as u8 != 0 {
+            self.sd_reg.csd.flags |= CsdFlags::TEMPORARY_WRITE_PROTECT.bits();
+        }
+        self.sd_reg.csd.file_format = ((rawcsd[0] & 0xC00) >> 10) as u8;
+
+        info!("Card block count {}, block size {}",self.block_count,self.block_size);
+    }
+    pub fn decode_scr(&mut self, rawscr: &[u32]) {
+        self.sd_reg.scr.scr_structure = ((rawscr[0] & 0xF0000000) >> 28) as u8;
+        self.sd_reg.scr.sd_specification = ((rawscr[0] & 0xF000000) >> 24) as u8;
+        if ((rawscr[0] & 0x800000) >> 23) as u8 != 0 {
+            self.sd_reg.scr.flags |= ScrFlags::DATA_STATUS_AFTER_ERASE.bits();
+        }
+        self.sd_reg.scr.sd_security = ((rawscr[0] & 0x700000) >> 20) as u8;
+        self.sd_reg.scr.sd_bus_widths = ((rawscr[0] & 0xF0000) >> 16) as u8;
+        if ((rawscr[0] & 0x8000) >> 15) as u8 != 0 {
+            self.sd_reg.scr.flags |= ScrFlags::SD_SPECIFICATION3.bits();
+        }
+        self.sd_reg.scr.extended_security = ((rawscr[0] & 0x7800) >> 10) as u8;
+        self.sd_reg.scr.command_support = (rawscr[0] & 0x3) as u8;
+        self.sd_reg.scr.reserved_for_manufacturer = rawscr[1];
+        /* Get specification version. */
+        if self.sd_reg.scr.sd_specification == 0 {
+            info!("   SCR version: 1.0");
+            self.version = SdSpecificationVersion::VERSION_1_0;
+        } else if self.sd_reg.scr.sd_specification == 1 {
+            info!("   SCR version: 1.1");
+            self.version = SdSpecificationVersion::VERSION_1_1;
+        } else if self.sd_reg.scr.sd_specification == 2 {
+            info!("   SCR version: 2.0");
+            self.version = SdSpecificationVersion::VERSION_2_0;
+            if self.sd_reg.scr.flags & ScrFlags::SD_SPECIFICATION3.bits() != 0 {
+                info!("   SCR version: 3.0");
+                self.version = SdSpecificationVersion::VERSION_3_0;
+            }
+        } else {
+            info!("   SCR version: unknown");
+        }
+        /* Check card supported bus width */
+        if self.sd_reg.scr.sd_bus_widths & 0x4 != 0 {
+            info!("   Card support 4-bit bus width");
+            // todo card->flags |= (uint32_t)kSD_Support4BitWidthFlag;
+        }
+        /* Check if card supports speed class command (CMD20) */
+        if self.sd_reg.scr.command_support & 0x1 != 0 {
+            info!("   Card support speed class control command");
+            // todo card->flags |= (uint32_t)kSD_SupportSpeedClassControlCmdFlag;
+        }
+        /* Check if card supports set block count command (CMD23) */
+        if self.sd_reg.scr.command_support & 0x2 != 0 {
+            info!("   Card support set block count command");
+            // todo card->flags |= (uint32_t)kSD_SupportSetBlockCountCmdFlag;
+        }
+    }
+    pub fn decode_status(&mut self, src: &[u32]) {
+        self.sd_reg.status.bus_width = ((src[0] & 0xC0000000) >> 30) as u8;
+        self.sd_reg.status.secure_mode = ((src[0] & 0x20000000) >> 29) as u8;
+        self.sd_reg.status.card_type = (src[0] & 0x0000FFFF) as u16;
+        self.sd_reg.status.protected_size = src[1];
+        self.sd_reg.status.speed_class = ((src[2] & 0xFF000000) >> 24) as u8;
+        self.sd_reg.status.performance_move = ((src[2] & 0x00FF0000) >> 16) as u8;
+        self.sd_reg.status.erase_size = (((src[2] & 0x000000FF) << 8) | 
+                                        ((src[3] & 0xFF000000) >> 24)) as u16;
+        self.sd_reg.status.erase_timeout = ((((src[3] & 0x00FF0000) >> 16) & 0xFC) >> 2) as u8;
+        self.sd_reg.status.erase_offset = (((src[3] & 0x00FF0000) >> 16) & 0x3)as u8;
+        self.sd_reg.status.uhs_speed_grade = ((((src[3] & 0x0000FF00) >> 8) & 0xF0) >> 4) as u8;
+        self.sd_reg.status.uhs_au_size = (((src[3] & 0x0000FF00) >> 8) & 0xF) as u8;
+    }
+}
+
+
 //* CMD 相关的函数 */
 impl MCI {
 
@@ -578,7 +871,7 @@ impl MCI {
     }
 
     //* CMD2 */
-    pub fn all_send_cid(&self) -> FsdifResult {
+    pub fn all_send_cid(&mut self) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
             cmdidx: FsDifCommand::AllSendCid as u32,
             cmdarg: 0,
@@ -594,12 +887,12 @@ impl MCI {
         };
         self.pio_transfer(&cmd_data)?;
         self.poll_wait_pio_end(&mut cmd_data)?;
-        // todo DecodeCid
+        self.decode_cid(&cmd_data.response);
         Ok(())
     }
 
     //* CMD3 */
-    pub fn send_rca(&self) -> FsdifResult {
+    pub fn send_rca(&mut self) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
             cmdidx: FsDifSDIndivCommand::SendRelativeAddress as u32,
             cmdarg: 0,
@@ -615,7 +908,39 @@ impl MCI {
         };
         self.pio_transfer(&cmd_data)?;
         self.poll_wait_pio_end(&mut cmd_data)?;
-        // todo card->relativeAddress = (command.response[0U] >> 16U);
+        self.sd_reg.rca = cmd_data.response[0] >> 16;
+        Ok(())
+    }
+
+    //* CMD6 */
+    pub fn switch_function(&self, mode: SwitchMode, group: GroupNum, number: TimingFunctionNum, status: &mut [u32]) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifSDIndivCommand::Switch as u32,
+            cmdarg: {
+                let mut arg = 0;
+                let mode = mode as u32;
+                let group = group as u32;
+                let number = number as u32;
+                arg |= mode << 31 | 0x00FFFFFF;
+                arg &= !(0xF << (group * 4));
+                arg |= number << (group * 4);
+                arg
+            },
+            response: [0; 4],
+            flag: CmdFlag::READ_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: status,
+                buf_dma: 0,
+                blksz: 64,
+                blkcnt: 1,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
         Ok(())
     }
 
@@ -681,7 +1006,7 @@ impl MCI {
     }
 
     //* CMD9 */
-    pub fn send_csd(&self) -> FsdifResult {
+    pub fn send_csd(&mut self) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
             cmdidx: FsDifCommand::SendCsd as u32,
             cmdarg: 0,
@@ -695,8 +1020,9 @@ impl MCI {
             },
             success: false,
         };
-        /* The response is from bit 127:8 in R2, corrisponding to command.response[3U]:command.response[0U][31U:8]. */
-        // todo SD_DecodeCsd(card, (uint32_t *)(uintptr_t)card->internalBuffer);
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        self.decode_csd(&cmd_data.response);
         Ok(())
     }
 
@@ -760,6 +1086,65 @@ impl MCI {
         Ok(())
     }
 
+    //* CMD12 */
+    pub fn stop_transmission(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::StopTransmission as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+
+    //* CMD13 */
+    pub fn card_status_send(&self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::SendStatus as u32,
+            cmdarg: self.sd_reg.rca << 16,
+            response: [0; 4],
+            flag: CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [],
+                buf_dma: 0,
+                blksz: 0,
+                blkcnt: 0,
+            },
+            success: false,
+        };
+        let mut retry = 10;
+        while retry > 0 {
+            if let Err(_) = self.pio_transfer(&cmd_data) {
+                retry -= 1;
+                continue;
+            }
+            if let Err(_) = self.poll_wait_pio_end(&mut cmd_data) {
+                retry -= 1;
+                continue;
+            }
+            if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+                return Err(FsdifError::InvalidState);
+            }
+            if cmd_data.response[0] & SdmmcR1CardStatusFlag::READY_FOR_DATA.bits() != 0 {
+                break;
+            }
+            retry -= 1;
+        }
+        Ok(())
+    }
+
     //* CMD16 */
     pub fn block_size_set(&self, blksize: u32) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
@@ -779,6 +1164,37 @@ impl MCI {
         self.poll_wait_pio_end(&mut cmd_data)?;
         if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
             return Err(FsdifError::InvalidState);
+        }
+        Ok(())
+    }
+
+    pub fn read_single_block(&self) -> FsdifResult {
+        /* read command are not allowed while card is programming */
+        self.polling_card_status_busy(600)?;
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: FsDifCommand::ReadSingleBlock as u32,
+            cmdarg: 131072+100,
+            response: [0; 4],
+            flag: CmdFlag::READ_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [0;512],
+                buf_dma: 0,
+                blksz: 512,
+                blkcnt: 1,
+            },
+            success: false,
+        };
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+        for i in 0..cmd_data.data.buf.len() {
+            warn!("{:x},{:x},{:x},{:x}",
+                cmd_data.data.buf[i] as u8,
+                (cmd_data.data.buf[i] >> 8) as u8,
+                (cmd_data.data.buf[i] >> 16) as u8,
+                (cmd_data.data.buf[i] >> 24) as u8);
         }
         Ok(())
     }
@@ -842,7 +1258,7 @@ impl MCI {
 impl MCI {
 
     //* ACMD6 */
-    pub fn data_bus_width(&mut self,width:SdmmcBusWidth) -> FsdifResult {
+    pub fn data_bus_width_set(&mut self,width:SdmmcBusWidth) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
             cmdidx: SdApplicationCommand::SetBusWidth as u32,
             cmdarg: match width {
@@ -862,12 +1278,44 @@ impl MCI {
             },
             success: false,
         };
-        self.send_application_command(0)?;
+        self.send_application_command(self.sd_reg.rca)?;
+        self.pio_transfer(&cmd_data)?;
+        self.poll_wait_pio_end(&mut cmd_data)?;
         if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
             return Err(FsdifError::InvalidState);
         }
         Ok(())
     }
+
+    //* ACMD13 */
+    pub fn read_status(&mut self) -> FsdifResult {
+        let mut cmd_data = FSdifCmdData {
+            cmdidx: SdApplicationCommand::Status as u32,
+            cmdarg: 0,
+            response: [0; 4],
+            flag: CmdFlag::READ_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            data: FsdifBuf {
+                buf: &mut [0; 64],
+                buf_dma: 0,
+                blksz: 64,
+                blkcnt: 1,
+            },
+            success: false,
+        };
+        /* wait card status ready. */
+        self.polling_card_status_busy(600)?;
+        self.send_application_command(self.sd_reg.rca)?;
+        self.transfer(&mut cmd_data,3)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            return Err(FsdifError::InvalidState);
+        }
+
+        /* switch to little endian sequence, as width data, SD Status are also sent in MSB */
+        self.convert_data_to_little_endian(cmd_data.data.buf, 16,DataPacketFormat::DataPacketFormatMSBFirst);
+        self.decode_status(cmd_data.data.buf);
+        Ok(())
+    }
+
     //* ACMD41 */
     pub fn application_send_opration_condition(&mut self,arg: SdOcrFlag) -> FsdifResult {
         let mut cmd_data = FSdifCmdData {
@@ -912,7 +1360,7 @@ impl MCI {
                 }else {
                     warn!("Not UHS card only support 3.3v")
                 }
-                // todo card->ocr = command.response[0U];
+                self.sd_reg.ocr = cmd_data.response[0];
                 return Ok(());
             }
             sleep(Duration::from_millis(10));
@@ -929,7 +1377,7 @@ impl MCI {
             cmdidx: SdApplicationCommand::SendScr as u32,
             cmdarg: 0,
             response: [0; 4],
-            flag: CmdFlag::READ_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
+            flag: CmdFlag::READ_DATA | CmdFlag::EXP_DATA | CmdFlag::EXP_RESP | CmdFlag::NEED_RESP_CRC,
             data: FsdifBuf {
                 buf: &mut [0;8],
                 buf_dma: 0,
@@ -938,17 +1386,20 @@ impl MCI {
             },
             success: false,
         };
-        let relative_address = 0;
-        self.send_application_command(relative_address)?;
+        self.send_application_command(self.sd_reg.rca)?;
         self.pio_transfer(&cmd_data)?;
         self.poll_wait_pio_end(&mut cmd_data)?;
+        if cmd_data.response[0] & SdmmcR1CardStatusFlag::SDMMC_R1_ALL_ERROR_FLAG.bits() != 0 {
+            info!("\r\nError: send ACMD51 failed with host error, response {:x}\r\n",cmd_data.response[0]);
+            return Err(FsdifError::InvalidState);
+        }
          /* according to spec. there are two types of Data packet format for SD card
             1. Usual data (8-bit width), are sent in LSB first
             2. Wide width data (SD Memory register), are shifted from the MSB bit, 
         e.g. ACMD13 (SD Status), ACMD51 (SCR) */
-        // todo SDMMCHOST_ConvertDataToLittleEndian(card->host, rawScr, 2U, kSDMMC_DataPacketFormatMSBFirst);
+        self.convert_data_to_little_endian(cmd_data.data.buf, 2,DataPacketFormat::DataPacketFormatMSBFirst);
         /* decode scr */
-        // todo SD_DecodeScr(card, rawScr);
+        self.decode_scr(cmd_data.data.buf);
         Ok(())
     }
 
@@ -977,10 +1428,6 @@ impl MCI {
 
     pub fn pio_transfer(&self, cmd_data: &FSdifCmdData) -> FsdifResult {
         let read = cmd_data.flag.contains(CmdFlag::READ_DATA);
-        //? 实验性代码
-        /* enable related interrupt */
-        // self.interrupt_mask_set(FsDifIntrType::GeneralIntr, FsdifInt::INTS_DATA_MASK.bits(), true);
-        //? 实验性代码
         if !self.is_ready{
             error!("device is not yet initialized!!!");
             return Err(FsdifError::NotInit);
@@ -1005,6 +1452,7 @@ impl MCI {
         });
         /* write data */
         if cmd_data.data.buf.len() > 0 {
+            warn!("pio transfer data len: 0x{:x}",cmd_data.data.buf.len());
             /* while in PIO mode, max data transferred is 0x800 */
             if cmd_data.data.buf.len() > FSDIF_MAX_FIFO_CNT as usize {
                 error!("Fifo do not support writing more than {:x}.",FSDIF_MAX_FIFO_CNT);
@@ -1015,8 +1463,9 @@ impl MCI {
             self.blksize_set(cmd_data.data.blksz);
             /* if need to write, write to fifo before send command */
             if !read { 
+                warn!("pio write data");
                 /* invalide buffer for data to write */
-                unsafe { dsb() };
+                // unsafe { dsb() };
                 self.pio_write_data(cmd_data.data.buf)?;
             }
         }
@@ -1041,9 +1490,13 @@ impl MCI {
         /* if need to read data, read fifo after send command */
         if read {
             info!("wait for PIO data to read ...");
-            self.reg.wait_for(|reg|{
+            if let Err(_)=self.reg.wait_for(|reg|{
+                info!("raw ints reg: 0x{:x}",reg);
                 (FsdifRawInts::DTO_BIT & reg).bits() != 0
-            }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;
+            }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100)){
+                self.raw_status_clear();
+                return Err(FsdifError::CmdTimeout);
+            }
             /* clear status to ack */
             self.raw_status_clear();
             info!("card cnt: 0x{:x}, fifo cnt: 0x{:x}",
@@ -1053,6 +1506,33 @@ impl MCI {
         /* clear status to ack cmd done */
         self.raw_status_clear();
         self.get_cmd_response(cmd_data)?;
+        Ok(())
+    }
+
+    pub fn transfer(&self,cmd_data: &mut FSdifCmdData,retry: u32) -> FsdifResult {
+        let mut retry = retry;
+        loop {
+            if let Err(_) = self.pio_transfer(cmd_data) {
+                retry -= 1;
+                continue;
+            }
+            if let Err(_) = self.poll_wait_pio_end(cmd_data) {
+                /* if transfer data failed, send cmd12 to abort current transfer */
+                if cmd_data.data.buf.len() > 0 {
+                    /* when transfer error occur, polling card status until it is ready for next data transfer, otherwise the
+                    * retry transfer will fail again */
+                    let _ = self.stop_transmission();
+                    warn!("pio transfer failed, polling card status until it is ready for next data transfer");
+                    self.polling_card_status_busy(600)?;
+                }
+                if retry ==0 {
+                    // todo 为选择timing之后进行操作
+                }
+                retry -= 1;
+                continue;
+            }
+            break;
+        }
         Ok(())
     }
 }

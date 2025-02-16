@@ -1,10 +1,10 @@
 #![allow(unused)] 
 mod err;
-pub mod constants;
+pub(crate) mod constants;
 pub(crate) mod regs;
 
 use core::ptr::NonNull;
-use constants::*;
+pub use constants::*;
 use err::*;
 use regs::{BitsOps, XReg0, XReg1};
 use crate::regs::{FlagReg, Reg};

@@ -113,17 +113,17 @@ pub fn mci_get_timing_setting(clock_freq: FsDifClkSpeed, non_removable: bool) ->
     }
     if non_removable {
         match clock_freq {
-            FsDifClkSpeed::ClkSpeed25Mhz => return SD_25MHZ,
-            FsDifClkSpeed::ClkSpeed50Mhz => return SD_50MHZ,
-            FsDifClkSpeed::ClkSpeed100Mhz => return SD_100MHZ,
-            _ => return MMC_SD_NULL,
-        }
-    }else {
-        match clock_freq {
             FsDifClkSpeed::ClkSpeed26Mhz => return MMC_26MHZ,
             FsDifClkSpeed::ClkSpeed52Mhz => return MMC_52MHZ,
             FsDifClkSpeed::ClkSpeed66Mhz => return MMC_66MHZ,
             FsDifClkSpeed::ClkSpeed100Mhz => return MMC_100MHZ,
+            _ => return MMC_SD_NULL,
+        }
+    }else {
+        match clock_freq {
+            FsDifClkSpeed::ClkSpeed25Mhz => return SD_25MHZ,
+            FsDifClkSpeed::ClkSpeed50Mhz => return SD_50MHZ,
+            FsDifClkSpeed::ClkSpeed100Mhz => return SD_100MHZ,
             _ => return MMC_SD_NULL,
         }
     }

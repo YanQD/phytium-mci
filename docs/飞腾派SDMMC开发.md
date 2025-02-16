@@ -315,6 +315,8 @@ sudo dd if=/dev/mmcblk0p1 of=output.bin bs=1 count=1024
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=2 skip=999
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=3 skip=998
 hexdump -C output.bin
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=1 skip=100 | hexdump -C output.bin
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=1 skip=99 | hexdump -C output.bin
 ```
 
 # 检查寄存器

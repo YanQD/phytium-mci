@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.7.17 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36" version="24.7.17">
   <diagram name="第 1 页" id="HcL9KFVXWnxy38fZhLyd">
-    <mxGraphModel dx="1247" dy="4241" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2049" dy="4713" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -9144,10 +9144,10 @@
         <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3224" value="void (*cardEnableInt)(sdmmchost_t *host, bool enable);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
           <mxGeometry y="390" width="260" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3226" value="void (*cardSetBusWidth)(sdmmchost_t *host, uint32_t dataBusWidth);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
+        <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3225" value="status_t (*cardIntInit)(sdmmchost_t *host, void *sdioInt);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
           <mxGeometry y="420" width="260" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3225" value="status_t (*cardIntInit)(sdmmchost_t *host, void *sdioInt);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
+        <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3226" value="void (*cardSetBusWidth)(sdmmchost_t *host, uint32_t dataBusWidth);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
           <mxGeometry y="450" width="260" height="30" as="geometry" />
         </mxCell>
         <mxCell id="7Zs-sLPVkRJgYWHxQ7A6-3227" value="status_t (*cardPollingDetectStatus)(sdmmchost_t *host, uint32_t waitCardStatus, uint32_t timeout);" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;fontStyle=1;whiteSpace=wrap;" parent="7Zs-sLPVkRJgYWHxQ7A6-3211" vertex="1">
