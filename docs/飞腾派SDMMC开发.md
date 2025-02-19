@@ -19,11 +19,9 @@
 
 # Soc型号
 
-
 这个包括丝印和一些其它的地方都不提及.
 
 > 根据我的查阅应该是E2000Q
-
 
 # 资源
 
@@ -73,7 +71,7 @@
 
 # 飞腾派烧录和运行ArceOS
 
-使用仓库:https://github.com/qclic/arceos/tree/bsp/phytium_pi
+使用仓库:<https://github.com/qclic/arceos/tree/bsp/phytium_pi>
 
 注意 `clone`下来的是 `qcl_dev`分支,本次实验也是使用的这个分支.
 
@@ -228,7 +226,7 @@ args = "-smp 2"
 
 # 裸机驱动开发
 
-仓库地址:https://github.com/qclic/phytium-mci
+仓库地址:<https://github.com/qclic/phytium-mci>
 
 ## 尝试运行
 
@@ -317,6 +315,7 @@ sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=3 skip=998
 hexdump -C output.bin
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=1 skip=100 | hexdump -C output.bin
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=1 skip=99 | hexdump -C output.bin
+sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=4 skip=100 | hexdump -C output.bin
 ```
 
 # 检查寄存器
@@ -485,7 +484,7 @@ enableshift: 0x0
 
 > OSA: Operating System Abstraction 操作系统抽象层
 
-/* RW Start-bit error (SBE) */ 报了这个interrupt.
+/*RW Start-bit error (SBE)*/ 报了这个interrupt.
 
 # 可能需要
 
@@ -495,3 +494,29 @@ enableshift: 0x0
 
 - 1.9 更换仓库名称为phytium-mci,仓库地址[qclic/phytium-mci: sd mmc driver](https://github.com/qclic/phytium-mci)
 -
+
+# 仍然存在的BUG
+
+1. 读取的SD卡内容明明是512个`Byte`,但是很明显每次读取一个`u32`会读取4个`Byte`的数据出来.
+   1. 只在读取数据的时候读取的是4个4个读的,因此不能使用简单的`buf.len()`来代替`trans bytes`
+
+# 重构
+
+> MCI 是 Memory Card Interface(存储卡接口)的缩写
+
+1. 划分清楚所有关于Host的部分的代码,并且命名为MCI
+2. 对比关于`fsdif`和`fsdmmc`的区别的,尝试进行统一
+3. 部分`enum`和`bitflag`过分丑陋,需要写与`u32`兼容计算的方法
+4. 每个文件的包管理和依赖问很严重
+5. 变量的命名问题,先解决跑的问题,命名问题可以先记录再跑
+6. `err`的混乱使用问题,要先弄清楚基本的API是应该返回谁
+7. 注释问题(先不解决)
+8. `regs`的`enum`理论上应该交由`constants`
+9. `iopad`虽然规模小,但是也应该改改
+10. 部分成员的空指针特性,使用`Option`解决
+11. 注意使用#[derive(Debug)]
+12. 函数指针应该用`trait`的方式去耦合
+13. 宏定义的名字
+
+> SD Interface => sdif
+> SD MMC => sdmmc

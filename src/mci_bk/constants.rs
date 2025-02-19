@@ -1,51 +1,17 @@
 #![allow(unused)] 
 use bitflags::bitflags;
 use log::info;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MCIId {
-    MCI0,
-    MCI1,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MCIFifoDepth {
-    Depth8 = 23,
-    Depth16 = 24,
-    Depth32 = 25,
-    Depth64 = 26,
-    Depth128 = 27,
-}
-
-bitflags! {
-    #[derive(Debug, Clone, Copy)]
-    pub struct MCICmdFlag: u32 {
-        const NEED_INIT = 0x1;
-        const EXP_RESP = 0x2;
-        const EXP_LONG_RESP = 0x4;
-        const NEED_RESP_CRC = 0x8;
-        const EXP_DATA = 0x10;
-        const WRITE_DATA = 0x20;
-        const READ_DATA = 0x40;
-        const NEED_AUTO_STOP = 0x80;
-        const ADTC = 0x100;
-        const SWITCH_VOLTAGE = 0x200;
-        const ABORT = 0x400;
-        const AUTO_CMD12 = 0x800;
-    }
-}
-
 // 定义传输模式枚举
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MCITransMode {
-    DMA,      // DMA传输模式
-    PIO,      // PIO传输模式（通过读/写Fifo）
+#[derive(Debug, PartialEq)]
+pub enum FsDifTransMode {
+    DmaTransMode,      // DMA传输模式
+    PioTransMode,      // PIO传输模式（通过读/写Fifo）
 }
 
 // 定义中断类型枚举
 #[derive(Debug, PartialEq)]
 #[derive(Clone, Copy)]
-pub enum MCIIntrType {
+pub enum FsDifIntrType {
     GeneralIntr,       // 属于控制器的中断状态
     DmaIntr,           // 属于DMA的中断状态
 }
@@ -63,7 +29,8 @@ pub enum FsDifEvtType {
 
 // 定义时钟速度枚举
 #[derive(Debug, PartialEq)]
-pub enum MCIClkSpeed {
+pub enum FsDifClkSpeed {
+    ClkSpeedClose =  0,
     ClkSpeed400KHz = 400_000,
     ClkSpeed25Mhz = 25_000_000,
     ClkSpeed26Mhz = 26_000_000, // mmc
@@ -73,17 +40,17 @@ pub enum MCIClkSpeed {
     ClkSpeed100Mhz = 100_000_000,
 }
 
-impl From<u32> for MCIClkSpeed {
+impl From<u32> for FsDifClkSpeed {
     fn from(value: u32) -> Self {
         match value {
-            400_000 => MCIClkSpeed::ClkSpeed400KHz,
-            25_000_000 => MCIClkSpeed::ClkSpeed25Mhz,
-            26_000_000 => MCIClkSpeed::ClkSpeed26Mhz,
-            50_000_000 => MCIClkSpeed::ClkSpeed50Mhz,
-            52_000_000 => MCIClkSpeed::ClkSpeed52Mhz,
-            66_000_000 => MCIClkSpeed::ClkSpeed66Mhz,
-            100_000_000 => MCIClkSpeed::ClkSpeed100Mhz,
-            _ => panic!("Invalid clock speed"),
+            400_000 => FsDifClkSpeed::ClkSpeed400KHz,
+            25_000_000 => FsDifClkSpeed::ClkSpeed25Mhz,
+            26_000_000 => FsDifClkSpeed::ClkSpeed26Mhz,
+            50_000_000 => FsDifClkSpeed::ClkSpeed50Mhz,
+            52_000_000 => FsDifClkSpeed::ClkSpeed52Mhz,
+            66_000_000 => FsDifClkSpeed::ClkSpeed66Mhz,
+            100_000_000 => FsDifClkSpeed::ClkSpeed100Mhz,
+            _ => FsDifClkSpeed::ClkSpeedClose,
         }
     }
 }
@@ -378,8 +345,11 @@ pub const FSDIF_EMMC_DDR_REG_OFFSET: u32 = 0x10C; // the EMMC DDR reg
 pub const FSDIF_ENABLE_SHIFT_OFFSET: u32 = 0x110; // the enable phase shift reg
 pub const FSDIF_DATA_OFFSET: u32 = 0x200; // the data FIFO access
 
-pub const RETRIES_TIMEOUT:usize = 50000; /* timeout for retries */
+pub const FSDIF_TIMEOUT:u32 = 50000; /* timeout for retries */
 pub const FSDIF_DELAY_US:u32 = 5;
-pub const MCI_MAX_FIFO_CNT:u32 = 0x800;
+pub const FSDIF_MAX_FIFO_CNT:u32 = 0x800;
 
 pub const FSL_SDMMC_MAX_CMD_RETRIES:u32 = 10;
+
+pub const FSDIF0_ID: u32 = 0;
+pub const FSDIF1_ID: u32 = 1;

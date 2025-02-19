@@ -1,7 +1,7 @@
 use super::RegError;
 
 #[derive(Debug)]
-pub enum MCIError {
+pub enum FsdifError {
     Timeout,
     NotInit,
     ShortBuf,
@@ -15,10 +15,10 @@ pub enum MCIError {
     InvalidTiming,
 }
 
-impl RegError for MCIError {
+impl RegError for FsdifError {
     fn timeout() -> Self {
-        MCIError::Timeout
+        FsdifError::Timeout
     }
 }
 
-pub type MCIResult<T=()> = Result<T, MCIError>;
+pub type FsdifResult<T=()> = Result<T, FsdifError>;

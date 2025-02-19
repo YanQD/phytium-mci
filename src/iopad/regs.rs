@@ -3,10 +3,6 @@ use bitflags::bitflags;
 use crate::regs::FlagReg;
 use super::constants::*;
 
-
-pub trait BitsOps: ops::BitOr<Output = Self> + ops::BitAnd<Output = Self> + ops::Not<Output = Self> + ops::BitXor<Output = Self> + Sized {}
-impl<T> BitsOps for T where T: ops::BitOr<Output = Self> + ops::BitAnd<Output = Self> + ops::Not<Output = Self> + ops::BitXor<Output = Self> {}
-
 pub trait XReg0: FlagReg {
     fn func_set(x:u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 2, 0))
