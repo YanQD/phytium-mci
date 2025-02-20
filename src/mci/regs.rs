@@ -1,4 +1,4 @@
-use core::{default, ops};
+use core::ops;
 
 use bitflags::bitflags;
 use crate::mci::{constants::*, err::MCIError};
@@ -322,30 +322,14 @@ impl FlagReg for MCICmd {
 }
 
 impl MCICmd {
+    
     pub fn index_set(x:u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 5, 0))
     }
+
     pub fn index_get(&self) -> u32 {
         self.bits() & genmask!(5, 0)
     }
-}
-
-/* 1: 流数据传输指令 */
-pub fn cmd_transf_mode_set(reg: MCIReg, mode: u32) {
-    reg.modify_reg::<MCICmd>(|reg| {
-        reg | MCICmd::from_bits_truncate(set_reg32_bits!(mode, 12, 11))
-    });
-}
-
-/* 命令索引号 */
-pub fn cmd_indx_set(reg: MCIReg, ind: u32) {
-    reg.modify_reg::<MCICmd>(|reg| {
-        reg | MCICmd::from_bits_truncate(set_reg32_bits!(ind, 5, 0))
-    });
-}
-
-pub fn cmd_indx_get(reg: MCIReg) -> u32 {
-    (reg.read_reg::<MCICmd>() & MCICmd::from_bits_truncate(genmask!(5, 0))).bits()
 }
 
 // FSDIF_STATUS_OFFSET Register
@@ -389,18 +373,6 @@ bitflags! {
 
 impl FlagReg for MCIStatus {
     const REG: u32 = FSDIF_STATUS_OFFSET;
-}
-
-pub fn cmd_fsm_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIStatus>().bits(), 7, 4)
-}
-
-pub fn resp_index_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIStatus>().bits(), 16, 11)
-}
-
-pub fn fifo_cnt_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIStatus>().bits(), 29, 17)
 }
 
 // FSDIF_FIFOTH_OFFSET Register
@@ -482,27 +454,6 @@ impl From<MCIFifoThDMATransSize> for u32 {
     }
 }
 
-pub const FSDIF_RX_WMARK:u32 = 0x7;
-pub const FSDIF_TX_WMARK:u32 = 0x100;
-
-pub fn dma_trans_size_set(reg:MCIReg,size:u32){
-    reg.modify_reg::<MCIFifoTh>(|reg| {
-        reg | MCIFifoTh::from_bits_truncate(set_reg32_bits!(size, 30, 28))
-    });
-}
-
-pub fn rx_mark_size_set(reg:MCIReg,size:u32){
-    reg.modify_reg::<MCIFifoTh>(|reg| {
-        reg | MCIFifoTh::from_bits_truncate(set_reg32_bits!(size, 27, 16))
-    });
-}
-
-pub fn tx_mark_size_set(reg:MCIReg,size:u32){
-    reg.modify_reg::<MCIFifoTh>(|reg| {
-        reg | MCIFifoTh::from_bits_truncate(set_reg32_bits!(size, 11, 0))
-    });
-}
-
 // FSDIF_CARD_DETECT_OFFSET Register
 bitflags! {
     pub struct MCICardDetect: u32 {
@@ -578,10 +529,6 @@ impl FlagReg for MCIBusMode {
     const REG: u32 = FSDIF_BUS_MODE_OFFSET; // 假设 FSDIF_BUS_MODE_OFFSET 是对应的寄存器偏移量
 }
 
-pub fn bus_mode_pbl_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIBusMode>().bits(), 10, 8)
-}
-
 // FSDIF_DMAC_STATUS_OFFSET Register
 bitflags! {
     pub struct MCIDMACStatus: u32 {
@@ -625,11 +572,7 @@ impl FlagReg for MCIDMACStatus {
     const REG: u32 = FSDIF_DMAC_STATUS_OFFSET; // 假设 FSDIF_DMAC_STATUS_OFFSET 是对应的寄存器偏移量
 }
 
-pub fn dmac_status_eb_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIDMACStatus>().bits(), 12, 10)
-}
-
-/// FSDIF_DMAC_INT_EN_OFFSET Register
+// FSDIF_DMAC_INT_EN_OFFSET Register
 bitflags! {
     pub struct MCIDMACIntEn: u32 {
         const TI = 1 << 0;  /* RW 发送完成中断使能 */
@@ -648,7 +591,7 @@ impl FlagReg for MCIDMACIntEn {
     const REG: u32 = FSDIF_DMAC_INT_EN_OFFSET; // 假设 FSDIF_DMAC_INT_EN_OFFSET 是对应的寄存器偏移量
 }
 
-/// FSDIF_CARD_THRCTL_OFFSET Register
+// FSDIF_CARD_THRCTL_OFFSET Register
 bitflags! {
     pub struct MCICardThrctl: u32 {
         const CARDRD = 1 << 0;   /* RW 读卡threshold使能 */
@@ -682,12 +625,7 @@ impl From<MCIFifoDepth> for MCICardThrctl {
     }
 }
 
-// 读卡 Threshold
-pub fn card_thrctl_threshold(reg:MCIReg,n: u32) -> u32 {
-    reg.read_reg::<MCICardThrctl>().bits() & (1<<n)
-}
-
-/// FSDIF_CLK_SRC_OFFSET Register
+// FSDIF_CLK_SRC_OFFSET Register
 bitflags! {
     #[derive(Clone, Copy)]
     pub struct MCIClkSrc: u32 {
@@ -745,29 +683,7 @@ impl MCIClkSrc {
     }
 }
 
-pub fn uhs_clk_div_set(reg: MCIReg, x: u32) {
-    reg.modify_reg::<MCIClkSrc>(|reg| {
-        reg | MCIClkSrc::from_bits_truncate(set_reg32_bits!(x,14,8))
-    });
-}
-
-pub fn uhs_clk_div_get(reg: MCIReg) -> u32 {
-    get_reg32_bits!(reg.read_reg::<MCIClkSrc>().bits(),14,8)
-}
-
-pub fn uhs_clk_samp_set(reg: MCIReg, x: u32) {
-    reg.modify_reg::<MCIClkSrc>(|reg| {
-        reg | MCIClkSrc::from_bits_truncate(set_reg32_bits!(x,22,16))
-    });
-}
-
-pub fn uhs_clk_drv_set(reg: MCIReg, x: u32) {
-    reg.modify_reg::<MCIClkSrc>(|reg| {
-        reg | MCIClkSrc::from_bits_truncate(set_reg32_bits!(x,30,24))
-    });
-}
-
-/// FSDIF_EMMC_DDR_REG_OFFSET Register
+// FSDIF_EMMC_DDR_REG_OFFSET Register
 bitflags! {
     pub struct MCIEmmcDdrReg: u32 {
         const CYCLE = 1 << 0; /* RW 1: start bit小于一个周期，0：start bit 为一个周期 */
@@ -778,7 +694,7 @@ impl FlagReg for MCIEmmcDdrReg {
     const REG: u32 = FSDIF_EMMC_DDR_REG_OFFSET; // 假设 FSDIF_EMMC_DDR_REG_OFFSET 是对应的寄存器偏移量
 }
 
-/// FSDIF_DESC_LIST_ADDRH_OFFSET Register
+// FSDIF_DESC_LIST_ADDRH_OFFSET Register
 bitflags! {
     pub struct MCIDescListAddrH: u32 {
         const BIT0 = 1 << 0;
@@ -862,7 +778,7 @@ impl FlagReg for MCIDescListAddrL {
     const REG: u32 = FSDIF_DESC_LIST_ADDRL_OFFSET; // 假设 FSDIF_DESC_LIST_ADDRL_OFFSET 是对应的寄存器偏移量
 }
 
-/// FSDIF_DATA_OFFSET Register
+// FSDIF_DATA_OFFSET Register
 bitflags! {
     pub struct FsdifData: u32 {
         const BIT0 = 1 << 0;
@@ -903,7 +819,7 @@ impl FlagReg for FsdifData {
     const REG: u32 = FSDIF_DATA_OFFSET; // 假设 FSDIF_DATA_OFFSET 是对应的寄存器偏移量
 }
 
-/// FSDIF_BYT_CNT_OFFSET Register
+// FSDIF_BYT_CNT_OFFSET Register
 bitflags! {
     pub struct MCIBytCnt: u32 {
         const BIT0 = 1 << 0;
@@ -1027,7 +943,7 @@ impl FlagReg for MCITranCardCnt {
     const REG: u32 = FSDIF_TRAN_CARD_CNT_OFFSET;
 }
 
-/// FSDIF_TRAN_FIFO_CNT_OFFSET Register
+// FSDIF_TRAN_FIFO_CNT_OFFSET Register
 bitflags! {
     pub struct MCITranFifoCnt:u32 {
         const BIT0 = 1 << 0;
@@ -1068,7 +984,7 @@ impl FlagReg for MCITranFifoCnt {
     const REG: u32 = FSDIF_TRAN_FIFO_CNT_OFFSET;
 }
 
-/// FSDIF_RESP0_OFFSET Register
+// FSDIF_RESP0_OFFSET Register
 bitflags! {
     pub struct MCIResp0:u32 {
         const BIT0 = 1 << 0;
@@ -1109,7 +1025,7 @@ impl FlagReg for MCIResp0 {
     const REG: u32 = FSDIF_RESP0_OFFSET;
 }
 
-/// FSDIF_RESP1_OFFSET Register
+// FSDIF_RESP1_OFFSET Register
 bitflags! {
     pub struct MCIResp1:u32 {
         const BIT0 = 1 << 0;
@@ -1150,7 +1066,7 @@ impl FlagReg for MCIResp1 {
     const REG: u32 = FSDIF_RESP1_OFFSET;
 }
 
-/// FSDIF_RESP2_OFFSET Register
+// FSDIF_RESP2_OFFSET Register
 bitflags! {
     pub struct MCIResp2:u32 {
         const BIT0 = 1 << 0;
@@ -1191,7 +1107,7 @@ impl FlagReg for MCIResp2 {
     const REG: u32 = FSDIF_RESP2_OFFSET;
 }
 
-/// FSDIF_RESP3_OFFSET Register
+// FSDIF_RESP3_OFFSET Register
 bitflags! {
     pub struct MCIResp3:u32 {
         const BIT0 = 1 << 0;
@@ -1397,7 +1313,7 @@ impl FlagReg for MCIVid {
     const REG: u32 = FSDIF_VID_OFFSET;
 }
 
-/// FSDIF_HWCONF_OFFSET Register
+// FSDIF_HWCONF_OFFSET Register
 bitflags! {
     pub struct MCIHwconf: u32 {
         const BIT0 = 1 << 0;
@@ -1437,7 +1353,7 @@ bitflags! {
 impl FlagReg for MCIHwconf {
     const REG: u32 = FSDIF_HWCONF_OFFSET;
 }
-/// FSDIF_CUR_DESC_ADDRL_OFFSET Register
+// FSDIF_CUR_DESC_ADDRL_OFFSET Register
 bitflags! {
     pub struct MCICurDescAddrL: u32 {
         const BIT0 = 1 << 0;
@@ -1477,7 +1393,7 @@ bitflags! {
 impl FlagReg for MCICurDescAddrL {
     const REG: u32 = FSDIF_CUR_DESC_ADDRL_OFFSET;
 }
-/// FSDIF_CUR_DESC_ADDRH_OFFSET Register
+// FSDIF_CUR_DESC_ADDRH_OFFSET Register
 bitflags! {
     pub struct MCIDescAddrH: u32 {
         const BIT0 = 1 << 0;
@@ -1517,7 +1433,7 @@ bitflags! {
 impl FlagReg for MCIDescAddrH {
     const REG: u32 = FSDIF_CUR_DESC_ADDRH_OFFSET;
 }
-/// FSDIF_CUR_BUF_ADDRL_OFFSET Register
+// FSDIF_CUR_BUF_ADDRL_OFFSET Register
 bitflags! {
     pub struct MCICurBufAddrL: u32 {
         const BIT0 = 1 << 0;
@@ -1557,7 +1473,7 @@ bitflags! {
 impl FlagReg for MCICurBufAddrL {
     const REG: u32 = FSDIF_CUR_BUF_ADDRL_OFFSET;
 }
-/// FSDIF_CUR_BUF_ADDRH_OFFSET Register
+// FSDIF_CUR_BUF_ADDRH_OFFSET Register
 bitflags! {
     pub struct MCIBufAddrH: u32 {
         const BIT0 = 1 << 0;
@@ -1597,7 +1513,7 @@ bitflags! {
 impl FlagReg for MCIBufAddrH {
     const REG: u32 = FSDIF_CUR_BUF_ADDRH_OFFSET;
 }
-/// FSDIF_ENABLE_SHIFT_OFFSET Register
+// FSDIF_ENABLE_SHIFT_OFFSET Register
 bitflags! {
     pub struct MCIEnableShift: u32 {
         const BIT0 = 1 << 0;

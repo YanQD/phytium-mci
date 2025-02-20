@@ -8,6 +8,7 @@ pub(crate) struct MCIData<'a> {
 }
 
 impl MCIData<'_> {
+
    pub(crate) fn blksz(&self) -> u32 {
         self.blksz
     }
@@ -19,10 +20,13 @@ impl MCIData<'_> {
     pub(crate) fn datalen(&self) -> u32 {
         self.datalen
     }
+
     pub(crate) fn buf(&self) -> &[u32] {
         self.buf
     }
+
     pub(crate) fn buf_mut(&mut self) -> &mut [u32] {
         self.buf
     }
+    
 }

@@ -103,7 +103,7 @@ impl MCI {
             return Err(MCIError::NotInit);
         }
 
-        if let Some(data) = cmd_data.get_data(){
+        if let Some(data) = cmd_data.get_mut_data(){
             if read {
                 if MCITransMode::PIO == self.config.trans_mode() {
                     self.pio_read_data(data)?;
@@ -115,23 +115,24 @@ impl MCI {
         let flag = cmd_data.flag();
         let reg = self.config.reg();
         if flag.contains(MCICmdFlag::EXP_RESP) {
+            let response = cmd_data.get_mut_response();
             if flag.contains(MCICmdFlag::EXP_LONG_RESP) {
-                cmd_data.response[0] = reg.read_reg::<MCIResp0>().bits();
-                cmd_data.response[1] = reg.read_reg::<MCIResp1>().bits();
-                cmd_data.response[2] = reg.read_reg::<MCIResp2>().bits();
-                cmd_data.response[3] = reg.read_reg::<MCIResp3>().bits();
+                response[0] = reg.read_reg::<MCIResp0>().bits();
+                response[1] = reg.read_reg::<MCIResp1>().bits();
+                response[2] = reg.read_reg::<MCIResp2>().bits();
+                response[3] = reg.read_reg::<MCIResp3>().bits();
                 debug!("    resp: 0x{:x}-0x{:x}-0x{:x}-0x{:x}",
-                cmd_data.response[0],cmd_data.response[1],cmd_data.response[2],cmd_data.response[3]);
+                response[0],response[1],response[2],response[3]);
             }else {
-                cmd_data.response[0] = reg.read_reg::<MCIResp0>().bits();
-                cmd_data.response[1] = 0;
-                cmd_data.response[2] = 0;
-                cmd_data.response[3] = 0;
-                debug!("    resp: 0x{:x}",cmd_data.response[0]);
+                response[0] = reg.read_reg::<MCIResp0>().bits();
+                response[1] = 0;
+                response[2] = 0;
+                response[3] = 0;
+                debug!("    resp: 0x{:x}",response[0]);
             }
         }
 
-        cmd_data.success = true; /* cmd / data transfer finished successful */
+        cmd_data.success_set(true); /* cmd / data transfer finished successful */
         debug!("============[{}-{}]@0x{:x} end ============",
         {
             if self.prev_cmd == Self::EXT_APP_CMD {

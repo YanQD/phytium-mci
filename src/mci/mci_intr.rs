@@ -1,5 +1,4 @@
 use super::MCI;
-use super::err::*;
 use super::constants::*;
 use super::regs::*;
 

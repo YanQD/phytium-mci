@@ -1,16 +1,14 @@
 use super::mci_data::MCIData;
-use super::err::*;
 use super::constants::*;
-use super::regs::*;
 
 #[derive(Debug)]
 pub struct MCICmdData<'a> {
     cmdidx: u32,
     cmdarg: u32,
-    pub(crate) response: [u32; 4],
+    response: [u32; 4],
     flag: MCICmdFlag,
     data: Option<MCIData<'a>>,
-    pub(crate) success: bool
+    success: bool
 }
 
 impl<'a> MCICmdData<'a> {
@@ -24,18 +22,46 @@ impl<'a> MCICmdData<'a> {
             success: false
         }
     }
+
+    pub(crate) fn success(&self) -> bool {
+        self.success
+    }
+
+    pub(crate) fn success_set(&mut self,success: bool) {
+        self.success = success;
+    }
+
     pub(crate) fn cmdidx(&self) -> u32 {
         self.cmdidx
     }
+
     pub(crate) fn cmdarg(&self) -> u32 {
         self.cmdarg
     }
+    
     pub(crate) fn flag(&self) -> MCICmdFlag {
         self.flag
     }
-    pub(crate) fn get_data(&mut self) -> Option<&mut MCIData<'a>> {
+
+    pub(crate) fn get_response(&self) -> &[u32] {
+        self.response.as_ref()
+    }
+
+    pub(crate) fn get_mut_response(&mut self) -> &mut [u32] {
+        self.response.as_mut()
+    }
+
+    pub(crate) fn get_mut_data(&mut self) -> Option<&mut MCIData<'a>> {
         if self.data.is_some() {
             Some(self.data.as_mut().unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn get_data(&self) -> Option<&MCIData<'a>> {
+        if self.data.is_some() {
+            Some(self.data.as_ref().unwrap())
         } else {
             None
         }

@@ -18,7 +18,6 @@ mod mci_pio;
 use err::*;
 use constants::*;
 use mci_cmddata::MCICmdData;
-use mci_data::MCIData;
 use regs::*;
 use log::*;
 use mci_config::*;
@@ -199,7 +198,7 @@ impl MCI {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
         let reg = self.config.reg();
 
-        cmd_data.success = false;
+        cmd_data.success_set(false);
 
         if !self.is_ready{
             error!("device is not yet initialized!!!");
@@ -225,7 +224,7 @@ impl MCI {
         reg.clear_reg(MCIBusMode::DE);
   
         /* transfer data */
-        if let Some(data) = cmd_data.get_data() {
+        if let Some(data) = cmd_data.get_mut_data() {
             /* while in PIO mode, max data transferred is 0x800 */
             if data.datalen() > MCI_MAX_FIFO_CNT {
                 error!("Fifo do not support writing more than {:x}.",MCI_MAX_FIFO_CNT);
@@ -301,8 +300,33 @@ impl MCI {
     /* Interrupt handler for SDIF instance */ //todo 在中断模式下会使用到
     /* Register event call-back function as handler for interrupt events */ //todo 在中断模式下会使用到
 
+    /* Reset controller from error state */
+    pub fn restart(&self) -> MCIResult {
+
+        if false == self.is_ready {
+            error!("Device is not yet initialized!!!");
+            return Err(MCIError::NotInit);
+        }
+
+        /* reset controller */
+        self.ctrl_reset(MCICtrl::FIFO_RESET)?;
+
+        /* reset controller if in busy state */
+        self.busy_card_reset()?;
+
+        /* reset clock */
+        self.clk_restart()?;
+
+        /* reset internal DMA */
+        if self.config.trans_mode() == MCITransMode::DMA {
+            self.idma_reset();
+        }
+        Ok(())
+    }
+
+
     /* Dump all register value of SDIF instance */
-    pub fn dump_register(&self) {
+    pub fn register_dump(&self) {
         let reg = self.config.reg();
         warn!("cntrl: 0x{:x}", reg.read_reg::<MCICtrl>());
         warn!("pwren: 0x{:x}", reg.read_reg::<MCIPwrEn>());
@@ -348,7 +372,28 @@ impl MCI {
         warn!("emmcddr: 0x{:x}", reg.read_reg::<MCIEmmcDdrReg>());
         warn!("enableshift: 0x{:x}", reg.read_reg::<MCIEnableShift>());
     }
+
     /* Dump command and data info */
+    pub fn cmd_info_dump(cmd_data: &MCICmdData){
+        debug!("cmd struct @{:p}",cmd_data);
+        debug!("   opcode: {}",cmd_data.cmdidx());
+        debug!("   arg: 0x{:x}",cmd_data.cmdarg());
+        let response = cmd_data.get_response();
+        debug!("   resp@{:p}: 0x{:x} 0x{:x} 0x{:x} 0x{:x}",
+                response,
+                response[0],
+                response[1],
+                response[2],
+                response[3]);
+        debug!("   flag: 0x{:x}",cmd_data.flag());
+        debug!("   data @{:p}",cmd_data.get_data().unwrap());
+        
+        if let Some(data) = cmd_data.get_data() {
+            debug!("   buf: {:p}, len: {}",data,data.datalen());
+            debug!("   blk sz: {}",data.blksz());
+            debug!("   blk cnt: {}",data.blkcnt());
+        }
+    }
 }
 
 
@@ -449,4 +494,40 @@ impl MCI {
         Ok(())
     }
 
+    fn busy_card_reset(&self) -> MCIResult {
+        let reg = self.config.reg();
+
+        reg.set_reg(MCICtrl::CONTROLLER_RESET);
+
+        reg.retry_for(|reg_val: MCIStatus|{
+            reg.set_reg(MCICtrl::CONTROLLER_RESET);
+            !reg_val.contains(MCIStatus::DATA_BUSY)
+        }, Some(RETRIES_TIMEOUT))?;
+
+        Ok(())
+    }
+
+    fn clk_restart(&self) -> MCIResult {
+        let reg = self.config.reg();
+
+        /* wait command finish if previous command is in error state */
+        reg.retry_for(|reg|{
+            (MCICmd::START & reg).bits() == 0
+        }, Some(RETRIES_TIMEOUT))?;
+
+        /* update clock */
+        self.clock_set(false);
+
+        let clk_div = reg.read_reg::<MCIClkDiv>();
+        let uhs = reg.read_reg::<MCIClkSrc>();
+
+        self.update_exteral_clk(uhs)?;
+
+        reg.write_reg(clk_div);
+
+        self.clock_set(true);
+
+        self.private_cmd_send(MCICmd::UPD_CLK, 0)?;
+        Ok(())
+    }
 }
