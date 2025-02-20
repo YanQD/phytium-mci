@@ -1,4 +1,3 @@
-use bare_test::mem::mmu::iomap;
 use log::debug;
 
 use crate::iopad::constants::{FioPadDelay, FioPadDelayDir, FioPadDelayType, PAD_ADDRESS};
