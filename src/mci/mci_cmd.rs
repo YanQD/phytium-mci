@@ -37,7 +37,7 @@ impl MCI {
         Ok(())
     }
 
-    pub(crate) fn cmd_transfer(&self, cmd_data: &MCICmdData) -> MCIResult {
+    pub(crate) fn cmd_transfer<'a>(&self, cmd_data: &'a MCICmdData) -> MCIResult {
         let mut raw_cmd = MCICmd::empty();
         let reg = self.config.reg();
 
@@ -112,7 +112,7 @@ impl MCI {
         }
 
         /* check response of cmd */
-        let flag = cmd_data.flag();
+        let flag = cmd_data.flag().clone();
         let reg = self.config.reg();
         if flag.contains(MCICmdFlag::EXP_RESP) {
             let response = cmd_data.get_mut_response();

@@ -486,7 +486,7 @@ impl MCI {
         Ok(())
     }
 
-    pub fn send_private_cmd(&self, c) -> FsdifResult {
+    pub fn send_private_cmd(&self) -> FsdifResult {
         self.reg.wait_for(|reg| {
             (FsdifStatus::DATA_BUSY & reg).bits() == 0
         }, Duration::from_millis((FSDIF_TIMEOUT / 100).into()), Some(100))?;

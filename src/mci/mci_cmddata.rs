@@ -1,17 +1,17 @@
 use super::mci_data::MCIData;
 use super::constants::*;
 
-#[derive(Debug)]
-pub struct MCICmdData<'a> {
+#[derive(Debug,Clone)]
+pub struct MCICmdData {
     cmdidx: u32,
     cmdarg: u32,
     response: [u32; 4],
     flag: MCICmdFlag,
-    data: Option<MCIData<'a>>,
+    data: Option<MCIData>,
     success: bool
 }
 
-impl<'a> MCICmdData<'a> {
+impl MCICmdData {
     pub(crate) fn new() -> Self {
         MCICmdData {
             cmdidx: 0,
@@ -21,6 +21,15 @@ impl<'a> MCICmdData<'a> {
             data: None,
             success: false
         }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.cmdidx = 0;
+        self.cmdarg = 0;
+        self.response = [0; 4];
+        self.flag = MCICmdFlag::empty();
+        self.data = None;
+        self.success = false;
     }
 
     pub(crate) fn success(&self) -> bool {
@@ -35,12 +44,28 @@ impl<'a> MCICmdData<'a> {
         self.cmdidx
     }
 
+    pub(crate) fn cmdidx_set(&mut self,cmdidx:u32) {
+        self.cmdidx = cmdidx;
+    }
+
     pub(crate) fn cmdarg(&self) -> u32 {
         self.cmdarg
     }
+
+    pub(crate) fn cmdarg_set(&mut self,cmdarg:u32) {
+        self.cmdarg = cmdarg;
+    }
     
-    pub(crate) fn flag(&self) -> MCICmdFlag {
-        self.flag
+    pub(crate) fn flag(&self) -> &MCICmdFlag {
+        &self.flag
+    }
+
+    pub(crate) fn flag_set(&mut self,flag:MCICmdFlag) {
+        self.flag = flag
+    }
+
+    pub(crate) fn flag_mut(&mut self) -> &mut MCICmdFlag {
+        &mut self.flag
     }
 
     pub(crate) fn get_response(&self) -> &[u32] {
@@ -51,19 +76,16 @@ impl<'a> MCICmdData<'a> {
         self.response.as_mut()
     }
 
-    pub(crate) fn get_mut_data(&mut self) -> Option<&mut MCIData<'a>> {
-        if self.data.is_some() {
-            Some(self.data.as_mut().unwrap())
-        } else {
-            None
-        }
+    pub(crate) fn get_mut_data(&mut self) -> Option<&mut MCIData> {
+        self.data.as_mut()
     }
 
-    pub(crate) fn get_data(&self) -> Option<&MCIData<'a>> {
-        if self.data.is_some() {
-            Some(self.data.as_ref().unwrap())
-        } else {
-            None
-        }
+    pub(crate) fn get_data(&self) -> Option<&MCIData> {
+        self.data.as_ref()
     }
+
+    pub(crate) fn set_data(&mut self,data: Option<MCIData>) {
+        self.data = data
+    }
+
 }

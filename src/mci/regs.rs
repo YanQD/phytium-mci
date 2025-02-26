@@ -96,7 +96,7 @@ impl MCIClkDiv {
     pub fn clk_divider_set(x:u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 7, 0))
     }
-    pub fn clk_div(x:u32,samp:u32,drv:u32,div:u32) -> Self {
+    pub fn clk_div(samp:u32,drv:u32,div:u32) -> Self {
         Self::clk_sample_set(samp) | 
         Self::clk_drv_set(drv) | 
         Self::clk_divider_set(div)
@@ -780,7 +780,7 @@ impl FlagReg for MCIDescListAddrL {
 
 // FSDIF_DATA_OFFSET Register
 bitflags! {
-    pub struct FsdifData: u32 {
+    pub struct MCIDataReg: u32 {
         const BIT0 = 1 << 0;
         const BIT1 = 1 << 1;
         const BIT2 = 1 << 2;
@@ -815,7 +815,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
-impl FlagReg for FsdifData {
+impl FlagReg for MCIDataReg {
     const REG: u32 = FSDIF_DATA_OFFSET; // 假设 FSDIF_DATA_OFFSET 是对应的寄存器偏移量
 }
 

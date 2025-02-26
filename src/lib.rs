@@ -8,6 +8,7 @@ use core::time::Duration;
 mod regs;
 pub mod mci;
 pub mod iopad;
+pub mod mci_host;
 mod tools;
 
 pub use mci::*;

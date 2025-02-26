@@ -8,6 +8,11 @@ use log::*;
 
 //* 直接操作寄存器相关的 API */
 impl MCI {
+    pub(crate) fn status_get(&self) -> MCIStatus {
+        let reg = self.config.reg();
+        reg.read_reg::<MCIStatus>()
+    }
+
     pub(crate) fn fifoth_set(&self, trans_size:MCIFifoThDMATransSize, rx_wmark:u32, tx_wmark:u32){
         let reg = self.config.reg();
         reg.write_reg(MCIFifoTh::fifoth(trans_size,rx_wmark,tx_wmark));
@@ -165,6 +170,10 @@ impl MCI {
     pub(crate) fn check_if_card_exist(&self) -> bool {
         let reg = self.config.reg();
         !reg.read_reg::<MCICardDetect>().contains(MCICardDetect::DETECTED)
+    }
+
+    pub(crate) fn check_if_card_busy(&self) -> bool {
+        self.status_get().contains(MCIStatus::DATA_BUSY)
     }
 
     pub(crate) fn trans_bytes_set(&self, bytes: u32) {

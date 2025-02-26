@@ -1,7 +1,7 @@
 
 //* 包内共用的一些子包 可能其它模块有同名的子包 不要pub出来 */
-mod constants;
-mod regs;
+pub mod constants;
+pub mod regs;
 mod err;
 
 //* 功能相关的子包 */
@@ -10,18 +10,19 @@ mod mci_config;
 mod mci_cmd;
 mod mci_hardware;
 mod mci_intr;
-mod mci_data;
+pub mod mci_data;
 mod mci_cmddata;
 mod mci_pio;
 
 //* 包内的引用 */
 use err::*;
 use constants::*;
-use mci_cmddata::MCICmdData;
 use regs::*;
 use log::*;
-use mci_config::*;
-use mci_timing::*;
+
+pub use mci_cmddata::*;
+pub use mci_config::*;
+pub use mci_timing::*;
 
 
 //* 包外的引用 */
