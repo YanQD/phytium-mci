@@ -1,5 +1,7 @@
+use core::cell::RefCell;
 use core::time::Duration;
 
+use alloc::rc::Rc;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
@@ -19,7 +21,7 @@ use crate::mci::constants::*;
 
 
 struct SDIFDevPIO {
-    instance: Option<MCIHost>,           // SDMMC 主机实例
+    instance: Option<Rc<RefCell<MCIHost>>>,           // SDMMC 主机实例
     hc: MCI,                            // SDIF 硬件控制器
     hc_cfg: MCIConfig,                  // SDIF 配置
     //rw_desc: *mut FSdifIDmaDesc,          // DMA 描述符指针，用于管理数据传输
@@ -29,7 +31,7 @@ struct SDIFDevPIO {
 impl MCIHostDevice for SDIFDevPIO {
     fn deinit(&mut self) {
         // todo FSDIFHOST_RevokeIrq
-        self.hc.config_deinit();
+        let _ = self.hc.config_deinit();
         info!("Sdio ctrl deinited !!!")
     }
     
@@ -41,8 +43,8 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn switch_to_voltage(&mut self, voltage: MCIHostVoltage) -> MCIHostStatus {
-        let instance = if let Some(instance) = self.instance_mut() {
-            instance
+        let instance = if let Some(instance) = self.instance() {
+            &mut *instance.borrow_mut()
         } else {
             return Err(MCIHostError::NoData);
         };
@@ -91,7 +93,7 @@ impl MCIHostDevice for SDIFDevPIO {
 
     fn convert_data_to_little_endian(&self, data: &mut [u32], word_size: usize, format: MCIHostDataPacketFormat) -> MCIHostStatus {
         let instance = if let Some(instance) = self.instance() {
-            instance
+            &mut *instance.borrow_mut()
         } else {
             return Err(MCIHostError::NoData);
         };
@@ -126,7 +128,7 @@ impl MCIHostDevice for SDIFDevPIO {
 
     fn card_int_enable(&self, enable: bool) -> MCIHostStatus {
         let instance = if let Some(instance) = self.instance() {
-            instance
+            &mut *instance.borrow_mut()
         } else {
             return Err(MCIHostError::NoData);
         };
@@ -159,7 +161,7 @@ impl MCIHostDevice for SDIFDevPIO {
 
     fn card_detect_status_polling(&self, wait_card_status: SDStatus, _timeout: u32) -> MCIHostStatus {
         let instance = if let Some(instance) = self.instance() {
-            instance
+            &mut *instance.borrow_mut()
         } else {
             return Err(MCIHostError::NoData);
         };
@@ -203,32 +205,36 @@ impl MCIHostDevice for SDIFDevPIO {
 
     fn card_clock_set(&mut self, target_clock: u32) -> u32 {
         // 尝试获取实例，如果不存在则直接返回0
-        let instance = match self.instance() {
-            Some(instance) => instance,
-            None => return 0,
-        };
-        
-        // 如果当前时钟频率已经是目标频率，则直接返回
-        if instance.curr_clock_freq == target_clock {
-            return instance.curr_clock_freq;
+        {
+            let instance = if let Some(instance) = self.instance() {
+                &*instance.borrow()
+            } else {
+                return 0;
+            };
+            
+            // 如果当前时钟频率已经是目标频率，则直接返回
+            if instance.curr_clock_freq == target_clock {
+                return instance.curr_clock_freq;
+            }
         }
         
         // 尝试设置时钟频率
         if self.hc.clk_freq_set(target_clock).is_ok() {
             info!("BUS CLOCK: {}", target_clock);
-            
             // 更新实例的时钟频率
-            if let Some(instance) = self.instance_mut() {
-                instance.curr_clock_freq = target_clock;
-            } else {
-                return 0;
+            if let Some(instance) = self.instance() {
+                instance.borrow_mut().curr_clock_freq = target_clock;
             }
         } else {
             info!("Failed to update clock");
         }
         
         // 返回最终的时钟频率
-        self.instance().map_or(0, |instance| instance.curr_clock_freq)
+        if let Some(instance) = self.instance() {
+            instance.borrow().curr_clock_freq
+        } else {
+            0
+        }
     }
 
     fn force_clock_on(&self, enable: bool) {
@@ -255,8 +261,12 @@ impl MCIHostDevice for SDIFDevPIO {
            let block_count = data.block_count();
 
            if block_count > 1 {
-                let instance = self.instance_mut().ok_or(MCIHostError::NoData)?;
-                instance.block_count_set(block_count);
+                let instance = if let Some(instance) = self.instance() {
+                    &mut *instance.borrow_mut()
+                } else {
+                    return Err(MCIHostError::NoData);
+                };
+                instance.block_count_set(block_count)?;
            }
         }
         Ok(())
@@ -349,14 +359,18 @@ impl MCIHostDevice for SDIFDevPIO {
 
         let mut cmd_data = self.covert_command_info(content);
 
-        let host = match self.instance() {
-            Some(host ) => host,
-            None => return Err(MCIHostError::NoData),
+        let borrowed = if let Some(instance) = self.instance() {
+            instance.borrow()
+        } else {
+            return Err(MCIHostError::NoData);
         };
 
+        let host = &*borrowed;
+
         if host.config.enable_dma() {
-            // todo 目前没有完成关于DMA相关的东西
+            drop(borrowed);
         }else {
+            drop(borrowed);
             let hc = self.hc_mut();
 
             if let Err(_) = hc.pio_transfer(&mut cmd_data) {
@@ -387,12 +401,8 @@ impl MCIHostDevice for SDIFDevPIO {
 
 impl SDIFDevPIO {
 
-    fn instance(&self) -> Option<&MCIHost> {
+    fn instance(&self) -> Option<&Rc<RefCell<MCIHost>>> {
         self.instance.as_ref()
-    }
-
-    fn instance_mut(&mut self) -> Option<&mut MCIHost> {
-        self.instance.as_mut()
     }
 
     fn hc(&self) -> &MCI {

@@ -35,6 +35,7 @@ pub struct MCI {
     is_ready: bool,
     prev_cmd: u32, // todo 这里需要实现成一个实现了Command的enum
     curr_timing: MCITiming,
+    //todo cur_cmd needed
     io_pad: Option<IoPad>,
 }
 
