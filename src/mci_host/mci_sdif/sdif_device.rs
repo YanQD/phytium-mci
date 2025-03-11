@@ -1,15 +1,18 @@
 use core::cell::RefCell;
+use core::ptr::NonNull;
 use core::time::Duration;
 
+use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
 use crate::mci_data::MCIData;
-use crate::mci_host::mci_host_card_detect::*;
+use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
 use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
-use crate::mci_host::MCIHostCardInt;
+use crate::mci_host::MCIHostCardIntFn;
 use crate::sleep;
 use crate::tools::swap_half_word_byte_sequence_u32;
 use crate::{mci_host::mci_host_device::MCIHostDevice, MCICmdData, MCIConfig, MCI};
@@ -18,6 +21,7 @@ use super::MCIHost;
 use crate::mci_host::err::*;
 use crate::mci_host::constants::*;
 use crate::mci::constants::*;
+use crate::mci_host::sd::constants::SdCmd;
 
 
 struct SDIFDevPIO {
@@ -29,6 +33,57 @@ struct SDIFDevPIO {
 }
 
 impl MCIHostDevice for SDIFDevPIO {
+
+    fn init(&mut self, addr: NonNull<u8>) -> MCIHostStatus {
+        let borrowed = if let Some(instance) = self.instance() {
+            instance.borrow()
+        } else {
+            return Err(MCIHostError::NoData);
+        };
+
+        let instance = &*borrowed;
+        let num_of_desc = instance.config.max_trans_size()/instance.config.def_block_size();
+        drop(borrowed);
+        self.desc_num = num_of_desc as u32;
+        self.do_init(addr)
+    }
+
+    fn do_init(&mut self,addr: NonNull<u8>) -> MCIHostStatus {
+        let borrowed = if let Some(instance) = self.instance() {
+            instance.borrow()
+        } else {
+            return Err(MCIHostError::NoData);
+        };
+        let host = &*borrowed;
+
+        let id = host.config.host_id();
+        drop(borrowed);
+
+        self.hc_cfg = MCIConfig::lookup_config(addr, id);
+        self.hc = MCI::new(MCIConfig::lookup_config(addr, id));
+
+        if let Err(_) = self.hc.config_init(&self.hc_cfg) {
+            info!("Sdio ctrl init failed.");
+            return Err(MCIHostError::Fail);
+        }
+
+        let borrowed = if let Some(instance) = self.instance() {
+            instance.borrow()
+        } else {
+            return Err(MCIHostError::NoData);
+        };
+        let host = &*borrowed;
+
+        if host.config.enable_irq() {
+            // todo
+        }
+
+        if host.config.enable_dma() {
+            // todo
+        }
+        Ok(())
+    }
+
     fn deinit(&mut self) {
         // todo FSDIFHOST_RevokeIrq
         let _ = self.hc.config_deinit();
@@ -42,24 +97,24 @@ impl MCIHostDevice for SDIFDevPIO {
         }
     }
 
-    fn switch_to_voltage(&mut self, voltage: MCIHostVoltage) -> MCIHostStatus {
+    fn switch_to_voltage(&mut self, voltage: MCIHostOperationVoltage) -> MCIHostStatus {
         let instance = if let Some(instance) = self.instance() {
             &mut *instance.borrow_mut()
         } else {
             return Err(MCIHostError::NoData);
         };
         match voltage {
-            MCIHostVoltage::Volts3V0 => {
+            MCIHostOperationVoltage::Voltage300V => {
                 instance.curr_voltage = voltage;
                 self.hc.voltage_1_8v_set(false);
                 info!("Switch to 3.0V");
             },
-            MCIHostVoltage::Volts3V3 => {
+            MCIHostOperationVoltage::Voltage330V => {
                 instance.curr_voltage = voltage;
                 self.hc.voltage_1_8v_set(false);
                 info!("Switch to 3.0V");
             },
-            MCIHostVoltage::Volts1V8 => {
+            MCIHostOperationVoltage::Voltage180V => {
                 instance.curr_voltage = voltage;
                 self.hc.voltage_1_8v_set(true);
                 info!("Switch to 1.8V");
@@ -71,7 +126,7 @@ impl MCIHostDevice for SDIFDevPIO {
         Ok(())
     }
 
-    fn execute_tuning(&self, _tuning_cmd: u32, _rev_buf: &mut [u32], _block_size: u32) -> MCIHostStatus {
+    fn execute_tuning(&self, _tuning_cmd: u32, _rev_buf: &mut Vec<u32>, _block_size: u32) -> MCIHostStatus {
         Ok(())
     }
 
@@ -91,7 +146,7 @@ impl MCIHostDevice for SDIFDevPIO {
         !self.hc.check_if_card_busy()
     }
 
-    fn convert_data_to_little_endian(&self, data: &mut [u32], word_size: usize, format: MCIHostDataPacketFormat) -> MCIHostStatus {
+    fn convert_data_to_little_endian(&self, data: &mut Vec<u32>, word_size: usize, format: MCIHostDataPacketFormat) -> MCIHostStatus {
         let instance = if let Some(instance) = self.instance() {
             &mut *instance.borrow_mut()
         } else {
@@ -138,7 +193,7 @@ impl MCIHostDevice for SDIFDevPIO {
         Ok(())
     }
 
-    fn card_int_init(&self, _sdio_int: &MCIHostCardInt) ->MCIHostStatus {
+    fn card_int_init(&self, _sdio_int: &MCIHostCardIntFn) ->MCIHostStatus {
         Ok(())
     }
 
@@ -166,7 +221,7 @@ impl MCIHostDevice for SDIFDevPIO {
             return Err(MCIHostError::NoData);
         };
 
-        let cd = instance.cd();
+        let cd = instance.cd().ok_or(MCIHostError::NoData)?;
         let mut retry_times:usize = 100;
 
         /* Wait card inserted. */
@@ -256,8 +311,8 @@ impl MCIHostDevice for SDIFDevPIO {
             None => return Err(MCIHostError::NoData)
         };
 
-        if cmd.index() == MCIHostCommonCommand::ReadMultipleBlock as u32 ||
-            cmd.index() == MCIHostCommonCommand::WriteMultipleBlock as u32 {
+        if cmd.index() == MCIHostCommonCmd::ReadMultipleBlock as u32 ||
+            cmd.index() == MCIHostCommonCmd::WriteMultipleBlock as u32 {
            let block_count = data.block_count();
 
            if block_count > 1 {
@@ -282,11 +337,11 @@ impl MCIHostDevice for SDIFDevPIO {
         let arg: u32 = in_cmd.argument();
         let mut flag = MCICmdFlag::empty();
 
-        if index == MCIHostCommonCommand::GoIdleState as u32 {
+        if index == MCIHostCommonCmd::GoIdleState as u32 {
             flag |= MCICmdFlag::NEED_INIT;
         }
 
-        if index == MCIHostCommonCommand::GoInactiveState as u32 || 
+        if index == MCIHostCommonCmd::GoInactiveState as u32 || 
             (index == MCISDIOCommand::RWIODirect as u32 && 
             (arg >> 9 & 0x1FFFF) == MCISDIOCCCRAddr::IOAbort as u32 ){
             flag |= MCICmdFlag::ABORT;
@@ -308,7 +363,7 @@ impl MCIHostDevice for SDIFDevPIO {
             }
         }
 
-        if index == MCIHostSDCommand::VoltageSwitch as u32 {
+        if index == SdCmd::VoltageSwitch as u32 {
             /* CMD11 need switch voltage */
             flag |= MCICmdFlag::SWITCH_VOLTAGE;
         }

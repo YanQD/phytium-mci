@@ -16,6 +16,18 @@ pub struct MCIConfig {
 }
 
 impl MCIConfig {
+
+    /* Get the device instance default configure  */
+    pub fn lookup_config(addr: NonNull<u8>,id: MCIId) -> Self {
+        match id {
+            MCIId::MCI0 => {
+                MCIConfig::new_mci0(addr)
+            },
+            MCIId::MCI1 => {
+                MCIConfig::new_mci1(addr)
+            },
+        }
+    }
     /* Get time-tuning related parameters and method */
     pub fn get_tuning(clock_freq: MCIClkSpeed, non_removable: bool) ->  Option<MCITiming> {
         if clock_freq == MCIClkSpeed::ClkSpeed400KHz {

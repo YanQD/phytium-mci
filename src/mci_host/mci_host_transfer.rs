@@ -54,6 +54,21 @@ pub(crate) struct MCIHostData {
 }
 
 impl MCIHostData {
+
+    pub(crate) fn new() -> Self {
+        MCIHostData {
+            stream_transfer:false,
+            enable_auto_command12:false,
+            enable_auto_command23:false,
+            enable_ignore_error:false,
+            data_type:0,
+            block_size:0,
+            block_count:0,
+            rx_data:None,
+            tx_data:None,
+        }
+    }
+
     pub(crate) fn stream_transfer(&self) -> bool {
         self.stream_transfer
     }
@@ -86,12 +101,24 @@ impl MCIHostData {
         self.block_count
     }
 
+    pub(crate) fn block_count_set(&mut self, block_count:u32) {
+        self.block_count = block_count;
+    }
+
     pub(crate) fn rx_data(&self) -> Option<&Vec<u32>> {
         self.rx_data.as_ref()
     }
 
+    pub(crate) fn rx_data_set(&mut self,rx_data:Option<Vec<u32>>) {
+        self.rx_data = rx_data
+    }
+
     pub(crate) fn rx_data_mut(&mut self) -> Option<&mut Vec<u32>> {
         self.rx_data.as_mut()
+    }
+
+    pub(crate) fn rx_data_take(&mut self) -> Option<Vec<u32>> {
+        self.rx_data.take()
     }
 
     pub(crate) fn tx_data(&self) -> Option<&Vec<u32>> {
@@ -100,6 +127,14 @@ impl MCIHostData {
 
     pub(crate) fn tx_data_mut(&mut self) -> Option<&mut Vec<u32>> {
         self.tx_data.as_mut()
+    }
+
+    pub(crate) fn tx_data_set(&mut self,tx_data:Option<Vec<u32>>) {
+        self.tx_data = tx_data
+    }
+
+    pub(crate) fn tx_data_take(&mut self) -> Option<Vec<u32>> {
+        self.tx_data.take()
     }
 
 }

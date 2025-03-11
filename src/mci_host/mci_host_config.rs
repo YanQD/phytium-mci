@@ -1,5 +1,7 @@
+use crate::mci::constants::MCIId;
+
 pub struct MCIHostConfig {
-    host_id: u32,                     // 主机 ID
+    host_id: MCIId,                     // 主机 ID
     host_type: MCIHostType,           // 主机类型
     card_type: MCIHostCardType,       // 卡类型
     enable_irq: bool,                 // 是否启用中断
@@ -13,7 +15,7 @@ pub struct MCIHostConfig {
 }
 
 impl MCIHostConfig {
-    pub fn host_id(&self) -> u32 {
+    pub fn host_id(&self) -> MCIId {
         self.host_id
     }
 

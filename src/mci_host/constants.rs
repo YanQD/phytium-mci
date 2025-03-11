@@ -24,14 +24,6 @@ pub enum MCIHostResponseType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MCIHostVoltage {
-    NotSet = 0,    // 表示当前电压设置未由用户设置
-    Volts3V3 = 1,  // 卡操作电压约为 3.3V
-    Volts3V0 = 2,  // 卡操作电压约为 3.0V
-    Volts1V8 = 3,  // 卡操作电压约为 1.8V
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MCIHostDataPacketFormat {
     MSBFirst = 0, // 数据包格式: MSB 优先
     LSBFirst = 1, // 数据包格式: LSB 优先
@@ -45,7 +37,7 @@ pub enum MCIHostBusWdith {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MCIHostCommonCommand {
+pub enum MCIHostCommonCmd {
     GoIdleState = 0,         // Go Idle State
     AllSendCid = 2,          // All Send CID
     SetDsr = 4,              // Set DSR
@@ -106,18 +98,6 @@ pub enum MCISDIOCCCRAddr {
     InterruptExtension = 0x16,      // Interrupt extension register
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MCIHostSDCommand {
-    SendRelativeAddress = 3,      // Send Relative Address
-    Switch = 6,                   // Switch Function
-    SendInterfaceCondition = 8,   // Send Interface Condition
-    VoltageSwitch = 11,           // Voltage Switch
-    SpeedClassControl = 20,       // Speed Class control
-    SendTuningBlock = 19,         // Send Tuning Block
-    EraseWriteBlockStart = 32,    // Write Block Start
-    EraseWriteBlockEnd = 33,      // Write Block End
-}
-
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct MCIHostCardStatusFlag: u32 {
@@ -146,3 +126,173 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MCIHostCurrentState {
+    Idle = 0,
+    Ready = 1,
+    Identification = 2,
+    Standby = 3,
+    Transfer = 4,
+    Data = 5,
+    Receive = 6,
+    Programming = 7,
+    Disconnect = 8,
+}
+
+impl MCIHostCurrentState {
+    pub(crate) fn current_state(state:u32) -> Self {
+        let state = (state & 0x00001E00) >> 9;
+        match state {
+            0 => MCIHostCurrentState::Idle,
+            1 => MCIHostCurrentState::Ready,
+            2 => MCIHostCurrentState::Identification,
+            3 => MCIHostCurrentState::Standby,
+            4 => MCIHostCurrentState::Transfer,
+            5 => MCIHostCurrentState::Data,
+            6 => MCIHostCurrentState::Receive,
+            7 => MCIHostCurrentState::Programming,
+            8 => MCIHostCurrentState::Disconnect,
+            _ => MCIHostCurrentState::Idle,
+        }
+    }
+    
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MCIHostOperationVoltage {
+    None = 0,
+    Voltage330V = 1,
+    Voltage300V = 2,
+    Voltage180V = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MCIHostDetectCardType {
+    ByGpioCD,
+    ByHostCD,
+    ByHostDATA3,
+}
+
+pub(crate) const MCI_HOST_CLOCK_400KHZ: u32 = 400_000;
+pub(crate) const MCI_HOST_MAX_CMD_RETRIES: u32 = 10;
+pub(crate) const MCI_HOST_DEFAULT_BLOCK_SIZE: u32 = 512;
+
+bitflags! {
+    /// OCR register flags in SD card
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) struct MCIHostOCR: u32 {
+        /// Power up busy status (bit 31)
+        const POWER_UP_BUSY_FLAG = 1 << 31;
+        
+        /// Card/Host capacity status (bit 30)
+        const HOST_CAPACITY_SUPPORT_FLAG = 1 << 30;
+        /// Card capacity status (bit 30, same as HOST_CAPACITY_SUPPORT_FLAG)
+        const CARD_CAPACITY_SUPPORT_FLAG = 1 << 30;
+        
+        /// Switch to 1.8V request (bit 24)
+        const SWITCH_18_REQUEST_FLAG = 1 << 24;
+        /// Switch to 1.8V accepted (bit 24, same as SWITCH_18_REQUEST_FLAG)
+        const SWITCH_18_ACCEPT_FLAG = 1 << 24;
+        
+        /// VDD 2.7-2.8V (bit 15)
+        const VDD_27_28 = 1 << 15;
+        /// VDD 2.8-2.9V (bit 16)
+        const VDD_28_29 = 1 << 16;
+        /// VDD 2.9-3.0V (bit 17)
+        const VDD_29_30 = 1 << 17;
+        /// VDD 3.0-3.1V (bit 18)
+        const VDD_30_31 = 1 << 18;
+        /// VDD 3.1-3.2V (bit 19)
+        const VDD_31_32 = 1 << 19;
+        /// VDD 3.2-3.3V (bit 20)
+        const VDD_32_33 = 1 << 20;
+        /// VDD 3.3-3.4V (bit 21)
+        const VDD_33_34 = 1 << 21;
+        /// VDD 3.4-3.5V (bit 22)
+        const VDD_34_35 = 1 << 22;
+        /// VDD 3.5-3.6V (bit 23)
+        const VDD_35_36 = 1 << 23;
+    }
+}
+
+bitflags! {
+    /// SDMMC host capability flags
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) struct MCIHostCapability: u32 {
+        /// High speed capability
+        const HIGH_SPEED = 1 << 0;
+        /// Suspend resume capability
+        const SUSPEND_RESUME = 1 << 1;
+        /// 3.3V capability
+        const VOLTAGE_3V3 = 1 << 2;
+        /// 3.0V capability
+        const VOLTAGE_3V0 = 1 << 3;
+        /// 1.8V capability
+        const VOLTAGE_1V8 = 1 << 4;
+        /// 1.2V capability
+        const VOLTAGE_1V2 = 1 << 5;
+        /// 4-bit data width capability
+        const BIT4_DATA_WIDTH = 1 << 6;
+        /// 8-bit data width capability
+        const BIT8_DATA_WIDTH = 1 << 7;
+        /// DDR mode capability
+        const DDR_MODE = 1 << 8;
+        /// Data3 detect card capability
+        const DETECT_CARD_BY_DATA3 = 1 << 9;
+        /// CD detect card capability
+        const DETECT_CARD_BY_CD = 1 << 10;
+        /// Auto command 12 capability
+        const AUTO_CMD12 = 1 << 11;
+        /// SDR104 capability
+        const SDR104 = 1 << 12;
+        /// SDR50 capability
+        const SDR50 = 1 << 13;
+        /// HS200 capability
+        const HS200 = 1 << 14;
+        /// HS400 capability
+        const HS400 = 1 << 15;
+        /// Driver Type C capability
+        const DRIVER_TYPE_C = 1 << 16;
+        /// Set current limit capability
+        const SET_CURRENT = 1 << 17;
+    }
+}
+
+pub const SZ_1: u64 = 0x00000001;
+pub const SZ_2: u64 = 0x00000002;
+pub const SZ_4: u64 = 0x00000004;
+pub const SZ_8: u64 = 0x00000008;
+pub const SZ_16: u64 = 0x00000010;
+pub const SZ_32: u64 = 0x00000020;
+pub const SZ_64: u64 = 0x00000040;
+pub const SZ_128: u64 = 0x00000080;
+pub const SZ_256: u64 = 0x00000100;
+pub const SZ_512: u64 = 0x00000200;
+
+pub const SZ_1K: u64 = 0x00000400;
+pub const SZ_2K: u64 = 0x00000800;
+pub const SZ_4K: u64 = 0x00001000;
+pub const SZ_8K: u64 = 0x00002000;
+pub const SZ_16K: u64 = 0x00004000;
+pub const SZ_32K: u64 = 0x00008000;
+pub const SZ_64K: u64 = 0x00010000;
+pub const SZ_128K: u64 = 0x00020000;
+pub const SZ_256K: u64 = 0x00040000;
+pub const SZ_512K: u64 = 0x00080000;
+
+pub const SZ_1M: u64 = 0x00100000;
+pub const SZ_2M: u64 = 0x00200000;
+pub const SZ_4M: u64 = 0x00400000;
+pub const SZ_8M: u64 = 0x00800000;
+pub const SZ_16M: u64 = 0x01000000;
+pub const SZ_32M: u64 = 0x02000000;
+pub const SZ_64M: u64 = 0x04000000;
+pub const SZ_128M: u64 = 0x08000000;
+pub const SZ_256M: u64 = 0x10000000;
+pub const SZ_512M: u64 = 0x20000000;
+
+pub const SZ_1G: u64 = 0x40000000;
+pub const SZ_2G: u64 = 0x80000000;
+pub const SZ_3G: u64 = 0xC0000000;
+pub const SZ_4G: u64 = 0x100000000;
+pub const SZ_8G: u64 = 0x200000000;

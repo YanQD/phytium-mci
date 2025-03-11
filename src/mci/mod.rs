@@ -27,7 +27,7 @@ pub use mci_timing::*;
 
 //* 包外的引用 */
 use crate::{regs::*, sleep, IoPad};
-use core::{ptr::NonNull, time::Duration};
+use core::time::Duration;
 
 //* MCI */
 pub struct MCI {
@@ -47,34 +47,20 @@ impl MCI {
     pub(crate) fn relax_handler() {
         sleep(Duration::from_micros(10));
     }
+
+    pub(crate) fn new(config: MCIConfig) -> Self {
+        MCI {
+            config,
+            is_ready: false,
+            prev_cmd: 0,
+            curr_timing: MCITiming::new(),
+            io_pad: None,
+        }
+    }
 }
 
 //* MCI pub API */
 impl MCI {
-
-    /* Get the device instance default configure  */
-    pub fn lookup_config(addr: NonNull<u8>,id: MCIId) -> Self {
-        match id {
-            MCIId::MCI0 => {
-                MCI {
-                    config: MCIConfig::new_mci0(addr),
-                    is_ready: false,
-                    prev_cmd: 0,
-                    curr_timing: MCITiming::new(),
-                    io_pad: None,
-                }
-            },
-            MCIId::MCI1 => {
-                MCI {
-                    config: MCIConfig::new_mci1(addr),
-                    is_ready: false,
-                    prev_cmd: 0,
-                    curr_timing: MCITiming::new(),
-                    io_pad: None,
-                }
-            },
-        }
-    }
 
     pub fn io_pad_set(&mut self, io_pad: IoPad) {
         self.io_pad = Some(io_pad);
