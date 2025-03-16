@@ -1,4 +1,4 @@
 use super::MCIHost;
 
-mod sdif_device;
+pub mod sdif_device;
 pub mod constants;

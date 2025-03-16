@@ -176,6 +176,7 @@ pub(crate) enum MCIHostDetectCardType {
 pub(crate) const MCI_HOST_CLOCK_400KHZ: u32 = 400_000;
 pub(crate) const MCI_HOST_MAX_CMD_RETRIES: u32 = 10;
 pub(crate) const MCI_HOST_DEFAULT_BLOCK_SIZE: u32 = 512;
+pub(crate) const MCI_HOST_MAX_BLOCK_LENGTH: u32 = 4096;
 
 bitflags! {
     /// OCR register flags in SD card
@@ -255,6 +256,13 @@ bitflags! {
         const DRIVER_TYPE_C = 1 << 16;
         /// Set current limit capability
         const SET_CURRENT = 1 << 17;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) struct MCIHostCapabilityExt: u32 {
+        const BIT8_WIDTH =1;
     }
 }
 

@@ -1,5 +1,8 @@
 use crate::mci::constants::MCIId;
 
+use super::sd::constants::{SD_BLOCK_SIZE, SD_CLOCK_50MHZ, SD_MAX_RW_BLK};
+
+#[allow(unused)]
 pub struct MCIHostConfig {
     host_id: MCIId,                     // 主机 ID
     host_type: MCIHostType,           // 主机类型
@@ -14,7 +17,24 @@ pub struct MCIHostConfig {
     /* for SDIO card, to support card customized interrupt handling */ // todo 暂时没实现这部分功能
 }
 
+#[allow(unused)]
 impl MCIHostConfig {
+
+    pub fn mci0_sd_instance() -> Self {
+        MCIHostConfig {
+            host_id: MCIId::MCI0,
+            host_type: MCIHostType::SDIF,
+            card_type: MCIHostCardType::MicroSD,
+            enable_irq: false, // todo 暂时不支持中断
+            enable_dma: false, // todo 暂时不支持 DMA
+            endian_mode: MCIHostEndianMode::Little,
+            max_trans_size: SD_MAX_RW_BLK*SD_BLOCK_SIZE,
+            def_block_size: SD_BLOCK_SIZE,
+            card_clock: SD_CLOCK_50MHZ,
+            is_uhs_card: false, // todo 需要测试能不能支持UHS模式
+        }
+    }
+
     pub fn host_id(&self) -> MCIId {
         self.host_id
     }
@@ -56,12 +76,14 @@ impl MCIHostConfig {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MCIHostType {
     SDMMC,
     SDIF
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MCIHostCardType {
     StandardSD,

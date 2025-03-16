@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.0.16 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36" version="26.0.16">
   <diagram name="第 1 页" id="RIUy3Fn0ZehvJpWkt5wW">
-    <mxGraphModel dx="1816" dy="1751" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1510" dy="1571" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1042,23 +1042,38 @@
         <mxCell id="EC88uF_xVbB2sWb6Ojbx-257" value="实现这么一套实际上是为了好访问而已&lt;div&gt;实际上这四个每个只有一个自己的实例&lt;/div&gt;&lt;div&gt;并且有上下级关系&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="290" y="4210" width="230" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-1" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;sdmmc_sdio_t&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-1" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;sdmmc_sdio_t&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" parent="1" vertex="1">
           <mxGeometry x="414" y="3930" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-2" value="相当于是三种组合,如果有需要只需要吧两个函数组成一个trait,然后再分别为这仨实现这个trait" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-2" value="相当于是三种组合,如果有需要只需要吧两个函数组成一个trait,然后再分别为这仨实现这个trait" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="260" y="4010" width="510" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-4" value="可以把相同的属性拆成Base Struct" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#b85450;fillColor=#f8cecc;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-4" value="可以把相同的属性拆成Base Struct" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#b85450;fillColor=#f8cecc;" parent="1" vertex="1">
           <mxGeometry x="350" y="4060" width="210" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-6" value="使用internal_buffer的好处,所有的操作其实都操作同段地址,不会出问题,方便更换指针类型" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-6" value="使用internal_buffer的好处,所有的操作其实都操作同段地址,不会出问题,方便更换指针类型" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="-555" y="5728" width="490" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-7" value="可以使用take的方式来交换Option里的所有权,但是仍然不能随意操作Vec&amp;lt;u8&amp;gt;成为Vec&amp;lt;u32&amp;gt; 这是一个非常大的问题" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-7" value="可以使用take的方式来交换Option里的所有权,但是仍然不能随意操作Vec&amp;lt;u8&amp;gt;成为Vec&amp;lt;u32&amp;gt; 这是一个非常大的问题" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="-630" y="5770" width="630" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-8" value="不能使用std,但是可以用alloc来分配一段内存出来解决这个问题" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+        <mxCell id="4l0j0VPpNHBcG-Zn-Izy-8" value="不能使用std,但是可以用alloc来分配一段内存出来解决这个问题" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="-495" y="5815" width="360" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ItKydiF-zvqkE0G-NscS-1" value="不需要多个所有权引用的不变,其余的改造之" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="335" y="4728" width="250" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ItKydiF-zvqkE0G-NscS-2" value="目前的目标是组装好SdCard" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="-375" y="6030" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ItKydiF-zvqkE0G-NscS-3" value="组装好MCICardBase" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="-200" y="5980" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ItKydiF-zvqkE0G-NscS-4" value="组装好SdUsrParam" style="rounded=0;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-200" y="6080" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ItKydiF-zvqkE0G-NscS-5" value="组装好MCIHost" style="rounded=0;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-10" y="5980" width="120" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

@@ -7,3 +7,16 @@ pub struct SdCid {
     pub serial_number: u32,
     pub manufacturing_data: u16,
 }
+
+impl SdCid {
+    pub fn new() -> Self {
+        SdCid {
+            manufacturer_id: 0,
+            application_id: 0,
+            product_name: [0; 5],
+            product_version: 0,
+            serial_number: 0,
+            manufacturing_data: 0,
+        }
+    }
+}

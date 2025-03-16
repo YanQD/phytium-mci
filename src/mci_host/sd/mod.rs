@@ -2,7 +2,6 @@
 mod usr_param;
 pub(crate) mod constants;
 mod io_voltage;
-pub(crate) mod detect_card;
 mod cid;
 mod csd;
 mod scr;
@@ -12,16 +11,23 @@ mod status;
 use core::cmp::max;
 use core::ptr::NonNull;
 use core::str;
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use alloc::vec;
+use io_voltage::SdIoVoltage;
 use core::time::Duration;
 
-use crate::sleep;
+use crate::mci_host::mci_host_config::MCIHostType;
+use crate::mci_host::mci_sdif::sdif_device::SDIFDevPIO;
+use crate::mci_host::MCIHost;
+use crate::{sleep, IoPad};
 use crate::tools::u8_to_u32_slice;
 
 use super::err::{MCIHostError, MCIHostStatus};
 use super::mci_card_base::MCICardBase;
 use super::constants::*;
+use super::mci_host_card_detect::MCIHostCardDetect;
+use super::mci_host_config::MCIHostConfig;
 use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
@@ -32,13 +38,14 @@ use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
 use usr_param::SdUsrParam;
 
+
 struct SdCard{
     base: MCICardBase,
     usr_param: SdUsrParam,
     version: SdSpecificationVersion,
     flags: SdCardFlag,
     block_count: u32,
-    current_timing:SdTimingMode,
+    current_timing: SdTimingMode,
     driver_strength: SdDriverStrength,
     max_current: SdMaxCurrent,
     operation_voltage: MCIHostOperationVoltage,
@@ -46,6 +53,133 @@ struct SdCard{
     csd: SdCsd,
     scr: SdScr,
     stat: SdStatus,
+}
+
+impl SdCard {
+    fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
+        let mci_host_config = MCIHostConfig::mci0_sd_instance();
+
+        // 组装 base
+        let buffer = vec![0u8;mci_host_config.max_trans_size()];
+        let base = MCICardBase::from_buffer(buffer);
+
+        info!("Internal buffer@0x{:x}, length = 0x{}",base.internal_buffer.as_ptr() as usize,base.internal_buffer.len());
+        
+        // 组装 host
+        let mut sdif_device = SDIFDevPIO::new(addr);
+        sdif_device.iopad_set(iopad);
+        let host = MCIHost::new(Box::new(sdif_device), mci_host_config);
+        let host_type = host.config.host_type();
+
+        // 初步组装 SdCard
+        let mut sd_card = SdCard::new();
+        sd_card.base.host = Some(host);
+
+        if host_type == MCIHostType::SDIF {
+            if sd_card.sdif_config().is_err() {
+                panic!("Config fail!");
+            }
+        } else {
+            if sd_card.sdmmc_config().is_err() {
+                panic!("Config fail!");
+            }
+        }
+
+        if sd_card.init(addr).is_err() {
+            panic!("Sd Card Init Fail");
+        }
+        
+        sd_card
+    }
+
+    fn sdif_config(&mut self) -> MCIHostStatus {
+        let mut card_cd = MCIHostCardDetect::new();
+        
+
+        card_cd.typ_set(MCIHostDetectCardType::ByHostCD);
+        card_cd.cd_debounce_ms_set(10);
+
+        let mut usr_param = SdUsrParam::new();
+
+        usr_param.power_off_delay_ms_set(0);
+        usr_param.power_on_delay_ms_set(0);
+        
+        let capability = 
+            MCIHostCapability::SUSPEND_RESUME | 
+            MCIHostCapability::BIT4_DATA_WIDTH | 
+            MCIHostCapability::BIT8_DATA_WIDTH | 
+            MCIHostCapability::DETECT_CARD_BY_DATA3 |
+            MCIHostCapability::DETECT_CARD_BY_CD |
+            MCIHostCapability::AUTO_CMD12 |
+            MCIHostCapability::DRIVER_TYPE_C |
+            MCIHostCapability::SET_CURRENT ;
+        let capability = capability.bits() | MCIHostCapabilityExt::BIT8_WIDTH.bits();
+
+        usr_param.capability_set(capability);
+
+        self.base.no_interal_align = false;
+
+        let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
+
+        if host.config.is_uhs_card() {
+            let mut io_voltage = SdIoVoltage::new();
+
+            io_voltage.typ_set(SdIoVoltageCtrlType::ByHost);
+            io_voltage.set_func(None);
+
+            usr_param.io_voltage_set(Some(io_voltage));
+
+            let capability = 
+                MCIHostCapability::VOLTAGE_3V3 |
+                MCIHostCapability::VOLTAGE_1V8 |
+                MCIHostCapability::HIGH_SPEED |
+                MCIHostCapability::SDR104 |
+                MCIHostCapability::SDR50;
+            
+            host.capability_set(capability);
+        } else {
+            usr_param.io_voltage_set(None);
+            
+            let mut capability = MCIHostCapability::VOLTAGE_3V3;
+
+            if host.config.card_clock() >= SD_CLOCK_50MHZ {
+                capability |= MCIHostCapability::HIGH_SPEED;
+            } 
+
+            host.capability_set(capability);
+        }
+
+        usr_param.max_freq_set(host.config.card_clock());
+
+        host.max_block_count = host.config.max_trans_size() as u32 /host.config.def_block_size() as u32;
+        host.max_block_size_set(MCI_HOST_MAX_BLOCK_LENGTH);
+        host.source_clock_hz = 1200000000;
+
+        Ok(())
+    }
+
+    fn sdmmc_config(&self) -> MCIHostStatus {
+        // todo
+        Ok(())
+    }
+
+    fn new() -> Self {
+        SdCard {
+            base: MCICardBase::new(),
+            usr_param: SdUsrParam::new(),
+            version: SdSpecificationVersion::Version1_0,
+            flags: SdCardFlag::empty(),
+            block_count: 0,
+            current_timing: SdTimingMode::SDR12DefaultMode,
+            driver_strength: SdDriverStrength::TypeB,
+            max_current: SdMaxCurrent::Limit200mA,
+            operation_voltage: MCIHostOperationVoltage::Voltage330V,
+            cid: SdCid::new(),
+            csd: SdCsd::new(),
+            scr: SdScr::new(),
+            stat: SdStatus::new(),
+        }
+    }
 }
 
 impl SdCard{
@@ -1030,6 +1164,7 @@ impl SdCard {
                 } else {
                     info!("Not UHS card only support 3.3v")
                 }
+                self.base.ocr = response;
                 return Ok(());
             }
 

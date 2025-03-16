@@ -20,6 +20,21 @@ pub struct SdScr {
     pub reserved_for_manufacturer: u32,
 }
 
+impl SdScr {
+    pub fn new() -> Self {
+        SdScr {
+            scr_structure: 0,
+            sd_specification: 0,
+            flags: 0,
+            sd_security: 0,
+            sd_bus_widths: 0,
+            extended_security: 0,
+            command_support: 0,
+            reserved_for_manufacturer: 0,
+        }
+    }
+}
+
 bitflags! {
     pub struct ScrFlags: u16 {
         const DATA_STATUS_AFTER_ERASE = 1 << 0; /* Data status after erases [55:55] */

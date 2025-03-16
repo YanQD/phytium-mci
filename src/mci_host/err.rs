@@ -1,3 +1,4 @@
+#[allow(unused)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MCIHostError {
     Fail,

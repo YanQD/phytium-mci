@@ -11,8 +11,8 @@ pub mod iopad;
 pub mod mci_host;
 mod tools;
 
-pub use mci::*;
 pub use iopad::*;
+pub use mci_host::*;
 
 pub trait Kernel {
     fn sleep(duration: Duration);

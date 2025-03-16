@@ -2,20 +2,20 @@ use core::cell::RefCell;
 use core::ptr::NonNull;
 use core::time::Duration;
 
-use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
-use crate::mci_data::MCIData;
+use crate::mci::mci_data::MCIData;
+use crate::mci::{MCICmdData, MCIConfig, MCI};
 use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
 use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::MCIHostCardIntFn;
-use crate::sleep;
+use crate::{sleep, IoPad};
 use crate::tools::swap_half_word_byte_sequence_u32;
-use crate::{mci_host::mci_host_device::MCIHostDevice, MCICmdData, MCIConfig, MCI};
+use crate::mci_host::mci_host_device::MCIHostDevice;
 use super::constants::SDStatus;
 use super::MCIHost;
 use crate::mci_host::err::*;
@@ -24,12 +24,26 @@ use crate::mci::constants::*;
 use crate::mci_host::sd::constants::SdCmd;
 
 
-struct SDIFDevPIO {
+pub(crate) struct SDIFDevPIO {
     instance: Option<Rc<RefCell<MCIHost>>>,           // SDMMC 主机实例
     hc: MCI,                            // SDIF 硬件控制器
     hc_cfg: MCIConfig,                  // SDIF 配置
     //rw_desc: *mut FSdifIDmaDesc,          // DMA 描述符指针，用于管理数据传输
     desc_num: u32,                        // 描述符数量，表示 DMA 描述符的数量
+}
+
+impl SDIFDevPIO {
+    pub fn new(addr: NonNull<u8>) -> Self {
+        Self {
+            instance: None,
+            hc: MCI::new(MCIConfig::new(addr)),
+            hc_cfg: MCIConfig::new(addr),
+            desc_num: 0,
+        }
+    }
+    pub fn iopad_set(&mut self,iopad:IoPad) {
+        self.hc.iopad_set(iopad);
+    }
 }
 
 impl MCIHostDevice for SDIFDevPIO {
@@ -221,7 +235,8 @@ impl MCIHostDevice for SDIFDevPIO {
             return Err(MCIHostError::NoData);
         };
 
-        let cd = instance.cd().ok_or(MCIHostError::NoData)?;
+        let binding = instance.cd().ok_or(MCIHostError::NoData)?;
+        let cd = binding.borrow();
         let mut retry_times:usize = 100;
 
         /* Wait card inserted. */
@@ -458,10 +473,6 @@ impl SDIFDevPIO {
 
     fn instance(&self) -> Option<&Rc<RefCell<MCIHost>>> {
         self.instance.as_ref()
-    }
-
-    fn hc(&self) -> &MCI {
-        &self.hc
     }
 
     fn hc_mut(&mut self) -> &mut MCI {

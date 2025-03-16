@@ -36,3 +36,23 @@ pub(crate) struct SdStatus {
     /// Size of allocation unit (AU) for UHS mode
     uhs_au_size: u8,
 }
+
+impl SdStatus {
+    pub fn new() -> Self {
+        SdStatus {
+            bus_width: 0,
+            secure_mode: 0,
+            card_type: 0,
+            protected_size: 0,
+            speed_class: 0,
+            performance_move: 0,
+            au_size: 0,
+            erase_size: 0,
+            erase_timeout: 0,
+            erase_offset: 0,
+            uhs_speed_grade: 0,
+            uhs_au_size: 0,
+        }
+    }
+    
+}

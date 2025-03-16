@@ -22,6 +22,32 @@ pub struct SdCsd {
     pub file_format: u8,
 }
 
+impl SdCsd {
+    pub fn new() -> Self {
+        SdCsd {
+            csd_structure: 0,
+            data_read_access_time1: 0,
+            data_read_access_time2: 0,
+            transfer_speed: 0,
+            card_command_classes: 0,
+            read_block_length: 0,
+            flags: 0,
+            device_size: 0,
+            read_current_vdd_min: 0,
+            read_current_vdd_max: 0,
+            write_current_vdd_min: 0,
+            write_current_vdd_max: 0,
+            device_size_multiplier: 0,
+            erase_sector_size: 0,
+            write_protect_group_size: 0,
+            write_speed_factor: 0,
+            write_block_length: 0,
+            file_format: 0,
+        }
+    }
+    
+}
+
 bitflags! {
     pub struct CsdFlags: u16 {
         const READ_BLOCK_PARTIAL = 1 << 0; /* Partial blocks for read allowed [79:79] */

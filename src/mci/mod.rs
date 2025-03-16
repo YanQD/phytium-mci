@@ -62,8 +62,8 @@ impl MCI {
 //* MCI pub API */
 impl MCI {
 
-    pub fn io_pad_set(&mut self, io_pad: IoPad) {
-        self.io_pad = Some(io_pad);
+    pub fn iopad_set(&mut self, iopad: IoPad) {
+        self.io_pad = Some(iopad);
     }
 
     /* initialization SDIF controller instance */

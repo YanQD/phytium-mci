@@ -16,6 +16,20 @@ type SdPwrFn = fn(bool);
 type SdIoStrengthFn = fn(SdTimingMode);
 
 impl SdUsrParam {
+
+    pub fn new() -> Self {
+        SdUsrParam {
+            sd_pwr: None,
+            power_on_delay_ms: 0,
+            power_off_delay_ms: 0,
+            io_strength: None,
+            io_voltage: None,
+            cd: None,
+            max_freq: 0,
+            capbility: 0,
+        }
+    }
+
     pub fn sd_pwr(&self) -> Option<&SdPwrFn> {
         self.sd_pwr.as_ref()
     }
@@ -27,13 +41,25 @@ impl SdUsrParam {
     pub fn power_on_delay_ms(&self) -> u32 {
         self.power_on_delay_ms
     }
+
+    pub fn power_on_delay_ms_set(&mut self, delay: u32) {
+        self.power_on_delay_ms = delay;
+    }
     
     pub fn power_off_delay_ms(&self) -> u32 {
         self.power_off_delay_ms
     }
 
+    pub fn power_off_delay_ms_set(&mut self, delay: u32) {
+        self.power_off_delay_ms = delay;
+    }
+
     pub fn io_voltage(&self) -> Option<&SdIoVoltage> {
         self.io_voltage.as_ref()
+    }
+
+    pub fn io_voltage_set(&mut self, io_voltage: Option<SdIoVoltage>) {
+        self.io_voltage = io_voltage;
     }
 
     pub fn cd(&self) -> Option<&MCIHostCardDetect> {
@@ -44,7 +70,15 @@ impl SdUsrParam {
         self.max_freq
     }
 
+    pub fn max_freq_set(&mut self, freq: u32) {
+        self.max_freq = freq;
+    }
+
     pub fn capbility(&self) -> u32 {
         self.capbility
+    }
+
+    pub fn capability_set(&mut self, capbility: u32) {
+        self.capbility = capbility;
     }
 }

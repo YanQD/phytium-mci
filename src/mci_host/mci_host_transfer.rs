@@ -41,6 +41,7 @@ impl MCIHostTransfer {
 
 }
 
+#[allow(unused)]
 pub(crate) struct MCIHostData {
     stream_transfer: bool,          // 指示是否为流数据传输命令
     enable_auto_command12: bool,    // 启用自动 CMD12
@@ -53,6 +54,7 @@ pub(crate) struct MCIHostData {
     tx_data: Option<Vec<u32>>,      // 用于写入数据的缓冲区
 }
 
+#[allow(unused)]
 impl MCIHostData {
 
     pub(crate) fn new() -> Self {
@@ -139,6 +141,7 @@ impl MCIHostData {
 
 }
 
+#[allow(unused)]
 pub(crate) struct MCIHostCmd {
     index: u32,                          // 命令索引
     argument: u32,                       // 命令参数
@@ -149,6 +152,7 @@ pub(crate) struct MCIHostCmd {
     flags: u32,                          // 命令标志
 }
 
+#[allow(unused)]
 impl MCIHostCmd {
 
     pub(crate) fn new() -> Self {

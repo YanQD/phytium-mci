@@ -2,7 +2,7 @@ use core::ptr::NonNull;
 
 use alloc::vec::Vec;
 
-use crate::MCICmdData;
+use crate::mci::MCICmdData;
 
 use super::constants::*;
 use super::err::*;
@@ -11,8 +11,9 @@ use super::mci_host_transfer::MCIHostTransfer;
 use super::MCIHostCardIntFn;
 use super::mci_sdif::constants::SDStatus;
 
+#[allow(unused)]
 pub(crate) trait MCIHostDevice {
-
+    
     fn init(&mut self, addr: NonNull<u8>)-> MCIHostStatus;
     fn do_init(&mut self, addr: NonNull<u8>) -> MCIHostStatus;
     /* sdmmc host operations */

@@ -109,9 +109,13 @@ pub(crate) enum SdSpecificationVersion {
 
 pub(crate) const SD_POWER_ON_DELAY_MS: u32 = 400;
 pub(crate) const SD_POWER_OFF_DELAY_MS: u32 = 100;
+
 pub(crate) const SD_CLOCK_25MHZ: u32 = 25_000_000;
 pub(crate) const SD_CLOCK_50MHZ: u32 = 50_000_000;
 pub(crate) const SD_CLOCK_100MHZ: u32 = 100_000_000;
 pub(crate) const SD_CLOCK_208MHZ: u32 = 208_000_000;
+
 pub(crate) const SD_CMD13_RETRY_TIMES: u32 = 10;
 pub(crate) const SD_PRODUCT_NAME_BYTES: usize = 5;
+pub(crate) const SD_MAX_RW_BLK: usize = 1024;
+pub(crate) const SD_BLOCK_SIZE: usize = 512;
