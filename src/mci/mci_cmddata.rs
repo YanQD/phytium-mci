@@ -11,6 +11,7 @@ pub struct MCICmdData {
     success: bool
 }
 
+#[allow(unused)]
 impl MCICmdData {
     pub(crate) fn new() -> Self {
         MCICmdData {

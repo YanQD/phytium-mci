@@ -7,7 +7,7 @@ mod mci_host_card;
 mod mci_host_transfer;
 pub mod mci_sdif;
 mod err;
-mod sd;
+pub mod sd;
 mod mci_card_base;
 mod mci_host_card_detect;
 
@@ -78,13 +78,13 @@ impl MCIHost {
     pub(crate) fn card_select(&mut self,relative_address:u32,is_selected:bool) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
 
-        command.set_index(MCIHostCommonCmd::SelectCard as u32);
+        command.index_set(MCIHostCommonCmd::SelectCard as u32);
         if is_selected {
-            command.set_argument(relative_address << 16);
-            command.set_response_type(MCIHostResponseType::R1);
+            command.argument_set(relative_address << 16);
+            command.response_type_set(MCIHostResponseType::R1);
         } else {
-            command.set_argument(0);
-            command.set_response_type(MCIHostResponseType::None);
+            command.argument_set(0);
+            command.response_type_set(MCIHostResponseType::None);
         }
 
         let mut content = MCIHostTransfer::new();
@@ -105,9 +105,9 @@ impl MCIHost {
     pub(crate) fn application_command_send(&mut self, relative_address: u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
-        command.set_index(MCIHostCommonCmd::ApplicationCommand as u32);
-        command.set_argument(relative_address << 16);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(MCIHostCommonCmd::ApplicationCommand as u32);
+        command.argument_set(relative_address << 16);
+        command.response_type_set(MCIHostResponseType::R1);
     
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -131,9 +131,9 @@ impl MCIHost {
     pub(crate) fn block_count_set(&mut self,block_count:u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
 
-        command.set_index(MCIHostCommonCmd::SetBlockCount as u32);
-        command.set_argument(block_count);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(MCIHostCommonCmd::SetBlockCount as u32);
+        command.argument_set(block_count);
+        command.response_type_set(MCIHostResponseType::R1);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -153,7 +153,7 @@ impl MCIHost {
     pub(crate) fn go_idle(&mut self) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
-        command.set_index(MCIHostCommonCmd::GoIdleState as u32);
+        command.index_set(MCIHostCommonCmd::GoIdleState as u32);
         
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -170,9 +170,9 @@ impl MCIHost {
     pub(crate) fn block_size_set(&mut self, block_size: u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
-        command.set_index(MCIHostCommonCmd::SetBlockLength as u32);
-        command.set_argument(block_size);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(MCIHostCommonCmd::SetBlockLength as u32);
+        command.argument_set(block_size);
+        command.response_type_set(MCIHostResponseType::R1);
     
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -192,9 +192,9 @@ impl MCIHost {
     pub(crate) fn card_inactive_set(&mut self) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
-        command.set_index(MCIHostCommonCmd::GoInactiveState as u32);
-        command.set_argument(0);
-        command.set_response_type(MCIHostResponseType::None);
+        command.index_set(MCIHostCommonCmd::GoInactiveState as u32);
+        command.argument_set(0);
+        command.response_type_set(MCIHostResponseType::None);
     
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));

@@ -39,7 +39,7 @@ use csd::{CsdFlags, SdCardCmdClass, SdCsd};
 use usr_param::SdUsrParam;
 
 
-struct SdCard{
+pub struct SdCard{
     base: MCICardBase,
     usr_param: SdUsrParam,
     version: SdSpecificationVersion,
@@ -56,7 +56,7 @@ struct SdCard{
 }
 
 impl SdCard {
-    fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
+    pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
         let mci_host_config = MCIHostConfig::mci0_sd_instance();
 
         // 组装 base
@@ -183,7 +183,7 @@ impl SdCard {
 }
 
 impl SdCard{
-    fn init(&mut self,addr:NonNull<u8>) -> MCIHostStatus {
+    pub fn init(&mut self,addr:NonNull<u8>) -> MCIHostStatus {
         let status = if !self.base.is_host_ready {
             self.host_init(addr)
         } else {
@@ -730,6 +730,86 @@ impl SdCard{
         let mut buffer = vec![0u32;64];
         host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64)
     } 
+    
+    pub fn read_blocks(&mut self,buffer:&mut Vec<u32>,start_block:u32,block_count:u32) -> MCIHostStatus {
+        let mut block_left = block_count;
+
+        let mut block_count_one_time:u32;
+
+        while block_count != 0 {
+            // 如果修正当前的性能问题,则需要考虑对齐问题
+            let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
+            if block_left > host.max_block_count {
+                block_left -= host.max_block_count;
+                block_count_one_time = host.max_block_count;
+            } else {
+                block_left = 0;
+                block_count_one_time = block_left;
+            }
+
+            let mut once_buffer = vec![0u32;MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
+            if self.read(&mut once_buffer, 
+                        start_block, 
+                        MCI_HOST_DEFAULT_BLOCK_SIZE,
+                        block_count_one_time).is_err() {
+                return Err(MCIHostError::TransferFailed);
+            }
+
+            buffer.extend(once_buffer.iter());
+        }
+        
+        Ok(())
+    }
+
+    fn transfer(&mut self,content:&mut MCIHostTransfer,retry: u32) -> MCIHostStatus {
+        let mut retry = retry;
+        let mut retuning_count = 3;
+        loop {
+            let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
+            let status = host.dev.transfer_function(content);
+            if status.is_ok() {
+               break;
+            } 
+
+            /* if transfer data failed, send cmd12 to abort current transfer */
+            if content.data().is_some() {
+                let _ = self.transmission_stop();
+                /* when transfer error occur, polling card status until it is ready for next data transfer, otherwise the
+                * retry transfer will fail again */
+                if Err(MCIHostError::CardStatusIdle) != self.polling_card_status_busy(SD_CARD_ACCESS_WAIT_IDLE_TIMEOUT) {
+                    return Err(MCIHostError::TransferFailed);
+                }
+            }
+
+            if retry == 0 || status == Err(MCIHostError::ReTuningRequest) {
+                if self.current_timing == SdTimingMode::SDR104Mode || self.current_timing == SdTimingMode::SDR50Mode {
+                    if retuning_count == 0 {
+                        break;
+                    }
+                    retuning_count -= 1;
+                    /* Perform retuning, CMD19 sends a tuning block to the host to determine sampling point. 
+                        UHS50 and UHS104 cards support CMD19 in 1.8V signaling. Sampling
+                        clock tuning is required for UHS104 host and optional for UHS50 host. */
+                    if self.execute_tuning().is_err() {
+                        info!("\r\nError: retuning failed.\r\n");
+                        return Err(MCIHostError::TuningFail);
+                    } else {
+                        info!("\r\nlog: retuning successfully.\r\n");
+                        continue;
+                    }
+                }
+            } else {
+                break;
+            }
+
+            if retry != 0 {
+                retry -= 1;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
 
 }
 
@@ -747,9 +827,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(MCIHostCommonCmd::AllSendCid as u32);
-        command.set_argument(0);
-        command.set_response_type(MCIHostResponseType::R2);
+        command.index_set(MCIHostCommonCmd::AllSendCid as u32);
+        command.argument_set(0);
+        command.response_type_set(MCIHostResponseType::R2);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -772,9 +852,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdCmd::SendRelativeAddress as u32);
-        command.set_argument(0);
-        command.set_response_type(MCIHostResponseType::R6);
+        command.index_set(SdCmd::SendRelativeAddress as u32);
+        command.argument_set(0);
+        command.response_type_set(MCIHostResponseType::R6);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -805,14 +885,14 @@ impl SdCard {
 
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdCmd::Switch as u32);
-        command.set_argument({
+        command.index_set(SdCmd::Switch as u32);
+        command.argument_set({
             let mut arg = (mode as u32) << 31 | 0x00FFFFFF;
             arg &=  !(0xf << ((group as u32)*4));
             arg |= (num as u32) << ((group as u32)*4);
             arg
         });
-        command.set_response_type(MCIHostResponseType::R1);
+        command.response_type_set(MCIHostResponseType::R1);
 
         let mut data = MCIHostData::new();
 
@@ -861,9 +941,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdCmd::SendInterfaceCondition as u32);
-        command.set_argument(0x1AA);
-        command.set_response_type(MCIHostResponseType::R7);
+        command.index_set(SdCmd::SendInterfaceCondition as u32);
+        command.argument_set(0x1AA);
+        command.response_type_set(MCIHostResponseType::R7);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -904,9 +984,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(MCIHostCommonCmd::SendCsd as u32);
-        command.set_argument(self.base.relative_address << 16);
-        command.set_response_type(MCIHostResponseType::R2);
+        command.index_set(MCIHostCommonCmd::SendCsd as u32);
+        command.argument_set(self.base.relative_address << 16);
+        command.response_type_set(MCIHostResponseType::R2);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -938,9 +1018,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdCmd::VoltageSwitch as u32);
-        command.set_argument(0);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(SdCmd::VoltageSwitch as u32);
+        command.argument_set(0);
+        command.response_type_set(MCIHostResponseType::R1);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1000,15 +1080,39 @@ impl SdCard {
         Ok(())
     }
 
+    //* CMD 12 */
+    fn transmission_stop(&mut self) -> MCIHostStatus {
+        let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
+        
+        let mut command = MCIHostCmd::new();
+
+        command.index_set(MCIHostCommonCmd::StopTransmission as u32);
+        command.argument_set(0);
+        command.cmd_type_set(MCIHostCmdType::Abort);
+        command.response_type_set(MCIHostResponseType::R1b);
+
+        let mut content = MCIHostTransfer::new();
+        content.set_cmd(Some(command));
+
+        if let Err(err) = host.dev.transfer_function(&mut content) {
+            let command = content.cmd().unwrap();
+            let response = command.response();
+            info!("\r\nError: send CMD12 failed with host error {:?}, reponse 0x{:x}\r\n",err,response[0]);
+
+            return Err(MCIHostError::TransferFailed);
+        }
+        Ok(())
+    }
+
     //* CMD 13 */
     fn card_status_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(MCIHostCommonCmd::SendStatus as u32);
-        command.set_argument(self.base.relative_address << 16);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(MCIHostCommonCmd::SendStatus as u32);
+        command.argument_set(self.base.relative_address << 16);
+        command.response_type_set(MCIHostResponseType::R1);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1046,6 +1150,81 @@ impl SdCard {
         host.block_size_set(block_size)
     }
 
+    //* CMD17 / 18 */
+    fn read(&mut self,buffer:&mut Vec<u32>,start_block:u32,block_size:u32,block_count:u32) -> MCIHostStatus {
+        if (self.flags.contains(SdCardFlag::SupportHighCapacity) && block_size != 512) ||
+           (block_size > self.base.block_size) ||
+           ({
+                let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
+                block_size > host.max_block_size()
+           }) ||
+           (block_size % 4 != 0) {
+            info!("\r\nError: read with parameter, block size {} is not support\r\n",block_size);
+            return Err(MCIHostError::CardNotSupport);
+        }
+
+        /* read command are not allowed while card is programming */
+        if Err(MCIHostError::CardStatusIdle) != self.polling_card_status_busy(SD_CARD_ACCESS_WAIT_IDLE_TIMEOUT) {
+            info!("Error : read failed with wrong card busy\r\n");
+            return Err(MCIHostError::PollingCardIdleFailed);
+        }
+
+        let mut command = MCIHostCmd::new();
+        
+        command.index_set({
+            if block_count == 1 {
+                MCIHostCommonCmd::ReadSingleBlock as u32 
+            } else {
+                MCIHostCommonCmd::ReadMultipleBlock as u32 
+            }
+        }); 
+
+        command.argument_set({
+            if !self.flags.contains(SdCardFlag::SupportHighCapacity) {
+                start_block
+            } else {
+                start_block*block_size
+            }
+        });
+
+        command.response_type_set(MCIHostResponseType::R1);
+        command.response_error_flags_set(MCIHostCardStatusFlag::ALL_ERROR_FLAG);
+
+        let mut data = MCIHostData::new();
+        data.block_size_set(block_size as usize);
+        data.block_count_set(block_count);
+
+        data.rx_data_set(Some(vec![0;block_size as usize * block_count as usize]));
+        data.enable_auto_command12_set(false);
+
+
+        let mut context = MCIHostTransfer::new();
+        context.set_cmd(Some(command));
+        context.set_data(Some(data));
+
+        if let Err(err) = self.transfer(&mut context, 3) {
+            return Err(err);
+        }
+
+        let data = context.data_mut().unwrap();
+        let rx_data = data.rx_data().unwrap();
+        buffer.clear();
+        buffer.extend(rx_data);
+
+        Ok(())
+    }
+
+    //* CMD 19 */
+    fn tuning_execute(&mut self) -> MCIHostStatus {
+        let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
+        let mut buffer = vec![0u32;64];
+        let status = host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64);
+        // todo 性能问题
+        self.base.internal_buffer.clear();
+        self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
+        status
+    }
+
     //* CMD 55 */
     fn application_cmd_send(&mut self,relative_address:u32) -> MCIHostStatus {
         let host = self.base.host.as_mut().ok_or(MCIHostError::HostNotReady)?;
@@ -1074,15 +1253,15 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdAppCmd::SetBusWdith as u32);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(SdAppCmd::SetBusWdith as u32);
+        command.response_type_set(MCIHostResponseType::R1);
 
         match width {
             MCIHostBusWdith::Bit1 => {
-                command.set_argument(0);
+                command.argument_set(0);
             },
             MCIHostBusWdith::Bit4 => {
-                command.set_argument(2);
+                command.argument_set(2);
             },
             _ => {
                 return Err(MCIHostError::InvalidArgument);
@@ -1120,9 +1299,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdAppCmd::SendOperationCondition as u32);
-        command.set_argument(argument);
-        command.set_response_type(MCIHostResponseType::R3);
+        command.index_set(SdAppCmd::SendOperationCondition as u32);
+        command.argument_set(argument);
+        command.response_type_set(MCIHostResponseType::R3);
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1187,9 +1366,9 @@ impl SdCard {
         
         let mut command = MCIHostCmd::new();
 
-        command.set_index(SdAppCmd::SendScr as u32);
-        command.set_argument(0);
-        command.set_response_type(MCIHostResponseType::R1);
+        command.index_set(SdAppCmd::SendScr as u32);
+        command.argument_set(0);
+        command.response_type_set(MCIHostResponseType::R1);
 
         let mut data = MCIHostData::new();
 

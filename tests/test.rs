@@ -8,7 +8,9 @@ extern crate alloc;
 
 use core::time::Duration;
 
-use bare_test::{driver::device_tree::get_device_tree, mem::mmu::iomap, println, time::delay};
+use alloc::vec::Vec;
+use bare_test::{driver::device_tree::get_device_tree, mem::mmu::iomap, print, time::delay};
+use phytium_mci::sd::SdCard; // Adjusted to the correct module path
 use log::*;
 use phytium_mci::{iopad::PAD_ADDRESS, *};
 
@@ -30,8 +32,21 @@ fn test_work() {
 
     let iopad = IoPad::new(iopad_reg_base);
 
-    let sdcard = SdCard::example_instance(mci_reg_base);
+    let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
 
+    let _ = sdcard.init(mci_reg_base);
+
+    let mut buffer = Vec::new();
+    let _ = sdcard.read_blocks(&mut buffer, 131072+100,1);
+
+    print!("test_work passed\n");
+    for i in 0..buffer.len() {
+        warn!("{:x},{:x},{:x},{:x}",
+                buffer[i] as u8,
+                (buffer[i] >> 8) as u8,
+                (buffer[i] >> 16) as u8,
+                (buffer[i] >> 24) as u8);
+    }
     assert!(true);
 }
 

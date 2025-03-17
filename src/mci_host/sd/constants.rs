@@ -119,3 +119,5 @@ pub(crate) const SD_CMD13_RETRY_TIMES: u32 = 10;
 pub(crate) const SD_PRODUCT_NAME_BYTES: usize = 5;
 pub(crate) const SD_MAX_RW_BLK: usize = 1024;
 pub(crate) const SD_BLOCK_SIZE: usize = 512;
+
+pub(crate) const SD_CARD_ACCESS_WAIT_IDLE_TIMEOUT:u32 = 600;

@@ -79,6 +79,10 @@ impl MCIHostData {
         self.enable_auto_command12
     }
 
+    pub(crate) fn enable_auto_command12_set(&mut self,enable_auto_command12:bool) {
+        self.enable_auto_command12 = enable_auto_command12
+    }
+
     pub(crate) fn enable_auto_command23(&self) -> bool {
         self.enable_auto_command23
     }
@@ -148,7 +152,7 @@ pub(crate) struct MCIHostCmd {
     cmd_type: MCIHostCmdType,            // 命令类型
     response_type: MCIHostResponseType,  // 命令响应类型
     response: [u32; 4],                  // 命令响应数据
-    response_error_flags: u32,           // 响应错误标志
+    response_error_flags: MCIHostCardStatusFlag, // 响应错误标志
     flags: u32,                          // 命令标志
 }
 
@@ -162,7 +166,7 @@ impl MCIHostCmd {
             cmd_type:MCIHostCmdType::Normal,
             response_type:MCIHostResponseType::None,
             response:[0;4],
-            response_error_flags:0,
+            response_error_flags:MCIHostCardStatusFlag::empty(),
             flags:0,
         }
     } 
@@ -171,7 +175,7 @@ impl MCIHostCmd {
         self.index
     }
 
-    pub(crate) fn set_index(&mut self,index:u32) {
+    pub(crate) fn index_set(&mut self,index:u32) {
         self.index = index
     }
 
@@ -179,7 +183,7 @@ impl MCIHostCmd {
         self.argument
     }
 
-    pub(crate) fn set_argument(&mut self,argument:u32) {
+    pub(crate) fn argument_set(&mut self,argument:u32) {
         self.argument = argument
     }
 
@@ -187,11 +191,15 @@ impl MCIHostCmd {
         self.cmd_type
     }
 
+    pub(crate) fn cmd_type_set(&mut self,cmd_type:MCIHostCmdType) {
+        self.cmd_type = cmd_type
+    }
+
     pub(crate) fn response_type(&self) -> MCIHostResponseType {
         self.response_type
     }
 
-    pub(crate) fn set_response_type(&mut self,response_type:MCIHostResponseType) {
+    pub(crate) fn response_type_set(&mut self,response_type:MCIHostResponseType) {
         self.response_type = response_type
     }
 
@@ -203,8 +211,12 @@ impl MCIHostCmd {
         &mut self.response
     }
 
-    pub(crate) fn response_error_flags(&self) -> u32 {
+    pub(crate) fn response_error_flags(&self) -> MCIHostCardStatusFlag {
         self.response_error_flags
+    }
+
+    pub(crate) fn response_error_flags_set(&mut self,flags:MCIHostCardStatusFlag) {
+        self.response_error_flags = flags
     }
 
     pub(crate) fn flags(&self) -> u32 {
