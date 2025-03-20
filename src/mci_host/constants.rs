@@ -31,9 +31,9 @@ pub enum MCIHostDataPacketFormat {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MCIHostBusWdith {
-    Bit1 = 0,
-    Bit4 = 1,
-    Bit8 = 2,
+    Bit1 = 1,
+    Bit4 = 4,
+    Bit8 = 8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,7 +122,7 @@ bitflags! {
         const SWITCH_ERROR                  = 1 << 7;  // Switch error status bit
         const APPLICATION_COMMAND           = 1 << 5;  // Application command enabled status bit
         const AUTHENTICATION_SEQUENCE_ERROR = 1 << 3;  // Error in the sequence of authentication process
-        const ALL_ERROR_FLAG = 0xFFF0008;    // All error status bits
+        const ALL_ERROR_FLAG = 0xFFF90008;    // All error status bits
     }
 }
 

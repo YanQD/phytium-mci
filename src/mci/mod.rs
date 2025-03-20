@@ -57,6 +57,16 @@ impl MCI {
             io_pad: None,
         }
     }
+
+    pub(crate) fn new_restart(config: MCIConfig) -> Self {
+        MCI {
+            config,
+            is_ready: true,
+            prev_cmd: 0,
+            curr_timing: MCITiming::new(),
+            io_pad: None,
+        }
+    }
 }
 
 //* MCI pub API */
@@ -64,6 +74,10 @@ impl MCI {
 
     pub fn iopad_set(&mut self, iopad: IoPad) {
         self.io_pad = Some(iopad);
+    }
+
+    pub fn iopad_take(&mut self) -> Option<IoPad> {
+        self.io_pad.take()
     }
 
     /* initialization SDIF controller instance */
@@ -472,7 +486,7 @@ impl MCI {
            warn!("Card is busy, waiting ...");
         }
         if let Err(err) =reg.retry_for(|reg: MCIStatus|{
-            let result = reg.contains(busy_bits);
+            let result = !reg.contains(busy_bits);
             MCI::relax_handler();
             result
         }, Some(RETRIES_TIMEOUT)){

@@ -34,8 +34,6 @@ fn test_work() {
 
     let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
 
-    let _ = sdcard.init(mci_reg_base);
-
     let mut buffer = Vec::new();
     let _ = sdcard.read_blocks(&mut buffer, 131072+100,1);
 

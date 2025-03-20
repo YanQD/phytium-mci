@@ -12,6 +12,7 @@ use core::cmp::max;
 use core::ptr::NonNull;
 use core::str;
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use alloc::vec;
 use io_voltage::SdIoVoltage;
@@ -20,7 +21,7 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDevPIO;
 use crate::mci_host::MCIHost;
-use crate::{sleep, IoPad};
+use crate::{sd, sleep, IoPad};
 use crate::tools::u8_to_u32_slice;
 
 use super::err::{MCIHostError, MCIHostStatus};
@@ -32,7 +33,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::info;
+use log::{info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -85,7 +86,8 @@ impl SdCard {
             }
         }
 
-        if sd_card.init(addr).is_err() {
+        if let Err(err) = sd_card.init(addr) {
+            warn!("Sd Card Init Fail, error = {:?}",err);
             panic!("Sd Card Init Fail");
         }
         
@@ -95,14 +97,15 @@ impl SdCard {
     fn sdif_config(&mut self) -> MCIHostStatus {
         let mut card_cd = MCIHostCardDetect::new();
         
+        card_cd.typ = MCIHostDetectCardType::ByHostCD;
+        card_cd.cd_debounce_ms = 10;
 
-        card_cd.typ_set(MCIHostDetectCardType::ByHostCD);
-        card_cd.cd_debounce_ms_set(10);
+        let card_cd = Rc::new(card_cd);
 
-        let mut usr_param = SdUsrParam::new();
+        let usr_param = &mut self.usr_param;
 
-        usr_param.power_off_delay_ms_set(0);
-        usr_param.power_on_delay_ms_set(0);
+        usr_param.power_off_delay_ms = 0;
+        usr_param.power_on_delay_ms = 0;
         
         let capability = 
             MCIHostCapability::SUSPEND_RESUME | 
@@ -115,7 +118,7 @@ impl SdCard {
             MCIHostCapability::SET_CURRENT ;
         let capability = capability.bits() | MCIHostCapabilityExt::BIT8_WIDTH.bits();
 
-        usr_param.capability_set(capability);
+        usr_param.capability = capability;
 
         self.base.no_interal_align = false;
 
@@ -127,7 +130,7 @@ impl SdCard {
             io_voltage.typ_set(SdIoVoltageCtrlType::ByHost);
             io_voltage.set_func(None);
 
-            usr_param.io_voltage_set(Some(io_voltage));
+            usr_param.io_voltage = Some(io_voltage);
 
             let capability = 
                 MCIHostCapability::VOLTAGE_3V3 |
@@ -138,7 +141,7 @@ impl SdCard {
             
             host.capability=capability;
         } else {
-            usr_param.io_voltage_set(None);
+            usr_param.io_voltage = None;
             
             let mut capability = MCIHostCapability::VOLTAGE_3V3;
 
@@ -149,11 +152,14 @@ impl SdCard {
             host.capability=capability;
         }
 
-        usr_param.max_freq_set(host.config.card_clock);
+        usr_param.max_freq = host.config.card_clock;
+
+        self.usr_param.cd = Some(card_cd.clone());
 
         host.max_block_count.set(host.config.max_trans_size as u32 /host.config.def_block_size as u32);
         host.max_block_size = MCI_HOST_MAX_BLOCK_LENGTH;
         host.source_clock_hz = 1200000000;
+        host.cd = Some(card_cd.clone());
 
         Ok(())
     }
@@ -199,8 +205,8 @@ impl SdCard{
             } else {
                 /* start card init process */
                 info!("Start card identification");
-                if self.card_init().is_err() {
-                    info!("SD card init failed !!!");
+                if let Err(err) = self.card_init() {
+                    warn!("SD card init failed !!! {:?}",err);
                     return Err(MCIHostError::CardInitFailed);
                 }
             }
@@ -219,9 +225,9 @@ impl SdCard{
         Ok(())
     }
 
-    fn card_init(&self) -> MCIHostStatus {
+    fn card_init(&mut self) -> MCIHostStatus {
         self.card_power_set(true)?;
-        // todo SD_CardInitProc
+        self.card_init_proc()?;
         Ok(())
     }
 
@@ -260,6 +266,7 @@ impl SdCard{
         }
 
         /* Move the card to transfer state (with CMD7) to run remaining commands */
+        // !debug 这里有问题
         if self.card_select(true).is_err() { /* CMD7 */
             return Err(MCIHostError::SelectCardFailed);
         }
@@ -324,7 +331,7 @@ impl SdCard{
         * switch to new signal voltage using "signal voltage switch procedure"
         * described in SD specification
         */
-        if let Some(io_voltage) = self.usr_param.io_voltage() {
+        if let Some(io_voltage) = self.usr_param.io_voltage.as_ref() {
             match io_voltage.typ() {
                 SdIoVoltageCtrlType::NotSupport => {
                     /* do nothing */
@@ -358,13 +365,11 @@ impl SdCard{
         /* send card active */
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.dev.card_active_send();
-
         loop {
             /* card go idle */
             if self.go_idle().is_err() { /* CMD0 */
                 return Err(MCIHostError::GoIdleFailed);
             }
-
             /* Check card's supported interface condition. */
             if self.interface_condition_send().is_ok() { /* CMD8 */
                 /* SDHC or SDXC card */
@@ -385,7 +390,7 @@ impl SdCard{
             /* check if card support 1.8V */
             if self.flags.contains(SdCardFlag::SupportVoltage180v) {
                 
-                if let Some(io_voltage) = self.usr_param.io_voltage() {
+                if let Some(io_voltage) = self.usr_param.io_voltage.as_ref() {
                     if io_voltage.typ() == SdIoVoltageCtrlType::NotSupport {
                         break;
                     }
@@ -415,7 +420,7 @@ impl SdCard{
     }
 
     fn switch_io_voltage(&mut self,voltage:MCIHostOperationVoltage) -> MCIHostStatus {
-        let io_voltage = self.usr_param.io_voltage().ok_or(MCIHostError::Fail)?;
+        let io_voltage = self.usr_param.io_voltage.as_ref().ok_or(MCIHostError::Fail)?;
         let typ = io_voltage.typ();
 
         if typ == SdIoVoltageCtrlType::NotSupport {
@@ -439,7 +444,6 @@ impl SdCard{
     
     fn host_init(&mut self,addr:NonNull<u8>) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
-        
         if !self.base.is_host_ready {
             if let Err(err) = host.dev.init(addr,host) {
                 info!("SD host driver init failed, error = {:?}", err);
@@ -447,9 +451,8 @@ impl SdCard{
             }
         }
 
-        let cd = self.usr_param.cd().ok_or(MCIHostError::HostNotReady)?;
-        let typ = cd.typ();
-        if typ == MCIHostDetectCardType::ByGpioCD || typ == MCIHostDetectCardType::ByHostDATA3 {
+        let cd = self.usr_param.cd.as_ref().ok_or(MCIHostError::HostNotReady)?;
+        if cd.typ == MCIHostDetectCardType::ByGpioCD || cd.typ == MCIHostDetectCardType::ByHostDATA3 {
             info!("SD card init start");
             let _ = host.dev.card_detect_init(cd);
         }
@@ -467,8 +470,8 @@ impl SdCard{
 
     fn card_power_set(&self, enable: bool) -> MCIHostStatus {
 
-        if self.usr_param.sd_pwr().is_some() {
-            let sd_pwr = self.usr_param.sd_pwr().unwrap();
+        if self.usr_param.sd_pwr.is_some() {
+            let sd_pwr = self.usr_param.sd_pwr.unwrap();
             sd_pwr(enable);
         } else {
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
@@ -476,16 +479,16 @@ impl SdCard{
         }
 
         let power_delay =  if enable {
-            if self.usr_param.power_on_delay_ms() == 0{
+            if self.usr_param.power_on_delay_ms == 0{
                 SD_POWER_ON_DELAY_MS
             } else {
-                self.usr_param.power_on_delay_ms()
+                self.usr_param.power_on_delay_ms
             }
         }else {
-            if self.usr_param.power_off_delay_ms() == 0 {
+            if self.usr_param.power_off_delay_ms == 0 {
                 SD_POWER_OFF_DELAY_MS
             } else {
-                self.usr_param.power_off_delay_ms()
+                self.usr_param.power_off_delay_ms
             }
         };
 
@@ -494,15 +497,14 @@ impl SdCard{
     }
 
     fn polling_card_insert(&self,status:SDStatus) -> MCIHostStatus {
-        let cd = self.usr_param.cd().ok_or(MCIHostError::HostNotReady)?;
-        let typ = cd.typ();
+        let cd = self.usr_param.cd.as_ref().ok_or(MCIHostError::HostNotReady)?;
 
-        if typ == MCIHostDetectCardType::ByGpioCD {
-            let card_detect = cd.card_detected().ok_or(MCIHostError::Fail)?;
+        if cd.typ == MCIHostDetectCardType::ByGpioCD {
+            let card_detect = cd.card_detected.ok_or(MCIHostError::Fail)?;
 
             loop {
                 if card_detect() && status == SDStatus::Inserted {
-                    let cd_debounce_ms = cd.cd_debounce_ms();
+                    let cd_debounce_ms = cd.cd_debounce_ms;
                     sleep(Duration::from_millis(cd_debounce_ms as u64));
                     if card_detect() {
                         break;
@@ -523,7 +525,7 @@ impl SdCard{
 
             /* polling wait until card presented or timeout */
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
-            if host.dev.card_detect_status_polling(status, u32::MAX,host).is_err() {
+            if host.dev.card_detect_status_polling(status, u32::MAX, host).is_err() {
                 info!("Polling SD card status failed !!!");
                 return Err(MCIHostError::Fail);
             }
@@ -560,7 +562,7 @@ impl SdCard{
                     let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
                     
                     self.current_timing = SdTimingMode::SDR25HighSpeedMode;
-                    self.base.bus_clk_hz = host.dev.card_clock_set(max(self.usr_param.max_freq(), SD_CLOCK_50MHZ),host);
+                    self.base.bus_clk_hz = host.dev.card_clock_set(max(self.usr_param.max_freq, SD_CLOCK_50MHZ),host);
                 } ,
                 Err(err) => {
                     if err == MCIHostError::NotSupportYet {
@@ -639,8 +641,8 @@ impl SdCard{
         }
 
         /* Update io strength according to different bus frequency */
-        if self.usr_param.io_strength().is_some() {
-            let io_strength = self.usr_param.io_strength().unwrap();
+        if self.usr_param.io_strength.is_some() {
+            let io_strength = self.usr_param.io_strength.unwrap();
             io_strength(self.current_timing);
         }
 
@@ -816,7 +818,7 @@ impl SdCard{
 impl SdCard {
     
     //* CMD 0 */
-    fn go_idle(&mut self) -> MCIHostStatus {
+    fn go_idle(&self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.go_idle()
     }

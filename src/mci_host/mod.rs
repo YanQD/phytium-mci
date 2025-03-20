@@ -11,16 +11,16 @@ pub mod sd;
 mod mci_card_base;
 mod mci_host_card_detect;
 
-use core::{cell::{Cell, RefCell}, ptr::NonNull};
+use core::{cell::Cell, ptr::NonNull};
 
 use alloc::{boxed::Box, rc::Rc};
 
 use constants::*;
 use err::{MCIHostError, MCIHostStatus};
+use log::warn;
 use mci_host_card_detect::MCIHostCardDetect;
 use mci_host_config::MCIHostConfig;
 use mci_host_device::MCIHostDevice;
-use mci_host_card::MCIHostCard;
 use mci_host_transfer::{MCIHostCmd, MCIHostTransfer};
 
 type MCIHostCardIntFn = fn();
@@ -39,8 +39,7 @@ pub struct MCIHost {
     pub(crate) max_block_size: u32,                    
     pub(crate) tuning_type: u8,                        
 
-    pub(crate) card: Option<Rc<RefCell<Box<dyn MCIHostCard>>>>,
-    pub(crate) cd: Option<Rc<RefCell<MCIHostCardDetect>>>,         // 卡检测
+    pub(crate) cd: Option<Rc<MCIHostCardDetect>>,         // 卡检测
     pub(crate) card_int: MCIHostCardIntFn,
 
     //? 这里 uint8_t tuningType sdmmc_osa_event_t hostEvent sdmmc_osa_mutex_t lock 都没有移植
@@ -61,7 +60,6 @@ impl MCIHost {
             max_block_count: Cell::new(0),
             max_block_size: 0,
             tuning_type: 0,
-            card: None,
             cd: None,
             card_int: || {},
         }
@@ -88,6 +86,9 @@ impl MCIHost {
         let response = command.response();
 
         if err.is_err() || response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits() != 0{
+            // !debug 
+            warn!("resp: 0x{:x}",response[0]);
+            warn!("0x{:x}",response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits());
             return Err(MCIHostError::TransferFailed);
         }
 

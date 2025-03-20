@@ -1,6 +1,7 @@
 use core::ops;
 
 use bitflags::bitflags;
+use log::warn;
 use crate::mci::{constants::*, err::MCIError};
 
 use super::{FlagReg, Reg};

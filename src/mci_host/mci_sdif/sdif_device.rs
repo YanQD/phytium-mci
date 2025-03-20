@@ -55,7 +55,14 @@ impl MCIHostDevice for SDIFDevPIO {
         let id = host.config.host_id;
 
         let mci_config = MCIConfig::lookup_config(addr, id);
+        let iopad = self.hc.borrow_mut().iopad_take().ok_or(MCIHostError::NoData)?;
+
         *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr, id));
+        self.hc.borrow_mut().iopad_set(iopad);
+        
+        // ?强行 restart 一下
+        let restart_mci = MCI::new_restart(MCIConfig::restart_mci0(addr));
+        restart_mci.restart().unwrap_or_else(|e| error!("restart failed: {:?}", e));
 
         if let Err(_) = self.hc.borrow_mut().config_init(&mci_config) {
             info!("Sdio ctrl init failed.");
@@ -190,14 +197,14 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn card_detect_status_polling(&self, wait_card_status: SDStatus, _timeout: u32, host:&MCIHost) -> MCIHostStatus {
-        let binding = host.cd.as_ref().ok_or(MCIHostError::NoData)?;
-        let cd = binding.borrow();
+        let cd = host.cd.as_ref().ok_or(MCIHostError::NoData)?;
+
         let mut retry_times:usize = 100;
 
         /* Wait card inserted. */
         loop {
             let is_card_inserted = self.card_detect_status() == SDStatus::Inserted;
-            sleep(Duration::from_millis(cd.cd_debounce_ms() as u64));
+            sleep(Duration::from_millis(cd.cd_debounce_ms as u64));
             if wait_card_status == SDStatus::Inserted && is_card_inserted {
                 break;
             }
@@ -234,7 +241,6 @@ impl MCIHostDevice for SDIFDevPIO {
         if host.curr_clock_freq.get() == target_clock {
             return host.curr_clock_freq.get();
         }
-        
         // 尝试设置时钟频率
         if self.hc.borrow_mut().clk_freq_set(target_clock).is_ok() {
             info!("BUS CLOCK: {}", target_clock);
@@ -263,7 +269,7 @@ impl MCIHostDevice for SDIFDevPIO {
 
         let data = match content.data() {
             Some(data) => data,
-            None => return Err(MCIHostError::NoData)
+            None => return Ok(()),
         };
 
         if cmd.index() == MCIHostCommonCmd::ReadMultipleBlock as u32 ||
@@ -318,9 +324,11 @@ impl MCIHostDevice for SDIFDevPIO {
             flag |= MCICmdFlag::SWITCH_VOLTAGE;
         }
 
-        let mut out_data = MCIData::new();
+        
 
-        if let Some(in_data) = in_trans.data() {
+        let out_data = if let Some(in_data) = in_trans.data() {
+            let mut out_data = MCIData::new();
+
             flag |= MCICmdFlag::EXP_DATA;
             
             let buf = if let Some(rx_data) = in_data.rx_data() {
@@ -338,13 +346,17 @@ impl MCIHostDevice for SDIFDevPIO {
             };
             
             out_data.buf_set(Some(buf));
-        }
+
+            Some(out_data)
+        } else {
+            None
+        };
 
         let mut out_trans = MCICmdData::new();
 
         out_trans.cmdidx_set(index);
         out_trans.cmdarg_set(arg);
-        out_trans.set_data(Some(out_data));
+        out_trans.set_data(out_data);
         out_trans.flag_set(flag);
         
         out_trans
@@ -352,9 +364,7 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn transfer_function(&self,content: &mut MCIHostTransfer, host:&MCIHost) -> MCIHostStatus {
-        
         self.pre_command(content,host)?;
-
         let mut cmd_data = MCICmdData::new();
         let trans_data = MCIData::new();
 
