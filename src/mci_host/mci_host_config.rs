@@ -4,16 +4,16 @@ use super::sd::constants::{SD_BLOCK_SIZE, SD_CLOCK_50MHZ, SD_MAX_RW_BLK};
 
 #[allow(unused)]
 pub struct MCIHostConfig {
-    host_id: MCIId,                     // 主机 ID
-    host_type: MCIHostType,           // 主机类型
-    card_type: MCIHostCardType,       // 卡类型
-    enable_irq: bool,                 // 是否启用中断
-    enable_dma: bool,                 // 是否启用 DMA
-    endian_mode: MCIHostEndianMode,   // 字节序模式
-    max_trans_size: usize,            // 最大传输大小
-    def_block_size: usize,            // 默认块大小
-    card_clock: u32,                  // 卡时钟频率
-    is_uhs_card: bool,                // 是否为 UHS 卡
+    pub(crate) host_id: MCIId,                     // 主机 ID
+    pub(crate) host_type: MCIHostType,           // 主机类型
+    pub(crate) card_type: MCIHostCardType,       // 卡类型
+    pub(crate) enable_irq: bool,                 // 是否启用中断
+    pub(crate) enable_dma: bool,                 // 是否启用 DMA
+    pub(crate) endian_mode: MCIHostEndianMode,   // 字节序模式
+    pub(crate) max_trans_size: usize,            // 最大传输大小
+    pub(crate) def_block_size: usize,            // 默认块大小
+    pub(crate) card_clock: u32,                  // 卡时钟频率
+    pub(crate) is_uhs_card: bool,                // 是否为 UHS 卡
     /* for SDIO card, to support card customized interrupt handling */ // todo 暂时没实现这部分功能
 }
 
@@ -33,46 +33,6 @@ impl MCIHostConfig {
             card_clock: SD_CLOCK_50MHZ,
             is_uhs_card: false, // todo 需要测试能不能支持UHS模式
         }
-    }
-
-    pub fn host_id(&self) -> MCIId {
-        self.host_id
-    }
-
-    pub fn host_type(&self) -> MCIHostType {
-        self.host_type
-    }
-
-    pub fn card_type(&self) -> MCIHostCardType {
-        self.card_type
-    }
-
-    pub fn enable_irq(&self) -> bool {
-        self.enable_irq
-    }
-
-    pub fn enable_dma(&self) -> bool {
-        self.enable_dma
-    }
-
-    pub fn endian_mode(&self) -> MCIHostEndianMode {
-        self.endian_mode
-    }
-
-    pub fn max_trans_size(&self) -> usize {
-        self.max_trans_size
-    }
-
-    pub fn def_block_size(&self) -> usize {
-        self.def_block_size
-    }
-
-    pub fn card_clock(&self) -> u32 {
-        self.card_clock
-    }
-
-    pub fn is_uhs_card(&self) -> bool {
-        self.is_uhs_card
     }
 }
 

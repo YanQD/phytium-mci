@@ -11,7 +11,7 @@ pub mod sd;
 mod mci_card_base;
 mod mci_host_card_detect;
 
-use core::{cell::RefCell, ptr::NonNull};
+use core::{cell::{Cell, RefCell}, ptr::NonNull};
 
 use alloc::{boxed::Box, rc::Rc};
 
@@ -27,21 +27,21 @@ type MCIHostCardIntFn = fn();
 
 #[allow(unused)]
 pub struct MCIHost {
-    dev: Box<dyn MCIHostDevice>,
-    config: MCIHostConfig,                  
-    curr_voltage: MCIHostOperationVoltage,  
-    curr_bus_width: u32,                    
-    curr_clock_freq: u32,                   
+    pub(crate) dev: Box<dyn MCIHostDevice>,
+    pub(crate) config: MCIHostConfig,                  
+    pub(crate) curr_voltage: Cell<MCIHostOperationVoltage>,  
+    pub(crate) curr_bus_width: u32,                    
+    pub(crate) curr_clock_freq: Cell<u32>,                   
 
-    source_clock_hz: u32,                   
-    capability: MCIHostCapability,          
-    max_block_count: u32,                   
-    max_block_size: u32,                    
-    tuning_type: u8,                        
+    pub(crate) source_clock_hz: u32,                   
+    pub(crate) capability: MCIHostCapability,          
+    pub(crate) max_block_count: Cell<u32>,                   
+    pub(crate) max_block_size: u32,                    
+    pub(crate) tuning_type: u8,                        
 
-    card: Option<Rc<RefCell<Box<dyn MCIHostCard>>>>,
-    cd: Option<Rc<RefCell<MCIHostCardDetect>>>,         // 卡检测
-    card_int: MCIHostCardIntFn,
+    pub(crate) card: Option<Rc<RefCell<Box<dyn MCIHostCard>>>>,
+    pub(crate) cd: Option<Rc<RefCell<MCIHostCardDetect>>>,         // 卡检测
+    pub(crate) card_int: MCIHostCardIntFn,
 
     //? 这里 uint8_t tuningType sdmmc_osa_event_t hostEvent sdmmc_osa_mutex_t lock 都没有移植
 }
@@ -50,32 +50,24 @@ pub struct MCIHost {
 impl MCIHost {
 
     pub(crate) fn new(dev: Box<dyn MCIHostDevice>, config: MCIHostConfig) -> Self {
-        let capability = MCIHostCapability::empty();
-        let max_block_count = 0;
-        let max_block_size = 0;
-        let tuning_type = 0;
-        let card = None;
-        let cd = None;
-        let card_int = || {};
-
         MCIHost {
             dev,
             config,
-            curr_voltage: MCIHostOperationVoltage::None,
+            curr_voltage: Cell::new(MCIHostOperationVoltage::None),
             curr_bus_width: 0,
-            curr_clock_freq: 0,
+            curr_clock_freq: Cell::new(0),
             source_clock_hz: 0,
-            capability,
-            max_block_count,
-            max_block_size,
-            tuning_type,
-            card,
-            cd,
-            card_int,
+            capability: MCIHostCapability::empty(),
+            max_block_count: Cell::new(0),
+            max_block_size: 0,
+            tuning_type: 0,
+            card: None,
+            cd: None,
+            card_int: || {},
         }
     }
 
-    pub(crate) fn card_select(&mut self,relative_address:u32,is_selected:bool) -> MCIHostStatus {
+    pub(crate) fn card_select(&self,relative_address:u32,is_selected:bool) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
 
         command.index_set(MCIHostCommonCmd::SelectCard as u32);
@@ -90,7 +82,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
 
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content,self);
         
         let command = content.cmd().unwrap();
         let response = command.response();
@@ -102,7 +94,7 @@ impl MCIHost {
         Ok(())
     }
 
-    pub(crate) fn application_command_send(&mut self, relative_address: u32) -> MCIHostStatus {
+    pub(crate) fn application_command_send(&self, relative_address: u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
         command.index_set(MCIHostCommonCmd::ApplicationCommand as u32);
@@ -112,7 +104,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
     
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content,self);
         
         let command = content.cmd().unwrap();
         let response = command.response();
@@ -128,7 +120,7 @@ impl MCIHost {
         Ok(())
     }
  
-    pub(crate) fn block_count_set(&mut self,block_count:u32) -> MCIHostStatus {
+    pub(crate) fn block_count_set(&self,block_count:u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
 
         command.index_set(MCIHostCommonCmd::SetBlockCount as u32);
@@ -138,7 +130,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
         
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content,self);
 
         let command = content.cmd().unwrap();
         let response = command.response();
@@ -150,7 +142,7 @@ impl MCIHost {
         Ok(())
     }
 
-    pub(crate) fn go_idle(&mut self) -> MCIHostStatus {
+    pub(crate) fn go_idle(&self) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
         command.index_set(MCIHostCommonCmd::GoIdleState as u32);
@@ -158,7 +150,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
         
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content,self);
         
         if err.is_err() {
             return Err(MCIHostError::TransferFailed);
@@ -167,7 +159,7 @@ impl MCIHost {
         Ok(())
     }
 
-    pub(crate) fn block_size_set(&mut self, block_size: u32) -> MCIHostStatus {
+    pub(crate) fn block_size_set(&self, block_size: u32) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
         command.index_set(MCIHostCommonCmd::SetBlockLength as u32);
@@ -177,7 +169,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
         
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content,self);
         
         let command = content.cmd().unwrap();
         let response = command.response();
@@ -189,7 +181,7 @@ impl MCIHost {
         Ok(())
     }
     
-    pub(crate) fn card_inactive_set(&mut self) -> MCIHostStatus {
+    pub(crate) fn card_inactive_set(&self) -> MCIHostStatus {
         let mut command = MCIHostCmd::new();
     
         command.index_set(MCIHostCommonCmd::GoInactiveState as u32);
@@ -199,7 +191,7 @@ impl MCIHost {
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
         
-        let err = self.dev.transfer_function(&mut content);
+        let err = self.dev.transfer_function(&mut content, self);
         
         if err.is_err() {
             return Err(MCIHostError::TransferFailed);
@@ -209,40 +201,14 @@ impl MCIHost {
     }
 
     pub(crate) fn init(&mut self, addr: NonNull<u8>) -> MCIHostStatus {
-        self.dev.init(addr)
+        self.dev.init(addr,self)
     }
 
 }
 
 #[allow(unused)]
 impl MCIHost {
-    pub(crate) fn cd(&self) -> Option<Rc<RefCell<MCIHostCardDetect>>> {
-        self.cd.as_ref().map(|cd| Rc::clone(cd))
-    }
-
-    pub(crate) fn max_block_count(&self) -> u32 {
-        self.max_block_count
-    }
-    
-    pub(crate) fn max_block_count_set(&mut self, max_block_count: u32) {
-        self.max_block_count = max_block_count;
-    }
-
-    pub(crate) fn max_block_size(&self) -> u32 {
-        self.max_block_size
-    }
-
-    pub(crate) fn max_block_size_set(&mut self, max_block_size: u32) {
-        self.max_block_size = max_block_size;
-    }
-
-    pub(crate) fn capability(&self) -> MCIHostCapability {
-        self.capability
-    }
-
-    pub(crate) fn capability_set(&mut self, capability: MCIHostCapability) {
-        self.capability = capability;
-    }
+    // todo 将 dev 的操作套壳
 }
 
 
