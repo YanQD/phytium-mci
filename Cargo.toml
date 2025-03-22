@@ -13,10 +13,14 @@ bytemuck = "1.22.0"
 bare-test = "0.2"
 
 [dev-dependencies]
-bare-test = "0.2"
+bare-test = "0.4"
 pcie = "0.2"
 byte-unit = { version = "5.1.6", default-features = false, features = ["byte"] }
 spin_on = "0.1.1"
 
 [build-dependencies]
-bare-test-macros = "0.0.1"
+bare-test-macros = "0.2"
+
+[[test]]
+name = "test"
+harness = false
