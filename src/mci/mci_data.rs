@@ -22,16 +22,28 @@ impl MCIData {
         }
     }
 
-   pub(crate) fn blksz(&self) -> u32 {
+    pub(crate) fn blksz(&self) -> u32 {
         self.blksz
+    }
+
+    pub(crate) fn blksz_set(&mut self,blksz: u32) {
+        self.blksz = blksz
     }
 
     pub(crate) fn blkcnt(&self) -> u32 {
         self.blkcnt
     }
 
+    pub(crate) fn blkcnt_set(&mut self,blkcnt: u32) {
+        self.blkcnt = blkcnt
+    }
+
     pub(crate) fn datalen(&self) -> u32 {
         self.datalen
+    }
+
+    pub(crate) fn datalen_set(&mut self,datalen: u32) {
+        self.datalen = datalen
     }
 
     pub(crate) fn buf(&self) -> Option<&Vec<u32>> {

@@ -278,6 +278,7 @@ impl MCI {
         if cmd_data.get_data().is_some() && read {
             info!("wait for PIO data to read ...");
             if let Err(err)=reg.retry_for(|reg|{
+                MCI::relax_handler();
                 (MCIRawInts::DTO_BIT & reg).bits() != 0
             }, Some(RETRIES_TIMEOUT)){
                 self.raw_status_clear();

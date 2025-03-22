@@ -266,7 +266,6 @@ impl SdCard{
         }
 
         /* Move the card to transfer state (with CMD7) to run remaining commands */
-        // !debug 这里有问题
         if self.card_select(true).is_err() { /* CMD7 */
             return Err(MCIHostError::SelectCardFailed);
         }
@@ -311,6 +310,7 @@ impl SdCard{
 
         /* SDR104, SDR50, and DDR50 mode need tuning */
         if self.bus_timing_select().is_err() {
+            // ! debug 这里出现 BUG
             return Err(MCIHostError::SwitchBusTimingFailed);
         }
 
@@ -700,7 +700,7 @@ impl SdCard{
 
         /* check if function is support */
         if (func_group_info[group as usize] & (1 << (func as u16)) == 0) ||
-            ((current_func_status & (group as u32)*4) & 0xf != func as u32) {
+            (((current_func_status >> (group as u32)*4) & 0xf) != (func as u32)) {
             info!("\r\nError: function {} in group {} not support\r\n",func as u32,group as u32);
             return Err(MCIHostError::CardNotSupport);
         }
@@ -712,14 +712,17 @@ impl SdCard{
 
         /* convert to little endian sequence */
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
-        let _ = host.dev.convert_data_to_little_endian(&mut func_status[2..].to_vec(), 2, MCIHostDataPacketFormat::MSBFirst,host);
+        let mut func_status_need_convert = func_status[3..].to_vec();
+        let _ = host.dev.convert_data_to_little_endian(&mut func_status_need_convert, 2, MCIHostDataPacketFormat::MSBFirst,host);
+        let mut func_status = func_status[0..3].to_vec();
+        func_status.extend_from_slice(&func_status_need_convert);
 
         /* According to the "switch function status[bits 511~0]" return by switch command in mode "set function":
             -check if group 1 is successfully changed to function 1 by checking if bits 379~376 equal value 1;
         */
         let current_func_status = ((func_status[3] & 0xff) << 8) | (func_status[4] >> 24);
 
-        if (current_func_status & (group as u32)*4) & 0xf != func as u32 {
+        if ((current_func_status >> (group as u32)*4) & 0xf) != (func as u32) {
             info!("\r\nError: switch to function {} failed\r\n",func as u32);
             return Err(MCIHostError::SwitchFailed);
         }
@@ -1283,8 +1286,6 @@ impl SdCard {
             return Err(MCIHostError::TransferFailed);
         }
 
-        host.dev.card_bus_width_set(width);
-
         Ok(())
     }
 
@@ -1331,7 +1332,7 @@ impl SdCard {
             /* Wait until card exit busy state. */
             let command = content.cmd().unwrap();
             let response = command.response()[0];
-            if response & MCIHostOCR::POWER_UP_BUSY_FLAG.bits() == 0 {
+            if response & MCIHostOCR::POWER_UP_BUSY_FLAG.bits() != 0 {
                 /* high capacity check */
                 if response & MCIHostOCR::HOST_CAPACITY_SUPPORT_FLAG.bits() != 0 {
                     self.flags |= SdCardFlag::SupportHighCapacity;
@@ -1374,7 +1375,7 @@ impl SdCard {
 
         let mut data = MCIHostData::new();
 
-        data.block_count_set(8);
+        data.block_size_set(8);
         data.block_count_set(1);
         data.rx_data_set(Some(vec![0;8])); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
@@ -1576,7 +1577,7 @@ impl SdCard {
 
 impl SdCard {
     fn card_dump(&self) {
-        let mut card_name = [0u8;SD_PRODUCT_NAME_BYTES+1];
+        let mut card_name = [0u8;SD_PRODUCT_NAME_BYTES];
         card_name.copy_from_slice(self.cid.product_name.as_slice());
         info!("Card Name: {}",str::from_utf8(&card_name).unwrap());
 

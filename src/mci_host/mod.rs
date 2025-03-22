@@ -86,9 +86,6 @@ impl MCIHost {
         let response = command.response();
 
         if err.is_err() || response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits() != 0{
-            // !debug 
-            warn!("resp: 0x{:x}",response[0]);
-            warn!("0x{:x}",response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits());
             return Err(MCIHostError::TransferFailed);
         }
 

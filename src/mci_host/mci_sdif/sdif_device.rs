@@ -139,7 +139,7 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn convert_data_to_little_endian(&self, data: &mut Vec<u32>, word_size: usize, format: MCIHostDataPacketFormat,host:&MCIHost) -> MCIHostStatus {
-        if host.config.endian_mode == MCIHostEndianMode::Big && 
+        if host.config.endian_mode == MCIHostEndianMode::Little && 
              format == MCIHostDataPacketFormat::MSBFirst {
             for i in 0..word_size {
                 let val = data[i];
@@ -324,8 +324,6 @@ impl MCIHostDevice for SDIFDevPIO {
             flag |= MCICmdFlag::SWITCH_VOLTAGE;
         }
 
-        
-
         let out_data = if let Some(in_data) = in_trans.data() {
             let mut out_data = MCIData::new();
 
@@ -334,7 +332,7 @@ impl MCIHostDevice for SDIFDevPIO {
             let buf = if let Some(rx_data) = in_data.rx_data() {
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
-                //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题
+                //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
                 rx_data.clone()
             } else if let Some(tx_data) = in_data.tx_data() {
                 // Handle transmit data
@@ -345,6 +343,9 @@ impl MCIHostDevice for SDIFDevPIO {
                 panic!("Transaction data initialized but contains neither rx_data nor tx_data");
             };
             
+            out_data.blksz_set(in_data.block_size() as u32);
+            out_data.blkcnt_set(in_data.block_count());
+            out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
             out_data.buf_set(Some(buf));
 
             Some(out_data)
@@ -384,6 +385,16 @@ impl MCIHostDevice for SDIFDevPIO {
 
             if let Err(_) = self.hc.borrow_mut().poll_wait_pio_end(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
+            }
+        }
+
+        //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
+        if let Some(_) = content.data() {
+            let data = cmd_data.get_data().unwrap();
+            if let Some(rx_data) = data.buf() {
+                if let Some(in_data) = content.data_mut() {
+                    in_data.rx_data_set(Some(rx_data.clone()));
+                }
             }
         }
 
