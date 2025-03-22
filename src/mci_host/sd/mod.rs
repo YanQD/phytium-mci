@@ -33,7 +33,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::{info, warn};
+use log::{error, info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -310,7 +310,6 @@ impl SdCard{
 
         /* SDR104, SDR50, and DDR50 mode need tuning */
         if self.bus_timing_select().is_err() {
-            // ! debug 这里出现 BUG
             return Err(MCIHostError::SwitchBusTimingFailed);
         }
 
@@ -540,7 +539,7 @@ impl SdCard{
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
             if !host.dev.card_is_busy() {
                 if Err(MCIHostError::CardStatusIdle) == self.card_status_send() {
-                    break;
+                    return Err(MCIHostError::CardStatusIdle);
                 }
             } else {
                 /* Delay 125us to throttle the polling rate */
@@ -548,7 +547,7 @@ impl SdCard{
                 status_timeout_us -= 125;
             }
         }
-        Ok(())
+        Err(MCIHostError::CardStatusBusy)
     }
 
     fn bus_timing_select(&mut self) -> MCIHostStatus {
@@ -741,15 +740,15 @@ impl SdCard{
 
         let mut block_count_one_time:u32;
 
-        while block_count != 0 {
+        while block_left != 0 {
             // 如果修正当前的性能问题,则需要考虑对齐问题
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
             if block_left > host.max_block_count.get() {
                 block_left -= host.max_block_count.get();
                 block_count_one_time = host.max_block_count.get();
             } else {
-                block_left = 0;
                 block_count_one_time = block_left;
+                block_left = 0;
             }
 
             let mut once_buffer = vec![0u32;MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
@@ -844,6 +843,7 @@ impl SdCard {
         let command = content.cmd().unwrap();
         let response = command.response();
 
+        self.base.internal_buffer.clear();
         self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
 
         self.decode_cid();
@@ -1010,6 +1010,7 @@ impl SdCard {
         let command = content.cmd().unwrap();
         let response = command.response();
 
+        self.base.internal_buffer.clear();
         self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
 
         self.decode_csd();
@@ -1176,6 +1177,8 @@ impl SdCard {
 
         let mut command = MCIHostCmd::new();
         
+        // ! debug 
+        warn!("block_size = {}, block_count = {}",block_size,block_count);
         command.index_set({
             if block_count == 1 {
                 MCIHostCommonCmd::ReadSingleBlock as u32 
@@ -1207,6 +1210,7 @@ impl SdCard {
         context.set_cmd(Some(command));
         context.set_data(Some(data));
 
+        // ! debug 这里出现问题
         if let Err(err) = self.transfer(&mut context, 3) {
             return Err(err);
         }
@@ -1606,7 +1610,7 @@ impl SdCard {
 
         info!("\r\n");
 
-        info!("  Size: {} GB\r\n",self.block_count as u64 *self.base.block_size as u64 / SZ_1G);
+        info!("  Size: {} GB\r\n",(self.block_count as u64 *self.base.block_size as u64) / SZ_1G);
         
         if self.base.bus_clk_hz >(1000*1000) {
             info!("  Bus-Speed: {} MHz\r\n",self.base.bus_clk_hz/(1000*1000));
