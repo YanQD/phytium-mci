@@ -17,8 +17,36 @@ mod tests {
     use phytium_mci::{iopad::PAD_ADDRESS, *};
     #[test]
     fn test_work() {
-        
+        let fdt = get_device_tree().unwrap();
+    
+        let mci0 = fdt.find_compatible(&["phytium,mci"]).next().unwrap();
+    
+        let reg = mci0.reg().unwrap().next().unwrap();
+    
+        info!("mci0 reg: {:#x},mci0 reg size: {:#x}", reg.address, reg.size.unwrap());
+    
+        let mci_reg_base = iomap((reg.address as usize).into(), reg.size.unwrap());
+    
+        let iopad_reg_base = iomap((PAD_ADDRESS as usize).into(), 0x2000);
+    
+        let iopad = IoPad::new(iopad_reg_base);
+    
+        let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
+    
+        let mut buffer = Vec::new();
+        let _ = sdcard.read_blocks(&mut buffer, 131072+100,1);
+    
+        print!("test_work passed\n");
+        for i in 0..buffer.len() {
+            warn!("{:x},{:x},{:x},{:x}",
+                    buffer[i] as u8,
+                    (buffer[i] >> 8) as u8,
+                    (buffer[i] >> 16) as u8,
+                    (buffer[i] >> 24) as u8);
+        }
+        assert!(true);
     }
+    
 
     fn sleep(duration: Duration) {
         spin_delay(duration);
