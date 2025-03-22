@@ -8,16 +8,19 @@ extern crate alloc;
 mod tests {
     use core::time::Duration;
 
+    use alloc::vec::Vec;
     use bare_test::{
-        globals::{global_val, PlatformInfoKind},
-        mem::mmu::iomap,
-        time::spin_delay,
+        globals::{global_val, PlatformInfoKind}, mem::mmu::iomap, 
+        time::spin_delay
     };
     use log::*;
-    use phytium_mci::{iopad::PAD_ADDRESS, *};
+    use phytium_mci::{iopad::PAD_ADDRESS, sd::SdCard, *};
     #[test]
     fn test_work() {
-        let fdt = get_device_tree().unwrap();
+        let fdt = match &global_val().platform_info {
+            PlatformInfoKind::DeviceTree(fdt) => fdt.get(),
+            _ => panic!("unsupported platform"),
+        };
     
         let mci0 = fdt.find_compatible(&["phytium,mci"]).next().unwrap();
     
@@ -36,7 +39,7 @@ mod tests {
         let mut buffer = Vec::new();
         let _ = sdcard.read_blocks(&mut buffer, 131072+100,1);
     
-        print!("test_work passed\n");
+        error!("test_work passed\n");
         for i in 0..buffer.len() {
             warn!("{:x},{:x},{:x},{:x}",
                     buffer[i] as u8,
