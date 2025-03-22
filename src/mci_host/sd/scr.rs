@@ -1,7 +1,7 @@
 use bitflags::bitflags;
-/// SD card SCR register
+
 #[derive(Debug, Default)]
-pub struct MCIScr {
+pub struct SdScr {
     /// SCR Structure [63:60]
     pub scr_structure: u8,
     /// SD memory card specification version [59:56]
@@ -18,6 +18,21 @@ pub struct MCIScr {
     pub command_support: u8,
     /// Reserved for manufacturer usage [31:0]
     pub reserved_for_manufacturer: u32,
+}
+
+impl SdScr {
+    pub fn new() -> Self {
+        SdScr {
+            scr_structure: 0,
+            sd_specification: 0,
+            flags: 0,
+            sd_security: 0,
+            sd_bus_widths: 0,
+            extended_security: 0,
+            command_support: 0,
+            reserved_for_manufacturer: 0,
+        }
+    }
 }
 
 bitflags! {

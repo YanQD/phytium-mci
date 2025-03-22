@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 
 #[derive(Debug, Default)]
-pub struct MCICsd {
+pub struct SdCsd {
     pub csd_structure: u8,
     pub data_read_access_time1: u8,
     pub data_read_access_time2: u8,
@@ -22,6 +22,31 @@ pub struct MCICsd {
     pub file_format: u8,
 }
 
+impl SdCsd {
+    pub fn new() -> Self {
+        SdCsd {
+            csd_structure: 0,
+            data_read_access_time1: 0,
+            data_read_access_time2: 0,
+            transfer_speed: 0,
+            card_command_classes: 0,
+            read_block_length: 0,
+            flags: 0,
+            device_size: 0,
+            read_current_vdd_min: 0,
+            read_current_vdd_max: 0,
+            write_current_vdd_min: 0,
+            write_current_vdd_max: 0,
+            device_size_multiplier: 0,
+            erase_sector_size: 0,
+            write_protect_group_size: 0,
+            write_speed_factor: 0,
+            write_block_length: 0,
+            file_format: 0,
+        }
+    }
+    
+}
 
 bitflags! {
     pub struct CsdFlags: u16 {
@@ -36,5 +61,19 @@ bitflags! {
         const COPY = 1 << 8; /* Copy flag [14:14] */
         const PERMANENT_WRITE_PROTECT = 1 << 9; /* Permanent write protection [13:13] */
         const TEMPORARY_WRITE_PROTECT = 1 << 10; /* Temporary write protection [12:12] */
+    }
+}
+
+bitflags! {
+    pub struct SdCardCmdClass: u16 {
+        const Basic = 1 << 0;
+        const BlockRead = 1 << 2;
+        const BlockWrite = 1 << 4;
+        const Erase = 1 << 5;
+        const WriteProtect = 1 << 6;
+        const LockCard = 1 << 7;
+        const ApplicationSpecific = 1 << 8;
+        const InputOutputMode = 1 << 9;
+        const Switch = 1 << 10;
     }
 }

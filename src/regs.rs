@@ -1,9 +1,19 @@
 #![allow(unused)] 
 
-use core::{marker::PhantomData, ptr::NonNull, time::Duration};
+use core::{marker::PhantomData, ops, ptr::NonNull, time::Duration};
 use bitflags::{bitflags, Flags};
 use log::info;
 use crate::sleep;
+
+/* 
+ * 为所有的 bitflag! 实现一个 BitsOps trait
+ * 方便后续为所有的 bitflag! 实现一些通用的操作
+ * 原理是所有的 bitflag! 都是一个结构体，而结构体都是实现了 ops::BitOr 等操作的
+ * 这时候为实现了 ops::BitOr 的结构体实现一个 BitsOps trait
+ * 这样所有的 bitflag! 都可以识别为实现了 BitsOps trait
+*/
+pub trait BitsOps: ops::BitOr<Output = Self> + ops::BitAnd<Output = Self> + ops::Not<Output = Self> + ops::BitXor<Output = Self> + Sized {}
+impl<T> BitsOps for T where T: ops::BitOr<Output = Self> + ops::BitAnd<Output = Self> + ops::Not<Output = Self> + ops::BitXor<Output = Self> {}
 
 /*
  * Create a contiguous bitmask starting at bit position @l and ending at
@@ -39,6 +49,7 @@ macro_rules! set_reg32_bits {
     };
 }
 
+#[derive(Debug)]
 pub struct Reg<E:RegError> {
     pub addr: NonNull<u8>,
     _marker: PhantomData<E>
@@ -79,6 +90,14 @@ impl<E:RegError> Reg<E> {
         self.write_reg(f(old));
     }
 
+    pub fn clear_reg<F: FlagReg + Copy +BitsOps>(&self, val: F) {
+        self.modify_reg(|old| !val & old)
+    }
+
+    pub fn set_reg<F: FlagReg + Copy + BitsOps>(&self, val: F) {
+        self.modify_reg(|old| val | old)
+    }
+
     pub fn wait_for<R: FlagReg, F: Fn(R) -> bool>(
         &self,
         f: F,
@@ -94,7 +113,30 @@ impl<E:RegError> Reg<E> {
         }
         Err(E::timeout())
     }
+
+    pub fn retry_for<R: FlagReg, F: Fn(R) -> bool>(
+        &self,
+        f: F,
+        try_count: Option<usize>,
+    ) -> Result<(), E> {
+        for _ in 0..try_count.unwrap_or(usize::MAX) {
+            if f(self.read_reg::<R>()) {
+                return Ok(());
+            }
+        }
+        Err(E::timeout())
+    }
     
+}
+
+impl<E: RegError> PartialEq for Reg<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.addr == other.addr
+    }
+    
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
 }
 
 pub trait RegError {
@@ -105,6 +147,25 @@ pub trait FlagReg: Flags<Bits = u32> {
     const REG: u32;
 }
 
-pub trait OffSetReg {
-
+#[macro_export]
+macro_rules! BitsOpsForU32 {
+    ($name:ident) => {
+        impl ops::BitOr<u32> for $name {
+            type Output = Self;
+            fn bitor(self, rhs: u32) -> Self {
+                self | Self::from_bits_truncate(rhs)
+            }
+        }
+        impl ops::BitAnd<u32> for $name {
+            type Output = Self;
+            fn bitand(self, rhs: u32) -> Self {
+                self & Self::from_bits_truncate(rhs)
+            }
+        }
+        impl From<u32> for $name {
+            fn from(val: u32) -> Self {
+                Self::from_bits_truncate(val)
+            }
+        }
+    };
 }

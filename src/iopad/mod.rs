@@ -6,11 +6,12 @@ pub(crate) mod regs;
 use core::ptr::NonNull;
 pub use constants::*;
 use err::*;
-use regs::{BitsOps, XReg0, XReg1};
-use crate::regs::{FlagReg, Reg};
+use regs::{XReg0, XReg1};
+use crate::regs::{FlagReg, Reg, BitsOps};
 
 type IoPadReg = Reg<FioPadError>;
 
+#[derive(Debug)]
 pub struct IoPad {
     reg: IoPadReg,
     is_ready: bool,
