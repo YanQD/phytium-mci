@@ -42,7 +42,7 @@ impl MCIHostConfig {
             enable_irq: false,
             enable_dma: true,
             endian_mode: MCIHostEndianMode::Little,
-            max_trans_size: SD_MAX_RW_BLK*SD_BLOCK_SIZE,
+            max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
             def_block_size: SD_BLOCK_SIZE,
             card_clock: SD_CLOCK_50MHZ,
             is_uhs_card: false, // todo 需要测试能不能支持UHS模式

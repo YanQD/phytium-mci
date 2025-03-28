@@ -16,6 +16,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use alloc::vec;
+use dma_api::DVec;
 use io_voltage::SdIoVoltage;
 use core::time::Duration;
 

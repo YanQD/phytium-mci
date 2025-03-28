@@ -255,7 +255,7 @@ impl MCI {
         self.poll_wait_busy_card()?;
 
         // 清除原始中断寄存器
-        self.config.reg().write_reg(MCIRawInts::from_bits_truncate((1 << 20) - 2));
+        self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xffffe));
 
         /* reset fifo and DMA before transfer */
         self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
@@ -374,7 +374,7 @@ impl MCI {
             /* if need to write, write to fifo before send command */
             if !read { 
                 /* invalide buffer for data to write */
-                // unsafe { dsb() };
+                unsafe { dsb() };
                 self.pio_write_data(data)?;
             }
         }

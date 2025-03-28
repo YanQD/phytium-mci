@@ -29,7 +29,7 @@ impl MCI {
 
     pub(crate) fn private_cmd11_send(&self,cmd:MCICmd) -> MCIResult{
         let reg = self.config.reg();
-        // unsafe { dsb() };/* drain writebuffer */
+        unsafe { dsb() };/* drain writebuffer */
         reg.write_reg(MCICmd::START | cmd);
         reg.retry_for(|reg|{
             (MCICmd::START & reg).bits() == 0
