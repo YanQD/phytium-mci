@@ -122,8 +122,8 @@ impl MCI {
                 }
 
                 // for aarch64
-                (*cur_desc).addr_hi = (buf_addr >> 32) as u32;
-                (*cur_desc).addr_lo = buf_addr as u32;
+                (*cur_desc).addr_hi = ((buf_addr >> 32) & 0xFFFF_FFFF) as u32;
+                (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
                 // todo 好像不是aarch 64？
                 // (*cur_desc).addr_hi = 0;
                 // (*cur_desc).addr_lo = buf_addr;
@@ -147,7 +147,8 @@ impl MCI {
             }
         }
 
-        unsafe{ dsb(); }
+        unsafe { flush(self.desc_list.first_desc as *const u8, desc_blocks as usize * core::mem::size_of::<FSdifIDmaDesc>()); }
+        // unsafe { dsb(); }
         self.dump_dma_descriptor(desc_num);
 
         Ok(())
@@ -156,14 +157,15 @@ impl MCI {
     /// start DMA transfers for data
     pub(crate) fn dma_transfer_data(&mut self, data: &MCIData) -> MCIResult {
         self.interrupt_mask_set(MCIIntrType::GeneralIntr, FSDIF_INTS_CMD_MASK, true);
-        self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK, true);
+        self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK_ALL, true);
 
         self.setup_dma_descriptor(&data)?;
 
         let data_len = data.blkcnt() * data.blksz();
         info!("Descriptor@{:p}, trans bytes: {}, block size: {}", self.desc_list.first_desc, data_len, data.blksz());
 
-        self.descriptor_set(self.desc_list.first_desc_dma as u32);
+        self.descriptor_set(self.desc_list.first_desc_dma);
+        warn!("after descriptor_set, desclist hi: 0x{:x}, lo: 0x{:x}", self.config.reg().read_reg::<MCIDescListAddrH>(), self.config.reg().read_reg::<MCIDescListAddrL>());
         self.trans_bytes_set(data_len);
         self.blksize_set(data.blksz());
 

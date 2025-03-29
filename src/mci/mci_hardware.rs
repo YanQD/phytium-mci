@@ -4,6 +4,7 @@ use super::err::*;
 use super::constants::*;
 use super::regs::*;
 
+use bitflags::Flags;
 use log::*;
 
 //* 直接操作寄存器相关的 API */
@@ -144,10 +145,11 @@ impl MCI {
         reg.write_reg(reg_val);
     }
 
-    pub(crate) fn descriptor_set(&self, descriptor: u32) {
+    pub(crate) fn descriptor_set(&self, descriptor: usize) {
         let reg = self.config.reg();
-        reg.write_reg(MCIDescListAddrH::empty());
-        reg.write_reg(MCIDescListAddrL::from_bits_truncate(descriptor));
+        let hi = (descriptor >> 32) as u32;
+        reg.write_reg(MCIDescListAddrH::from_bits_truncate(hi));
+        reg.write_reg(MCIDescListAddrL::from_bits_truncate(descriptor as u32));
     }
 
     pub(crate) fn idma_reset(&self) {

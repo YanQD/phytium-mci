@@ -35,7 +35,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::{info, warn};
+use log::{error, info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -1244,7 +1244,7 @@ impl SdCard {
         data.block_count_set(block_count);
 
         let tmp_buf = vec![0;block_size as usize * block_count as usize];
-        let ptr = tmp_buf.as_ptr().clone();
+        error!("in read, tmp_buf: 0x{:p}", tmp_buf.as_ptr());
         data.rx_data_set(Some(tmp_buf));
         data.enable_auto_command12_set(false);
 
@@ -1258,12 +1258,12 @@ impl SdCard {
             return Err(err);
         }
 
-        unsafe {
-            // let len = tmp_buf.len() * core::mem::size_of::<u32>();
-            asm!("dsb ishst");
-            asm!("dc ivac, {}", in(reg) ptr);
-            asm!("dsb ish");
-        }
+        // unsafe {
+        //     // let len = tmp_buf.len() * core::mem::size_of::<u32>();
+        //     asm!("dsb ishst");
+        //     asm!("dc ivac, {}", in(reg) ptr);
+        //     asm!("dsb ish");
+        // }
 
         let data = context.data_mut().unwrap();
         let rx_data = data.rx_data().unwrap();

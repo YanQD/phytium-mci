@@ -387,8 +387,10 @@ impl MCIHostDevice for SDIFDevPIO {
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
             out_data.buf_dma_set(buf.as_ptr() as usize);
-            error!("in conver_command_info buf_dma is {:p}", buf.as_ptr());
+            error!("in convert_command_info buf_dma is {:p}", buf.as_ptr());
             out_data.buf_set(Some(buf));
+
+            debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
 
             Some(out_data)
         } else {
@@ -401,6 +403,8 @@ impl MCIHostDevice for SDIFDevPIO {
         out_trans.cmdarg_set(arg);
         out_trans.set_data(out_data);
         out_trans.flag_set(flag);
+
+        unsafe { dsb(); }
         
         out_trans
 
@@ -435,9 +439,12 @@ impl MCIHostDevice for SDIFDevPIO {
             }
         }
 
+        // unsafe { dsb(); }
+
         //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
         if let Some(_) = content.data() {
             let data = cmd_data.get_data().unwrap();
+            unsafe { invalidate(data.buf().unwrap().as_ptr() as *const u8, data.buf().unwrap().len()); }
             if let Some(rx_data) = data.buf() {
                 if let Some(in_data) = content.data_mut() {
                     in_data.rx_data_set(Some(rx_data.clone()));

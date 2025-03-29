@@ -14,12 +14,14 @@ impl MCI {
             !reg.contains(MCIStatus::DATA_BUSY)
         }, Some(RETRIES_TIMEOUT))?;
         reg.write_reg(MCICmdArg::from_bits_truncate(arg));
+        warn!("in private_cmd_send, cmd_arg = 0x{:x}", reg.read_reg::<MCICmdArg>());
 
         unsafe { dsb() };/* drain writebuffer */
 
         let cmd_reg = MCICmd::START | cmd;
         
         reg.write_reg(cmd_reg);
+        warn!("in private_cmd_send, cmd_reg = 0x{:x}", reg.read_reg::<MCICmd>());
         reg.retry_for(|reg:MCICmd|{
             !reg.contains(MCICmd::START)
         }, Some(RETRIES_TIMEOUT))?;
@@ -91,7 +93,7 @@ impl MCI {
         /* enable related interrupt */
         self.interrupt_mask_set(MCIIntrType::GeneralIntr, MCIIntMask::INTS_CMD_MASK.bits(), true);
         self.private_cmd_send(raw_cmd, cmd_data.cmdarg())?;
-        info!("cmd send done");
+        info!("cmd send done, raw_ints = 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
         Ok(())
     }
 

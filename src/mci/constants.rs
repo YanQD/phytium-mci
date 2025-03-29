@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use bitflags::bitflags;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -87,7 +89,30 @@ impl From<u32> for MCIClkSpeed {
 
 #[inline(always)]
 pub unsafe fn dsb() {
-    core::arch::asm!("dsb sy", options(nostack, preserves_flags));
+    core::arch::asm!("dsb sy");
+    core::arch::asm!("isb sy");
+}
+
+#[inline(always)]
+pub unsafe fn flush(addr: *const u8, size: usize) {
+    let mut addr = addr as usize;
+    let end = addr + size;
+    while addr < end {
+        asm!("dc civac, {0}", in(reg) addr, options(nostack, preserves_flags));
+        addr += 64;
+    }
+    dsb();
+}
+
+#[inline(always)]
+pub unsafe fn invalidate(addr: *const u8, size: usize) {
+    let mut addr = addr as usize;
+    let end = addr + size;
+    while addr < end {
+        asm!("dc ivac, {0}", in(reg) addr, options(nostack, preserves_flags));
+        addr += core::mem::size_of::<u32>();
+    }
+    asm!("dsb sy");
 }
 
 /** @name Register Map
@@ -172,16 +197,19 @@ pub const FSDIF_INT_HTO_BIT: u32 = 1 << 10;
 pub const FSDIF_INT_HLE_BIT: u32 = 1 << 12;
 pub const FSDIF_INT_SBE_BCI_BIT: u32 = 1 << 13;
 
-pub const FSDIF_INTS_CMD_MASK: u32 = (FSDIF_INT_RE_BIT | FSDIF_INT_CMD_BIT | FSDIF_INT_RCRC_BIT |
-                                      FSDIF_INT_RTO_BIT | FSDIF_INT_HTO_BIT | FSDIF_INT_HLE_BIT);
+pub const FSDIF_INTS_CMD_MASK: u32 = FSDIF_INT_RE_BIT | FSDIF_INT_CMD_BIT | FSDIF_INT_RCRC_BIT |
+                                      FSDIF_INT_RTO_BIT | FSDIF_INT_HTO_BIT | FSDIF_INT_HLE_BIT;
 
 pub const FSDIF_DMAC_INT_ENA_TI: u32 = 1;    /* RW 发送完成中断使能 */
+pub const FSDIF_DMAC_INT_ENA_RI: u32 = 1 << 1;    /* RW 接收完成中断使能 */
 pub const FSDIF_DMAC_INT_ENA_FBE: u32 = 1 << 2;   /* RW 总线错误中断使能 */
 pub const FSDIF_DMAC_INT_ENA_DU: u32 = 1 << 4;     /* RW 描述符不可读中断使能 */
 pub const FSDIF_DMAC_INT_ENA_NIS: u32 = 1 << 8;    /* RW 正常中断汇总使能 */
 pub const FSDIF_DMAC_INT_ENA_AIS: u32 = 1 << 9;    /* RW 异常中断汇总使能 */
 
-pub const FSDIF_DMAC_INTS_MASK: u32 = (FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU |
-                                       FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS);
+pub const FSDIF_DMAC_INTS_MASK: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU |
+                                       FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
+pub const FSDIF_DMAC_INTS_MASK_ALL: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU | FSDIF_DMAC_INT_ENA_TI |
+                                          FSDIF_DMAC_INT_ENA_RI | FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
 
 pub const FSDIF_CMD_FLAG_READ_DATA: u32 = 1 << 7;   /* need trans data to read card */
