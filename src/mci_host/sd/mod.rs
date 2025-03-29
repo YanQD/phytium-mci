@@ -1050,6 +1050,7 @@ impl SdCard {
 
         let command = content.cmd().unwrap();
         let response = command.response();
+        info!("in csd_send response is: {:x?}", response);
 
         self.base.internal_buffer.clear();
         self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
@@ -1057,10 +1058,10 @@ impl SdCard {
         self.decode_csd();
 
         Ok(())
-    }
+        }
 
-    //* CMD 11 */
-    fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
+        //* CMD 11 */
+        fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
         let mut command = MCIHostCmd::new();
@@ -1487,8 +1488,10 @@ impl SdCard {
         let csd = &mut self.csd;
         // todo 可能存在性能问题
         let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
+        info!("in decode_csd rawcsd is {:x?}", rawcsd);
 
         csd.csd_structure = ((rawcsd[3] & 0xC0000000) >> 30) as u8;
+        info!("csd structure is {:b}", csd.csd_structure);
         csd.data_read_access_time1 = ((rawcsd[3] & 0xFF0000) >> 16) as u8;
         csd.data_read_access_time2 = ((rawcsd[3] & 0xFF00) >> 8) as u8;
         csd.transfer_speed = (rawcsd[3] & 0xFF) as u8;
@@ -1530,6 +1533,7 @@ impl SdCard {
             csd.device_size =
                 ((rawcsd[2] & 0x3F) << 16) | ((rawcsd[1] & 0xFFFF0000) >> 16);
             if csd.device_size >= 0xFFF {
+                info!("device size is {}, supports sdxc", csd.device_size);
                 self.flags |= SdCardFlag::SupportSdxc;
             }
             self.block_count = (csd.device_size + 1) * 1024;

@@ -7,6 +7,7 @@ use core::time::Duration;
 
 use alloc::alloc::alloc;
 use alloc::vec::Vec;
+use dma_api::DSlice;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
@@ -368,7 +369,7 @@ impl MCIHostDevice for SDIFDevPIO {
             flag |= MCICmdFlag::EXP_DATA;
             
             let buf = if let Some(rx_data) = in_data.rx_data_mut() {
-                error!("in conver_command_info buf_dma is {:p}", rx_data.as_ptr());
+                error!("in conver_command_info rx_data is {:p}", rx_data.as_ptr());
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
                 //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
@@ -386,8 +387,10 @@ impl MCIHostDevice for SDIFDevPIO {
             out_data.blksz_set(in_data.block_size() as u32);
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
-            out_data.buf_dma_set(buf.as_ptr() as usize);
-            error!("in convert_command_info buf_dma is {:p}", buf.as_ptr());
+            let slice = DSlice::from(&buf[..]);
+            out_data.buf_dma_set(slice.bus_addr() as usize);
+            error!("in convert_command_info buf_dma is 0x{:x}", slice.bus_addr());
+            drop(slice);
             out_data.buf_set(Some(buf));
 
             debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
