@@ -38,7 +38,7 @@ mod tests {
 
         let mut buffer = Vec::new();
         
-        sdcard.dma_rw_init(&buffer as *const Vec<u32>);
+        // sdcard.dma_rw_init(&buffer as *const Vec<u32>);
         let _ = sdcard.read_blocks(&mut buffer, 131072+200,1);
     
         error!("test_work passed\n");
