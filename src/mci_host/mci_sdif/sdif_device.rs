@@ -29,14 +29,14 @@ use crate::mci_host::sd::constants::SdCmd;
 use crate::mci::mci_dma::FSdifIDmaDesc;
 
 
-pub(crate) struct SDIFDevPIO {
+pub(crate) struct SDIFDev {
     hc: RefCell<MCI>,                            // SDIF 硬件控制器
     hc_cfg: RefCell<MCIConfig>,                  // SDIF 配置
     rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
-impl SDIFDevPIO {
+impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
         // 应该不会报错
         // todo desclist对齐到MCIHostConfig.def_block_size
@@ -82,7 +82,7 @@ impl SDIFDevPIO {
     }
 }
 
-impl MCIHostDevice for SDIFDevPIO {
+impl MCIHostDevice for SDIFDev {
 
     fn init(&self, addr: NonNull<u8>,host:&MCIHost) -> MCIHostStatus {
         let num_of_desc = host.config.max_trans_size/host.config.def_block_size;
@@ -470,6 +470,6 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn type_id(&self) -> core::any::TypeId where Self: 'static {
-        TypeId::of::<SDIFDevPIO>()
+        TypeId::of::<SDIFDev>()
     }
 }

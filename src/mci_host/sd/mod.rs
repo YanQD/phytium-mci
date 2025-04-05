@@ -18,7 +18,7 @@ use io_voltage::SdIoVoltage;
 use core::time::Duration;
 
 use crate::mci_host::mci_host_config::MCIHostType;
-use crate::mci_host::mci_sdif::sdif_device::SDIFDevPIO;
+use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
 use crate::{sleep, IoPad};
 use crate::tools::u8_to_u32_slice;
@@ -66,7 +66,7 @@ impl SdCard {
         
         // 组装 host
         let desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
-        let sdif_device = SDIFDevPIO::new(addr, desc_num);
+        let sdif_device = SDIFDev::new(addr, desc_num);
         sdif_device.iopad_set(iopad);
         let host = MCIHost::new(Box::new(sdif_device), mci_host_config);
         let host_type = host.config.host_type;
@@ -347,9 +347,9 @@ impl SdCard{
         }
 
         /* SDR104, SDR50, and DDR50 mode need tuning */
-        // if self.bus_timing_select().is_err() {
-        //     return Err(MCIHostError::SwitchBusTimingFailed);
-        // }
+        if self.bus_timing_select().is_err() {
+            return Err(MCIHostError::SwitchBusTimingFailed);
+        }
 
         self.card_dump();
 

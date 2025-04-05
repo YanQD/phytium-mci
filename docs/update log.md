@@ -28,26 +28,27 @@
 
 * commit 532156：
 
-  1. 为`MCIHostDevice`添加type_id()，为了得到host的dev字段（添加`MCIHost::get_dev()`)。貌似可以用其他方法得到，目前先不修改
+  1. 为`MCIHostDevice`添加type_id()，为了得到host的dev字段（添加`MCIHost::get_dev()`）。貌似可以用其他方法得到，目前先不修改
   2. 修改`SDIFDevPIO`的`do_init()`方法，无论是否启用dma均设置`dma_list`，后面还要修改
   3. 修改`MCI`的`restart`方法，可以根据传入的`MCIId`选择`restart`返回的类型
   4. 为`SdCard`添加`dma_rw_init()`方法，负责设备初始化完毕后启用dma传输之前的操作
 
-* commit 168ae5
+* commit ef3d49:
+  
+  1. 调试发现是CMD17发送指令前`argument`配置有误，修改测试发现PIO读功能正常
+  2. 切换为DMA模式发现解析SCR寄存器出现问题，导致后续报错不支持CMD6
+  3. 在CPU读取DMA传输`buffer`之前利用`DSlice`获取该`buffer`引用，`DSlice`会自动调用`flush()`刷新缓存，测试发现仍然无法读出，暂存
 
-  1. dma不能直接用buffer，尝试用全局变量写内存池
-  1. 修改convert_command_info把rx_data take出来，让buf_dma使用transfer_function传入的buffer地址
+* commit f461bd:
 
-* commit
-
-	1. 修改dsb()，添加isb汇编指令
-	2. 修改descriptor_set()，MCIDescListAddr地址寄存器分高位和低位
-	3. convert_cmd_info结尾添加dsb刷新cache，好像会和其他地方重复
-	4. transfer_function中poll_end结束后强制dsb
+  1. 想到`desc_list`部分仍然使用的是虚拟地址，应该是这部分填写出了问题，进行针对性修改
+  2. 由于`DVec`不提供`DerefMut`，考虑仍使用`DSlice`。与利用`DSlice`获取`DMA buffer`同理，先使用`Vec::from_raw_parts()`将`desc_list.first_desc`转换为数组，再用D`Slice`获取引用，得到`bus_addr`，即应该填入SD寄存器`MCIDescListAddrH`和`MCIDescListAddrL`的值。测试发现解析`scr`寄存器正常，不会再报错卡不支持CMD6
+  3. 经过进一步调试，ACMD51（获取卡scr）为初始化中第一次需要接收数据的情况，后续第二次需要接收数据（CMD6或其他情况）时代码会卡死。调试发现因为`Vec::from_raw_parts()`会转移所有权，该`Vec`生命周期结束后会被自动释放导致后续访问`desc`无效。修改使用了`core::mem::ManullyDrop`来阻止编译器释放Vec的内存。至此DMA读成功，读出内容与dd命令相比较一致。
+  4. 后续考虑使用更优雅的方法进行`flush()`
 
 ## 初始化
 
-* 为SDIFDevPIO::new()添加了desc_num字段，以便创建SDIFDevPIO实例时为rw_desc分配空间
+* 为`SDIFDevPIO::new()`添加了`desc_num`字段，以便创建`SDIFDevPIO`实例时为`rw_desc`分配空间
 
 ## 其他
 
