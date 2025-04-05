@@ -27,15 +27,15 @@
 
 [飞腾派数据手册V1.0版本](https://github.com/arceos-usb/arceos_experiment/blob/usb-camera-base/doc/resources/%E9%A3%9E%E8%85%BE%E6%B4%BE%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8CV1.0%E7%89%88%E6%9C%AC.pdf)
 
-萤火工场·CEK8903飞腾派软件开发手册-V1.01(待上传)
-
-- [ ] todo
+萤火工场·CEK8903飞腾派软件开发手册-V1.01
 
 [飞腾派软件编程手册V1.0](https://github.com/arceos-usb/arceos_experiment/blob/usb-camera-base/doc/resources/%E9%A3%9E%E8%85%BE%E6%B4%BE%E8%BD%AF%E4%BB%B6%E7%BC%96%E7%A8%8B%E6%89%8B%E5%86%8CV1.0.pdf)
 
 [Phytium-Standalone-SDK:](https://gitee.com/phytium_embedded/phytium-standalone-sdk)
 
 [提交 · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/commits/master)
+
+[飞腾派资料包](https://pan.baidu.com/s/1pStiyqohrB3SxHAFFk8R6Q) (提取码：dzdv)
 
 # blogs
 
@@ -51,10 +51,6 @@
 
 **萤火工场·CEK8903飞腾派软件开发手册-V1.01/6.高手进阶/高手进阶**
 
-### 交叉编译环境搭建
-
-- [ ] todo
-
 ### `make disk_img`指令生成
 
 引用了 `dosfstools`工具,这个工具是Ubuntu预装的.
@@ -65,36 +61,40 @@
 2. 读卡器
 3. CH340-USB-TTL
 
-### phytium飞腾派SDK
+> 这里如果你没有CH340驱动,建议查看**本文档**下边 `安装CH340`驱动相关的描述.
 
-[fsdif.md · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/blob/master/doc/reference/driver/fsdif.md)
+## 选择镜像
 
-# 飞腾派烧录和运行ArceOS
+[飞腾派资料包](https://pan.baidu.com/s/1pStiyqohrB3SxHAFFk8R6Q) (提取码：dzdv)
 
-使用仓库:[https://github.com/qclic/arceos/tree/bsp/phytium_pi](https://github.com/qclic/arceos/tree/bsp/phytium_pi)
+> 我选择烧录的是:百度网盘里 `5-系统镜像\1-Ubuntu_xfce\4GB`这里的镜像.
 
-注意 `clone`下来的是 `qcl_dev`分支,本次实验也是使用的这个分支.
+# 最简代码测试方式
 
-如果要切换到 `bsp/phytium_pi`分支,执行 `git checkout bsp/phytium`.
+使用仓库:[qclic/phytium-mci: sd mmc driver](https://github.com/qclic/phytium-mci)
 
-原理:
+注意 `clone`下来的是 `main`分支,本次实验也是使用的这个分支.
+
+试验原理:
 
 1. 使用本地 `ostool`,可直接访问USB和网卡,可以使用 `uboot.rs`脚本执行串口/网卡的选择,并且建立FTP服务器.
-2. 使用 `Docker`环境,编译 `ArceOS`的镜像.
-3. 使用 `ubuntu`或者 `debian`的 `UBOOT`,使用FTP服务器把编译好的 `.bin`文件烧录进 `phytium`.
-4. 需要把串口接好,网口无论是通过路由器作为交换机还是直接网线连接物理网卡,都可以.
+2. 使用 `ubuntu`或者 `debian`的 `UBOOT`,使用FTP服务器把编译好的 `.bin`文件烧录进 `phytium`.
+3. 需要把串口接好,网口无论是通过路由器作为交换机还是直接网线连接物理网卡,都可以.
 
-因此,我们需要构建 `windows`上的 `rust`开发环境,并且需要搭建一个用于编译的 `Docker`环境.
+因此,我们需要构建 `windows`上的 `rust`开发环境.
+
+> SD MMC Driver 的测试方式和ArceOS不同
+>
+> 1. 如果需要运行ArceOS,当前工具链下无法避开使用 `linux`环境里的编译链工具,因此免不了使用 `Docker`.这里需要参考飞腾派的其它仓库.
+> 2. 由于 `SD MMC Driver`类似于裸机开发,只需要 `Windows `上的编译链和 `Rust`环境即可.
 
 ## 环境搭建
 
-### 本地环境搭建
-
-#### 安装rust(windows)
+### 安装rust(windows)
 
 参考[rust官网](https://www.rust-lang.org/zh-CN/tools/install)一键下载安装
 
-#### 安装ostool
+### 安装ostool
 
 ```shell
 cargo install ostool
@@ -113,126 +113,29 @@ error[E0463]: can't find crate for `std`
 > `rustup component add rust-std`安上标准库即可
 > 因为是在 `x86`上构建的环境 `rustup target add aarch64-unknown-none`添加这个编译目标项
 
-#### Docker环境搭建
+### 安装CH340的驱动
 
-##### 安装Docker
+由于是 `Windows`环境,因此需要安装 `CH340`的驱动.
 
-[官网安装](https://www.docker.com/)
+> 驱动在[链接](https://www.wch.cn/products/CH340.html) `开发资料`一栏可下载.
 
-##### 预先pull一个镜像
+### 接入路由器
 
-> 使用的国内能够 `pull`下来的镜像
+![1743813940762](image/飞腾派SDMMC开发/1743813940762.png)
 
-```shell
-docker pull doublezonline.cloud/library/rust:slim
-```
+将电脑和飞腾派接入同一个路由器.
 
-##### ~~构建Docker环境(可以不构建)~~
-
-修改 `Dockerfile`内容,把第一行换成镜像站下载的名称:
-
-```docker
-FROM doublezonline.cloud/library/rust:slim
-... ...
-```
-
-```shell
-docker build -t arceos -f Dockerfile .
-```
-
-##### ~~进入docker环境(可以不进入)~~
-
-> 原本的指令 `$(pwd)`不能在 `powershell`里被识别,换成 `${PWD}`
-
-```shell
-docker run -it -v ${PWD}:/arceos -w /arceos arceos bash
-```
-
-##### ~~尝试运行ArceOS by QEMU(可以不测试)~~
-
-```shell
-make A=examples/helloworld ARCH=aarch64 run
-```
-
-### ~~WSL2环境搭建~~
-
-参考[arceos/README.md at bsp/phytium_pi · qclic/arceos](https://github.com/qclic/arceos/blob/bsp/phytium_pi/README.md)搭建好基础环境
-
-参考[连接 USB 设备 | Microsoft Learn](https://learn.microsoft.com/zh-cn/windows/wsl/connect-usb#install-the-usbipd-win-project)分享USB设备到WSL2
-
-#### 打开CH340的驱动
-
-**每次启动电脑都要弄**
-
-```shell
-sudo modprobe ch341
-sudo modprobe usbserial
-sudo modprobe cp210x
-sudo modprobe ftdi_sio
-```
-
-#### 变更权限
-
-```shell
-sudo chmod a+rw /dev/ttyUSB0
-sudo setcap cap_net_bind_service=+eip $(which ostool)
-```
-
-> 记得重启终端
-
-#### 存在插不稳问题
-
-- [ ] 需要编写脚本
-
-### 运行测试代码
-
-> 这里只在本地环境测试了
-
-```shell
-ostool run uboot
-```
-
-会生成一个 `.project.toml`,如果需要调整就可以删除它重新生成.
-
-这里由于当前版本的 `ostool`不支持选择 `platform`.
-
-```toml
-[compile]
-target = "aarch64-unknown-none-softfloat"
-
-[compile.custom]
-shell = [["docker build -t arceos -f Dockerfile ."], ["docker run --rm -it -v .:/arceos", '-v "D:\03_workspace\phytium_arceos\arceos\target\docker_cache\git:/usr/local/cargo/git"', '-v "D:\03_workspace\phytium_arceos\arceos\target\docker_cache\registry:/usr/local/cargo/registry"', "-w /arceos arceos", "make A=examples/helloworld ARCH=aarch64 PLATFORM=aarch64-phytium-pi"]]
-elf = "examples/helloworld/helloworld_aarch64-phytium-pi.elf"
-
-[qemu]
-machine = "virt"
-cpu = "cortex-a53"
-graphic = false
-args = "-smp 2"
-
-[uboot]
-... ...
-```
-
-只需保存你的 `[uboot]`的部分,其余部分:
-
-1. 调整了 `make`语句,增加了PLATFORM=aarch64-phytium-pi
-2. 调整 `elf`文件名
-3. 如果需要更改 `APP`名称,需要修改 `make`里的 `A=`和 `elf`名称
-
-## 解析OStools代码
-
-- [ ] todo 了解关于串口的打开的代码
-
-# 裸机驱动开发
-
-仓库地址:[https://github.com/qclic/phytium-mci](https://github.com/qclic/phytium-mci)
+> 这里实际上直接使用网线链接电脑网口也可以,但是根据我和一名同学的试验,windows的网线的优先级似乎是非常高的,,应该有修改的方法,但是目前没有找到解决方法.
 
 ## 尝试运行
 
-类似于 `ArceOS-Phytium`的同样运行原理,用 `ostool`编译/烧录/运行相关的程序代码.
+在项目目录下打开 `shell`运行:
 
-> 一定要记得 `reset`.
+```shell
+cargo test --test test --  --show-output
+```
+
+运行后提示选择输入参数,根据***编号***选择 `serial`和 `net`,直接输入 `波特率`和 `dtb相对路径`.
 
 生成的 `.bare-test.toml`如下所示:
 
@@ -243,26 +146,49 @@ net = "以太网"
 dtb_file = "frimware/phytium.dtb"
 ```
 
-## 裸机驱动
-
-参照:[fsdif.md · Phytium嵌入式软件](https://gitee.com/phytium_embedded/phytium-standalone-sdk/blob/master/doc/reference/driver/fsdif.md)
-
-### 了解接口和寄存器
-
-寄存器都存放在 `drivers\mmc\fsdif\fsdif_hw.h`里,考虑把它整体先转为 `rust`,放在 `src\constants.rs`.并且注意在 `src\lib.rs`里声明这个模块.
-
-### 接口移植
-
-**FSdifCfgInitialize**:初始化SDIF控制器初始化
-
-> FSdifCfgInitialize 调用了 FSdifReset
+> 如何选择 ` serial` 和 `net` ?
 >
-> 1. 说明有的接口是做了但是不开放的,要考虑
-> 2. 要首先实现这个 FSdifReset
+> 1. `serial`使用设备管理器寻找名字里带有 `CH340`的端口
+> 2. `net`使用网络连接寻找本地网线连接,可以看到示意图中,三个是虚拟网口,一个WIFI,一个蓝牙,一个本地连接
 
-**FSdifDeInitialize**:解除SDIF控制器初始化
+这里的 `dtb_file`一般是不需要更改的,如果你挪动我的 `dtb`文件地址,就需要对应性更改.
 
-### SD卡的空间设置
+![1743815202729](image/飞腾派SDMMC开发/1743815202729.png)
+
+![1743815308578](image/飞腾派SDMMC开发/1743815308578.png)
+
+提示出现如下代码:
+
+```shell
+FTP: 192.168.0.103
+内核：test-39fe2cd244d59147.bin
+启动 TFTP 服务器...
+文件目录：D:\03_workspace\phytium-mci\target\aarch64-unknown-none\debug\deps
+启动命令：dhcp $fdt_addr 192.168.0.103:phytium.dtb;fdt addr $fdt_addr;bootp 192.168.0.103:test-39fe2cd244d59147.bin;booti $loadaddr - $fdt_addr
+等待 U-Boot 启动...
+串口：COM6, 115200
+```
+
+**手动点按** `reset`按键(板上).
+
+1. 点按之后出现板上**绿色提示灯**按下时候熄灭,释放的时候亮起的现象
+2. 但是绿色提示灯只是一个**参考标准**,如果无法 `reset`要尝试增加点按的时间,并且尝试移动点按的位置(因为 `reset`按钮本身的老化)
+3. 如过发生不能 `reset`的问题要尝试先 `boot`进入 `ubuntu`再进行 `reset`的尝试,确定是不是按键问题,(直接断电重新上电).
+4. 如果确认是按键问题,则应该使用镊子导通 `reset`引脚.
+
+### 测试代码注意事项
+
+代码 `.\tests\test.rs`里有一个莫名奇妙的常数 `131072`:
+
+```rust
+let _ = sdcard.read_blocks(&mut buffer, 131072+100,1);
+```
+
+这里是烧录的 `Ubuntu-4GB`镜像之后的空闲硬盘分区对应的 `块编号`,每个块是 `512Byte`.我选择的是读取初始块编号后边第 `100`个块.
+
+> 如何查看这个块编号在下一节.
+
+## SD卡的空间设置
 
 > 这里的第一反应是去看Win32DiskImager,但是没有得到具体答案.
 
@@ -318,211 +244,96 @@ sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=1 skip=99 | hexdump -C outp
 sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=4 skip=100 | hexdump -C output.bin
 ```
 
-# 检查寄存器
+# 项目结构
 
-## reset之后的寄存器
+## SD卡信号简介
 
-```shell
--------------------------------
-cntrl: 0x2000010
-0010 0000 0000 0000 0000 0001 0000
-/* RW 全局中断使能配置, 1 使能 */
-/* RW 使用内部DMA */
-启用了DMA
-启动了全局中断使能.
--------------------------------
-pwren: 0x1
-0001
-// RW 卡供电开关, 0：关；1：开
-启动了卡供电.
--------------------------------
-clkdiv: 0x30204
-0011 0000 0010 0000 0100
-DIVDER: 0000 0100 :4
-DRV: 0000 0010 :2
-SAMPLE: 0000 0011 :3
--------------------------------
-clkena: 0x1
-0001
-/* RW 0：Clock disabled；1：Clock enabled */
-启动时钟.
--------------------------------
-tmout: 0xffffffff
-11111111111111111111111111111111
-读卡超时（以卡时钟为单位）: 0xffffff
-响应超时（以卡时钟为单位）: 0xff
--------------------------------
-ctype: 0x10000
-0001 0000 0000 0000 0000
-/* 1: 8-bit mode */
-!!! 这里应该修正为/* 0: 1-bit mode */
--------------------------------
-blksz: 0x200
-512 Byte一个块.
--------------------------------
-blkcnt: 0x1000
-4096个待传输数据(复位值?和手册上说的不一样)
--------------------------------
-intmask: 0x1
-0001
-/* RW Card detect (CD) */
-只开启卡检测中断.
--------------------------------
-cmdarg: 0x0
-0
-没用
--------------------------------
-cmd: 0x200000
-001000000000000000000000
-使能 HOLD Register
--------------------------------
-resp0: 0xb00
-reps1: 0xa4177f80
-resp2: 0xdb590003
-resp3: 0x400e0032
--------------------------------
-maskints: 0x0
-没任何中断被屏蔽?没搞懂这个寄存器的作用
--------------------------------
-rawints: 0x0
-没触发任何中断
--------------------------------
-status: 0x6106
-0110 0001 0000 0110
-/* RO DATA[3] 卡在位检测，1：在位 */
-/* RO, 达到 FIFO_TX 标记 */
-/* RO, FIFO empty */
-0110 0 响应索引号: 12
--------------------------------
-fifoth: 0x20070100
-0010 0000 0000 0111 0000 0001 0000 0000
-0001 0000 0000 : TX_WMARK 100
-0000 0000 0111 : RX_WMARK 7
-0010 : DMA 2 多次传输的突发大小
--------------------------------
-carddet: 0x0
-卡在位
--------------------------------
-wrtprt: 0x0
-无写保护
--------------------------------
-cksts: 0x1
-/* CIU 时钟 ready */
--------------------------------
-trans_cardcnt: 0x1000
-Device 接口模块到 Device 传输的字节数为 4096
--------------------------------
-trans_fifocnt: 0x1000
-MEM&FIFO 之间传输的字节数 4096
--------------------------------
-debnce: 0xffffff
-去抖时钟数，参考值 5-25 ms 但是这里是满的,是复位默认值,或者意味着不去抖?
--------------------------------
-uid: 0x59595959
-用户 ID: 复位值
--------------------------------
-vid: 0x6488280a
-控制器版本: 复位值
--------------------------------
-hwconf: 0x10001
-无描述,无操作
--------------------------------
-uhsreg: 0x0
-使用3.3V的电压
--------------------------------
-cardreset: 0x0
-复位:0
--------------------------------
-busmode: 0x280
-0010 1000 0000
-idma使能
-010：8 transfers
--------------------------------
-descaddrl: 0xf9c39c00
-不是复位值,不知道什么情况
--------------------------------
-descaddrh: 0x0
-复位值
--------------------------------
-dmacstatus: 0x0
-未发生任何DMA中断
--------------------------------
-dmacinten: 0x0
-没有使能任何DMA中断
--------------------------------
-curdescaddrl: 0xf9c39c00
-不是复位值,不知道什么情况
--------------------------------
-curdescaddrh: 0x0
-复位值
--------------------------------
-card_thrctl: 0x800001
-1000 0000 0000 0000 0000 0001
-/* RW 读卡threshold使能 */
-FIFO深度是 Depth8
--------------------------------
-clock_src: 0x502
-0101 0000 0010
-CIU时钟使能
-0101 CLK_DIV: 5
--------------------------------
-emmcddr: 0x0
+![1743832771982](image/飞腾派SDMMC开发/1743832771982.png)
 
--------------------------------
-enableshift: 0x0
+> 可以看到一个 `SD Host`可以通过一条 `CLK`线一条 `CMD`线和 四条 `DAT`线与多个 `SD/SDIO/MMC`设备通信.
 
--------------------------------
+## SD初始化流程介绍
+
+### I/O感知型Host
+
+飞腾派的 `Host`就在此列.流程如下.文字版流程应该参考 `docs\SDIO.pdf`的 `P8~10`.
+
+![1743833174733](image/飞腾派SDMMC开发/1743833174733.png)
+
+![1743833189967](image/飞腾派SDMMC开发/1743833189967.png)
+
+![1743833254033](image/飞腾派SDMMC开发/1743833254033.png)
+
+> 对应的函数的 `SD`卡版本在 `src\mci_host\sd\mod.rs`
+>
+> 后续的对其它 `Guest`设备的支持也应该参考这个.
+
+### 非I\O感知型Host
+
+![1743833505479](image/飞腾派SDMMC开发/1743833505479.png)
+
+> 注意,只是在正常初始化流程前增加了一个 `ACMD41`来唤醒 `SD`卡.
+
+## IOPAD
+
+这个是关于 `IOPAD`的驱动,在 `src\iopad\regs.rs`使用宏的方式定义了通用的 `Reg`的操作.
+
+但是由于 `rustc`的解析能力有限,我不能把所有的宏都放在里边,这会导致解析灾难,你的自动代码于法检测会因此瘫痪.
+
+在需要某个 `IOPAD`的时候 从 `src\python\input_xreg0.rs`和 `src\python\input_xreg1.rs`拷贝即可.
+
+例如我需要操作 `An59Reg0`,从 `src\python\input_xreg0.rs`拷贝:
+
+```
+X_REG0!(An59Reg0, FIOPAD_AN59_REG0_OFFSET);
 ```
 
-应该是忽略了SD_INIT后续的函数,要细查
+## MCI
 
-# 遇到的问题
+这个是 `SD-MMC`的底层驱动,直接操作寄存器.
 
-- [ ] 一直存在FsdifCtrl的CONTROLLER_RESET一直为1的情况
+这里只需注意应该使用 `register_dump`作为调试工具,如果出现配置上的问题,应该利用这个接口查看相关寄存器.
 
-# note
+寄存器的状态应该对比[飞腾派软件编程手册V1.0](https://github.com/arceos-usb/arceos_experiment/blob/usb-camera-base/doc/resources/%E9%A3%9E%E8%85%BE%E6%B4%BE%E8%BD%AF%E4%BB%B6%E7%BC%96%E7%A8%8B%E6%89%8B%E5%86%8CV1.0.pdf).
 
-> OSA: Operating System Abstraction 操作系统抽象层
+## MCI-Host
 
-/*RW Start-bit error (SBE)*/ 报了这个interrupt.
+这个是 `SD-MMC` 的协议层,通过把对寄存器的**操作流**进行包装,进行数据和命令的收发.和对芯片内置的 `Host-Controller`进行操作.
 
-# 可能需要
+把 `Host`抽象为两种:
 
-`gdb`调试
+![1743831548877](image/飞腾派SDMMC开发/1743831548877.png)
+
+把 `Guest`抽象为四种(其中SDSPI不属于SD-Host-Controller的编程):
+
+![1743835150079](image/飞腾派SDMMC开发/1743835150079.png)
+
+因此在 `src\mci_host\mci_host_device.rs`设计 `MCIHostDevice`这个 `Trait`,要求所有的 `Host`都应该按照这个 `Trait`的标准实现函数.
+
+同样地,在 `docs\card类型分析.md`对三种支持的卡的类型进行了分析,创建了基本的要求 `src\mci_host\mci_card_base.rs`,所有的卡类型都应该包含这个 `MCICardBase`.
+
+也就是 `Host`更多的是功能上的抽象,共有的数据都保存在 `MCIHost`这个类型里,而  `Guest`更多的是共有属性上的抽象.
 
 # LOG
 
-- 1.9 更换仓库名称为phytium-mci,仓库地址[qclic/phytium-mci: sd mmc driver](https://github.com/qclic/phytium-mci)
-- 
+这里正常运行应该是符合 `tests\log`的.
 
-# 仍然存在的BUG
+要进行调试要注意类似如下Log的结构,观察 `resp`的值,确定当前状态.
 
-1. 读取的SD卡内容明明是512个 `Byte`,但是很明显每次读取一个 `u32`会读取4个 `Byte`的数据出来.
-   1. 只在读取数据的时候读取的是4个4个读的,因此不能使用简单的 `buf.len()`来代替 `trans bytes`
+```shell
+🐛 27.879s [phytium_mci::mci:1610] ============[ACMD-6]@0xfffffeffa8000000 begin ============
+🐛 27.889s [phytium_mci::mci:1620]     cmd: 0x346
+🐛 27.896s [phytium_mci::mci:1621]     arg: 0xfffff1
+💡 27.903s [phytium_mci::mci:1625] cmd send done
+💡 27.909s [phytium_mci::mci:1486] wait for PIO cmd to finish ...
+💡 27.916s [phytium_mci::mci:1492] wait for PIO data to read ...
+💡 27.924s [phytium_mci::mci:1494] raw ints reg: 0x2c
+💡 27.931s [phytium_mci::mci:1502] card cnt: 0x40, fifo cnt: 0x0
+🐛 27.938s [phytium_mci::mci:1653]     resp: 0x900
+🐛 27.945s [phytium_mci::mci:1657] ============[ACMD-6]@0xfffffeffa8000000 end ============
+```
 
-# 重构
+# TODO
 
-> MCI 是 Memory Card Interface(存储卡接口)的缩写
-
-1. 划分清楚所有关于Host的部分的代码,并且命名为MCI
-2. 对比关于 `fsdif`和 `fsdmmc`的区别的,尝试进行统一
-3. 部分 `enum`和 `bitflag`过分丑陋,需要写与 `u32`兼容计算的方法
-4. 每个文件的包管理和依赖问很严重
-5. 变量的命名问题,先解决跑的问题,命名问题可以先记录再跑
-6. `err`的混乱使用问题,要先弄清楚基本的API是应该返回谁
-7. 注释问题(先不解决)
-8. `regs`的 `enum`理论上应该交由 `constants`
-9. `iopad`虽然规模小,但是也应该改改
-10. 部分成员的空指针特性,使用 `Option`解决
-11. 注意使用#[derive(Debug)]
-12. 函数指针应该用 `trait`的方式去耦合
-13. 宏定义的名字
-
-> SD Interface => sdif
-> SD MMC => sdmmc
-
-非常重要的一点,进入代码之后首先要在 `DMA` 模式下进行 `restart` 的工作,然后才能再重新按照 `PIO` 模型进行 `Init`.
-
->  之前有一些写死的函数,都应该换成是实现了某个 `Trait` 的结构体
-
-反过来检查一下结果.
+- [ ] MCI层的DMA相关的函数没有完成.
+- [ ] 数据传输过程中存在很多 `Clone` 的数据拷贝操作来避开所有权的问题,实际上应该用同一块内存,用一个专用内存池来解决问题.
