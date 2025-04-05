@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.0.16 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36" version="26.0.16">
   <diagram name="第 1 页" id="RIUy3Fn0ZehvJpWkt5wW">
-    <mxGraphModel dx="1510" dy="1571" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2022" dy="1872" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1060,20 +1060,50 @@
         <mxCell id="4l0j0VPpNHBcG-Zn-Izy-8" value="不能使用std,但是可以用alloc来分配一段内存出来解决这个问题" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="-495" y="5815" width="360" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="ItKydiF-zvqkE0G-NscS-1" value="不需要多个所有权引用的不变,其余的改造之" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" vertex="1" parent="1">
+        <mxCell id="ItKydiF-zvqkE0G-NscS-1" value="不需要多个所有权引用的不变,其余的改造之" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#9673a6;fillColor=#e1d5e7;" parent="1" vertex="1">
           <mxGeometry x="335" y="4728" width="250" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="ItKydiF-zvqkE0G-NscS-2" value="目前的目标是组装好SdCard" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+        <mxCell id="ItKydiF-zvqkE0G-NscS-2" value="目前的目标是组装好SdCard" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
           <mxGeometry x="-375" y="6030" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ItKydiF-zvqkE0G-NscS-3" value="组装好MCICardBase" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+        <mxCell id="ItKydiF-zvqkE0G-NscS-3" value="组装好MCICardBase" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
           <mxGeometry x="-200" y="5980" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ItKydiF-zvqkE0G-NscS-4" value="组装好SdUsrParam" style="rounded=0;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;html=1;" vertex="1" parent="1">
+        <mxCell id="ItKydiF-zvqkE0G-NscS-4" value="组装好SdUsrParam" style="rounded=0;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;html=1;" parent="1" vertex="1">
           <mxGeometry x="-200" y="6080" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ItKydiF-zvqkE0G-NscS-5" value="组装好MCIHost" style="rounded=0;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;html=1;" vertex="1" parent="1">
+        <mxCell id="ItKydiF-zvqkE0G-NscS-5" value="组装好MCIHost" style="rounded=0;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;html=1;" parent="1" vertex="1">
           <mxGeometry x="-10" y="5980" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-1" value="&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;SD&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1403.5" y="4420" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-2" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;MMC&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1404" y="4557.5" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-3" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="4445" width="20" height="385" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-4" value="对Guset类型的抽象" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#005700;fillColor=#008a00;fontColor=#ffffff;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="4622.5" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-10" value="&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;SDIO&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="4685" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-11" value="&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;SDSPI&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#647687;strokeColor=#314354;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="4800" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-12" value="对Host类型的抽象" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=#005700;fillColor=#008a00;fontColor=#ffffff;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1710" y="4622.5" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-13" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1870" y="4546.75" width="20" height="181.5" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-14" value="&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;SDIF&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1930" y="4546.75" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="8TEnV1st9y4ZQNE-tavu-15" value="&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;SDMMC&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;strokeColor=#2D7600;fontSize=14;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1930" y="4668" width="120" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
