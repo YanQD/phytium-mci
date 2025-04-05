@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+use dma_api::DSlice;
 use log::*;
 
 use super::mci_data::MCIData;
@@ -45,11 +47,12 @@ impl MCI {
     }
 
     pub fn dump_dma_descriptor(&self, desc_in_use: u32) {
+        debug!("{} dma desc in use!", desc_in_use);
         if !self.desc_list.first_desc.is_null() {
             for i in 0..desc_in_use {
                 unsafe {
                     let cur_desc = &*self.desc_list.first_desc.add(i as usize);
-                    debug!("descriptor@{:p}", cur_desc);
+                    debug!("descriptor no {} @{:p}", i, cur_desc);
                     debug!("\tattribute: 0x{:x}", (*cur_desc).attribute);
                     debug!("\tnon1: 0x{:x}", (*cur_desc).non1);
                     debug!("\tlen: 0x{:x}", (*cur_desc).len);
@@ -61,6 +64,7 @@ impl MCI {
                 }
             }
         }
+        debug!("dump ok");
     }
 
     /// setup DMA descriptor list before do transcation
@@ -147,9 +151,19 @@ impl MCI {
             }
         }
 
-        unsafe { flush(self.desc_list.first_desc as *const u8, desc_blocks as usize * core::mem::size_of::<FSdifIDmaDesc>()); }
+        // todo 这样以后内存肯定会溢出
+        let desc_vec = unsafe {
+            core::mem::ManuallyDrop::new(
+                Vec::from_raw_parts(desc_list.first_desc, desc_num as usize, desc_num as usize)
+            )
+        };
+        // let desc_vec = unsafe {
+        //     Vec::from_raw_parts(desc_list.first_desc, desc_num as usize, desc_num as usize)
+        // };
+        let _ = DSlice::from(&desc_vec[..]);
         // unsafe { dsb(); }
         self.dump_dma_descriptor(desc_num);
+        debug!("set dma desc ok");
 
         Ok(())
     }
@@ -160,6 +174,7 @@ impl MCI {
         self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK_ALL, true);
 
         self.setup_dma_descriptor(&data)?;
+        warn!("mark");
 
         let data_len = data.blkcnt() * data.blksz();
         info!("Descriptor@{:p}, trans bytes: {}, block size: {}", self.desc_list.first_desc, data_len, data.blksz());

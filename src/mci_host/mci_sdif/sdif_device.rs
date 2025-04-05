@@ -113,7 +113,7 @@ impl MCIHostDevice for SDIFDevPIO {
         }
 
         if host.config.enable_dma {
-            self.hc.borrow_mut().set_idma_list(self.rw_desc, (self.rw_desc as usize).try_into().unwrap(), self.desc_num.get());
+            self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get());
         }
 
         *self.hc_cfg.borrow_mut() = mci_config;

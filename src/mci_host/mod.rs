@@ -3,7 +3,6 @@
 mod constants;
 mod mci_host_config;
 mod mci_host_device;
-mod mci_host_card;
 mod mci_host_transfer;
 pub mod mci_sdif;
 mod err;

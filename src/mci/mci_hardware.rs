@@ -4,7 +4,6 @@ use super::err::*;
 use super::constants::*;
 use super::regs::*;
 
-use bitflags::Flags;
 use log::*;
 
 //* 直接操作寄存器相关的 API */

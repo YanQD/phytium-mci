@@ -16,6 +16,7 @@ mod mci_pio;
 pub mod mci_dma;
 
 use alloc::vec::Vec;
+use dma_api::DSlice;
 //* 包内的引用 */
 use err::*;
 use constants::*;
@@ -133,7 +134,7 @@ impl MCI {
 
     /* Setup DMA descriptor for SDIF controller instance */
     // 暂时修改报错类型
-    pub fn set_idma_list(&mut self, desc: *mut FSdifIDmaDesc, desc_dma: usize, desc_num: u32) {
+    pub fn set_idma_list(&mut self, desc: *mut FSdifIDmaDesc, desc_num: u32) {
         if !self.is_ready {
             error!("Device is not yet initialized!");
             // return Err(MCIHostError::NotInit);
@@ -144,8 +145,18 @@ impl MCI {
             // return Err(MCIError::InvalidState);
         }
 
+        // todo 这样以后内存肯定会溢出
+        let desc_vec = unsafe {
+            core::mem::ManuallyDrop::new(
+                Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+            )
+        };
+        // let desc_vec = unsafe {
+        //     Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+        // };
+        let slice = DSlice::from(&desc_vec[..]);
         self.desc_list.first_desc = desc;
-        self.desc_list.first_desc_dma = desc_dma;
+        self.desc_list.first_desc_dma = slice.bus_addr() as usize;
         self.desc_list.desc_num = desc_num;
         self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
 
@@ -256,7 +267,7 @@ impl MCI {
 
         // 清除原始中断寄存器
         info!("in dma_transfer, before clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
-        self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xffffe));
+        self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xFFFF_FFFF));
         info!("in dma_transfer, after clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
 
         /* reset fifo and DMA before transfer */
