@@ -306,7 +306,7 @@ X_REG0!(An59Reg0, FIOPAD_AN59_REG0_OFFSET);
 
 把 `Guest`抽象为四种(其中SDSPI不属于SD-Host-Controller的编程):
 
-![1743831609613](image/飞腾派SDMMC开发/1743831609613.png)
+![1743835150079](image/飞腾派SDMMC开发/1743835150079.png)
 
 因此在 `src\mci_host\mci_host_device.rs`设计 `MCIHostDevice`这个 `Trait`,要求所有的 `Host`都应该按照这个 `Trait`的标准实现函数.
 
