@@ -1,8 +1,13 @@
+use core::alloc::Layout;
+use core::any::TypeId;
 use core::cell::{Cell, RefCell};
+use core::mem::take;
 use core::ptr::NonNull;
 use core::time::Duration;
 
+use alloc::alloc::alloc;
 use alloc::vec::Vec;
+use dma_api::DSlice;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
@@ -21,25 +26,59 @@ use crate::mci_host::err::*;
 use crate::mci_host::constants::*;
 use crate::mci::constants::*;
 use crate::mci_host::sd::constants::SdCmd;
+use crate::mci::mci_dma::FSdifIDmaDesc;
 
 
 pub(crate) struct SDIFDevPIO {
     hc: RefCell<MCI>,                            // SDIF 硬件控制器
     hc_cfg: RefCell<MCIConfig>,                  // SDIF 配置
-    //rw_desc: *mut FSdifIDmaDesc,          // DMA 描述符指针，用于管理数据传输
+    rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDevPIO {
-    pub fn new(addr: NonNull<u8>) -> Self {
+    pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
+        // 应该不会报错
+        // todo desclist对齐到MCIHostConfig.def_block_size
+        let layout = Layout::array::<FSdifIDmaDesc>(desc_num).unwrap(); 
+        let rw_desc = unsafe {
+            let ptr = alloc(layout) as *mut FSdifIDmaDesc;
+            if ptr.is_null() {
+                error!("failed to allcate memory for rw_desc!");
+            }
+            ptr
+        };
         Self {
-            hc: MCI::new(MCIConfig::new(addr)).into(),
-            hc_cfg: MCIConfig::new(addr).into(),
-            desc_num: 0.into(),
+            hc: MCI::new(MCIConfig::new_mci1(addr)).into(),
+            hc_cfg: MCIConfig::new_mci1(addr).into(),
+            rw_desc,
+            desc_num: (desc_num as u32).into(),
         }
     }
     pub fn iopad_set(&self,iopad:IoPad) {
         self.hc.borrow_mut().iopad_set(iopad);
+    }
+    pub fn blksize_set(&self, blksize: u32) {
+        self.hc.borrow_mut().blksize_set(blksize);
+    }
+    pub fn trans_bytes_set(&self, bytes: u32) {
+        self.hc.borrow_mut().trans_bytes_set(bytes);
+    }
+    pub fn set_dma_mode(&self) {
+        self.hc.borrow_mut().set_dma_mode();
+    }
+    pub fn set_dma_intr(&self) {
+        self.hc.borrow_mut().set_dma_intr();
+    }
+    pub fn set_desc_list_star_reg(&self) {
+        let ptr = self.rw_desc;
+        self.hc.borrow_mut().set_desc_list_star_reg(ptr);
+    }
+    pub fn set_read_addr(&self, buf_ptr: *const Vec<u32>) {
+        self.hc.borrow_mut().set_read_addr(buf_ptr);
+    }
+    pub fn enable_dma(&self) {
+        self.hc.borrow_mut().enable_dma();
     }
 }
 
@@ -61,7 +100,7 @@ impl MCIHostDevice for SDIFDevPIO {
         self.hc.borrow_mut().iopad_set(iopad);
         
         // ?强行 restart 一下
-        let restart_mci = MCI::new_restart(MCIConfig::restart_mci0(addr));
+        let restart_mci = MCI::new_restart(MCIConfig::restart(addr, id));
         restart_mci.restart().unwrap_or_else(|e| error!("restart failed: {:?}", e));
 
         if let Err(_) = self.hc.borrow_mut().config_init(&mci_config) {
@@ -74,7 +113,7 @@ impl MCIHostDevice for SDIFDevPIO {
         }
 
         if host.config.enable_dma {
-            // todo
+            self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get());
         }
 
         *self.hc_cfg.borrow_mut() = mci_config;
@@ -324,16 +363,18 @@ impl MCIHostDevice for SDIFDevPIO {
             flag |= MCICmdFlag::SWITCH_VOLTAGE;
         }
 
-        let out_data = if let Some(in_data) = in_trans.data() {
+        let out_data = if let Some(in_data) = in_trans.data_mut() {
             let mut out_data = MCIData::new();
 
             flag |= MCICmdFlag::EXP_DATA;
             
-            let buf = if let Some(rx_data) = in_data.rx_data() {
+            let buf = if let Some(rx_data) = in_data.rx_data_mut() {
+                error!("in conver_command_info rx_data is {:p}", rx_data.as_ptr());
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
                 //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
-                rx_data.clone()
+                // rx_data.clone()
+                take(rx_data)
             } else if let Some(tx_data) = in_data.tx_data() {
                 // Handle transmit data
                 flag |= MCICmdFlag::WRITE_DATA;
@@ -346,7 +387,13 @@ impl MCIHostDevice for SDIFDevPIO {
             out_data.blksz_set(in_data.block_size() as u32);
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
+            let slice = DSlice::from(&buf[..]);
+            out_data.buf_dma_set(slice.bus_addr() as usize);
+            error!("in convert_command_info buf_dma is 0x{:x}", slice.bus_addr());
+            drop(slice);
             out_data.buf_set(Some(buf));
+
+            debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
 
             Some(out_data)
         } else {
@@ -359,6 +406,8 @@ impl MCIHostDevice for SDIFDevPIO {
         out_trans.cmdarg_set(arg);
         out_trans.set_data(out_data);
         out_trans.flag_set(flag);
+
+        unsafe { dsb(); }
         
         out_trans
 
@@ -376,8 +425,13 @@ impl MCIHostDevice for SDIFDevPIO {
         let mut cmd_data = self.covert_command_info(content);
 
         if host.config.enable_dma {
-            // todo
-        }else {
+            if let Err(_) = self.hc.borrow_mut().dma_transfer(&mut cmd_data) {
+                return Err(MCIHostError::NoData);
+            }
+            if let Err(_) = self.hc.borrow_mut().poll_wait_dma_end(&mut cmd_data) {
+                return Err(MCIHostError::NoData);
+            }
+        } else {
 
             if let Err(_) = self.hc.borrow_mut().pio_transfer(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
@@ -388,9 +442,12 @@ impl MCIHostDevice for SDIFDevPIO {
             }
         }
 
+        // unsafe { dsb(); }
+
         //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
         if let Some(_) = content.data() {
             let data = cmd_data.get_data().unwrap();
+            unsafe { invalidate(data.buf().unwrap().as_ptr() as *const u8, data.buf().unwrap().len()); }
             if let Some(rx_data) = data.buf() {
                 if let Some(in_data) = content.data_mut() {
                     in_data.rx_data_set(Some(rx_data.clone()));
@@ -410,5 +467,9 @@ impl MCIHostDevice for SDIFDevPIO {
         }
 
         Ok(())
+    }
+
+    fn type_id(&self) -> core::any::TypeId where Self: 'static {
+        TypeId::of::<SDIFDevPIO>()
     }
 }

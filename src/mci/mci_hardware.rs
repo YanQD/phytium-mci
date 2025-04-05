@@ -91,18 +91,28 @@ impl MCI {
         reg.modify_reg(|reg| {
             reset_bits | reg
         });
-        reg.retry_for(|reg:MCICtrl| {
+        if let Err(e) = reg.retry_for(|reg:MCICtrl| {
             !reg.contains(reset_bits)
-        }, Some(RETRIES_TIMEOUT))?;
+        }, Some(RETRIES_TIMEOUT)) {
+            error!("Reset failed, bits = 0x{:x}", reset_bits);
+            return Err(e);
+        }
 
         /* update clock after reset */
         self.private_cmd_send(MCICmd::UPD_CLK, 0)?;
+        if let Err(e) = self.private_cmd_send(MCICmd::UPD_CLK, 0) {
+            error!("Update clock failed!");
+            return Err(e);
+        }
 
         /* for fifo reset, need to check if fifo empty */
         if reset_bits.contains(MCICtrl::FIFO_RESET) {
-            reg.retry_for(|reg: MCIStatus| {
+            if let Err(e) = reg.retry_for(|reg: MCIStatus| {
                 reg.contains(MCIStatus::FIFO_EMPTY)
-            }, Some(RETRIES_TIMEOUT))?;
+            }, Some(RETRIES_TIMEOUT)) {
+                error!("Fifo not empty!");
+                return Err(e);
+            }
         }
         Ok(())
     }
@@ -134,10 +144,11 @@ impl MCI {
         reg.write_reg(reg_val);
     }
 
-    pub(crate) fn descriptor_set(&self, descriptor: u32) {
+    pub(crate) fn descriptor_set(&self, descriptor: usize) {
         let reg = self.config.reg();
-        reg.write_reg(MCIDescListAddrH::empty());
-        reg.write_reg(MCIDescListAddrL::from_bits_truncate(descriptor));
+        let hi = (descriptor >> 32) as u32;
+        reg.write_reg(MCIDescListAddrH::from_bits_truncate(hi));
+        reg.write_reg(MCIDescListAddrL::from_bits_truncate(descriptor as u32));
     }
 
     pub(crate) fn idma_reset(&self) {

@@ -65,17 +65,36 @@ impl MCIConfig {
         }
     }
 
-    pub fn restart_mci0(addr:NonNull<u8>) -> Self {
+    pub fn new_mci1(addr:NonNull<u8>) -> Self {
         MCIConfig {
-            instance_id: MCIId::MCI0,
+            instance_id: MCIId::MCI1,
             reg: MCIReg::new(addr),
-            irq_num: 104,
+            irq_num: 105,
             trans_mode: MCITransMode::DMA,
             non_removable: false,
         }
     }
 
-    pub fn new_mci1(addr:NonNull<u8>) -> Self {
+    pub fn restart(addr: NonNull<u8>, id: MCIId) -> Self {
+        match id {
+            MCIId::MCI0 => Self::restart_mci0(addr),
+            MCIId::MCI1 => Self::restart_mci1(addr),
+        }
+    }
+
+    pub fn restart_mci0(addr:NonNull<u8>) -> Self {
+        MCIConfig {
+            instance_id: MCIId::MCI0,
+            reg: MCIReg::new(addr),
+            irq_num: 104,
+            trans_mode: MCITransMode::PIO,
+            non_removable: false,
+        }
+    }
+
+    
+
+    pub fn restart_mci1(addr: NonNull<u8>) -> Self {
         MCIConfig {
             instance_id: MCIId::MCI1,
             reg: MCIReg::new(addr),
@@ -91,6 +110,10 @@ impl MCIConfig {
 
     pub fn trans_mode(&self) -> MCITransMode {
         self.trans_mode
+    }
+
+    pub fn trans_mode_set(&mut self, mode: MCITransMode) {
+        self.trans_mode = mode;
     }
 
     pub fn non_removable(&self) -> bool {

@@ -3,7 +3,6 @@
 mod constants;
 mod mci_host_config;
 mod mci_host_device;
-mod mci_host_card;
 mod mci_host_transfer;
 pub mod mci_sdif;
 mod err;
@@ -11,17 +10,18 @@ pub mod sd;
 mod mci_card_base;
 mod mci_host_card_detect;
 
-use core::{cell::Cell, ptr::NonNull};
+use core::{any::TypeId, cell::Cell, ptr::NonNull};
 
 use alloc::{boxed::Box, rc::Rc};
 
 use constants::*;
 use err::{MCIHostError, MCIHostStatus};
-use log::warn;
+use log::error;
 use mci_host_card_detect::MCIHostCardDetect;
 use mci_host_config::MCIHostConfig;
 use mci_host_device::MCIHostDevice;
 use mci_host_transfer::{MCIHostCmd, MCIHostTransfer};
+use mci_sdif::sdif_device::SDIFDevPIO;
 
 type MCIHostCardIntFn = fn();
 
@@ -202,6 +202,18 @@ impl MCIHost {
         self.dev.init(addr,self)
     }
 
+    pub(crate) fn get_dev(&self) -> Option<&SDIFDevPIO> {
+        if self.dev.type_id() == TypeId::of::<SDIFDevPIO>() {
+            unsafe {
+                let ptr = Box::as_ref(&self.dev) as *const dyn MCIHostDevice as *const SDIFDevPIO;
+                Some(&*ptr)
+            }
+        } else {
+            // 实际不会发生
+            error!("device type not supported!");
+            None
+        }
+    }
 }
 
 #[allow(unused)]

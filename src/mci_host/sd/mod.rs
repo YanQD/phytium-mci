@@ -7,7 +7,6 @@ mod csd;
 mod scr;
 mod status;
 
-
 use core::cmp::max;
 use core::ptr::NonNull;
 use core::str;
@@ -21,7 +20,7 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDevPIO;
 use crate::mci_host::MCIHost;
-use crate::{sd, sleep, IoPad};
+use crate::{sleep, IoPad};
 use crate::tools::u8_to_u32_slice;
 
 use super::err::{MCIHostError, MCIHostStatus};
@@ -38,7 +37,6 @@ use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
 use usr_param::SdUsrParam;
-
 
 pub struct SdCard{
     base: MCICardBase,
@@ -58,7 +56,7 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        let mci_host_config = MCIHostConfig::mci0_sd_instance();
+        let mci_host_config = MCIHostConfig::mci0_sd_dma_instance();
 
         // 组装 base
         let buffer = vec![0u8;mci_host_config.max_trans_size];
@@ -67,7 +65,8 @@ impl SdCard {
         info!("Internal buffer@0x{:x}, length = 0x{}",base.internal_buffer.as_ptr() as usize,base.internal_buffer.len());
         
         // 组装 host
-        let sdif_device = SDIFDevPIO::new(addr);
+        let desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
+        let sdif_device = SDIFDevPIO::new(addr, desc_num);
         sdif_device.iopad_set(iopad);
         let host = MCIHost::new(Box::new(sdif_device), mci_host_config);
         let host_type = host.config.host_type;
@@ -186,6 +185,44 @@ impl SdCard {
             stat: SdStatus::new(),
         }
     }
+
+    pub fn dma_rw_init(&mut self, buf_ptr: *const Vec<u32>) {
+        warn!("dma_rw_init!");
+        // 设置卡块大小长度 
+        // 原本在DMA初始化第二步，为了解决借用的问题放到函数开头
+        let _ = self.block_size_set(512);
+
+        let base = &mut self.base;
+        let host = base.host.as_mut().unwrap();
+        host.config.enable_dma = true;
+        let dev = host.get_dev().unwrap();
+
+        // 配置blksiz寄存器数据块大小为512B
+        dev.blksize_set(512);
+
+        // 配置传输字节数bytcnt
+        // todo 目前只传输一个块
+        dev.trans_bytes_set(512);
+
+        // 配置bus_mode_reg选择dma模式
+        dev.set_dma_mode();
+
+        // 配置intr_en_reg开启dma中断
+        dev.set_dma_intr();
+
+        // 将第一个descriptor地址写入寄存器
+        dev.set_desc_list_star_reg();
+
+        // 将读操作的起始地址写入cmdarg
+        dev.set_read_addr(buf_ptr);
+
+        // 配置config开启dma
+        dev.enable_dma();
+
+        warn!("dma_rw_init success!");
+
+        // Ok(())
+    }
 }
 
 impl SdCard{
@@ -291,6 +328,7 @@ impl SdCard{
         /* Set to 4-bit data bus mode. */
         if self.flags.contains(SdCardFlag::Support4BitWidth) {
             /* Raise bus width to 4 bits */
+            warn!("card support 4 bit width");
             if self.data_bus_width_set(MCIHostBusWdith::Bit4).is_err() { /* ACMD6 */
                 return Err(MCIHostError::SetDataBusWidthFailed);
             }
@@ -309,9 +347,9 @@ impl SdCard{
         }
 
         /* SDR104, SDR50, and DDR50 mode need tuning */
-        if self.bus_timing_select().is_err() {
-            return Err(MCIHostError::SwitchBusTimingFailed);
-        }
+        // if self.bus_timing_select().is_err() {
+        //     return Err(MCIHostError::SwitchBusTimingFailed);
+        // }
 
         self.card_dump();
 
@@ -660,6 +698,14 @@ impl SdCard{
     fn func_select(&mut self,group:SdGroupNum,func:SdTimingFuncNum) -> MCIHostStatus {
 
         /* check if card support CMD6 */
+        let version = match self.version {
+            SdSpecificationVersion::Version1_0 => 1,
+            SdSpecificationVersion::Version1_1 => 2,
+            SdSpecificationVersion::Version2_0 => 3,
+            SdSpecificationVersion::Version3_0 => 4,
+        };
+        warn!("card version is {}", version);
+        warn!("card_command_classes is {:b}", self.csd.card_command_classes);
         if (self.version as u32 <= SdSpecificationVersion::Version1_0 as u32) || 
             (self.csd.card_command_classes & SdCardCmdClass::Switch.bits() == 0) {
             info!("\r\nError: current card not support CMD6\r\n");
@@ -903,7 +949,8 @@ impl SdCard {
 
         data.block_size_set(64);
         data.block_count_set(1);
-        data.rx_data_set(Some(vec![0;64])); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        let tmp_buf = vec![0; 64];
+        data.rx_data_set(Some(tmp_buf)); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
 
@@ -1009,6 +1056,7 @@ impl SdCard {
 
         let command = content.cmd().unwrap();
         let response = command.response();
+        info!("in csd_send response is: {:x?}", response);
 
         self.base.internal_buffer.clear();
         self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
@@ -1016,10 +1064,10 @@ impl SdCard {
         self.decode_csd();
 
         Ok(())
-    }
+        }
 
-    //* CMD 11 */
-    fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
+        //* CMD 11 */
+        fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
         let mut command = MCIHostCmd::new();
@@ -1188,7 +1236,7 @@ impl SdCard {
         }); 
 
         command.argument_set({
-            if !self.flags.contains(SdCardFlag::SupportHighCapacity) {
+            if self.flags.contains(SdCardFlag::SupportHighCapacity) {
                 start_block
             } else {
                 start_block*block_size
@@ -1202,8 +1250,10 @@ impl SdCard {
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
 
-        data.rx_data_set(Some(vec![0;block_size as usize * block_count as usize]));
-        data.enable_auto_command12_set(false);
+        let tmp_buf = vec![0;block_size as usize * block_count as usize];
+        error!("in read, tmp_buf: 0x{:p}", tmp_buf.as_ptr());
+        data.rx_data_set(Some(tmp_buf));
+        data.enable_auto_command12_set(true);
 
 
         let mut context = MCIHostTransfer::new();
@@ -1214,6 +1264,13 @@ impl SdCard {
         if let Err(err) = self.transfer(&mut context, 3) {
             return Err(err);
         }
+
+        // unsafe {
+        //     // let len = tmp_buf.len() * core::mem::size_of::<u32>();
+        //     asm!("dsb ishst");
+        //     asm!("dc ivac, {}", in(reg) ptr);
+        //     asm!("dsb ish");
+        // }
 
         let data = context.data_mut().unwrap();
         let rx_data = data.rx_data().unwrap();
@@ -1381,7 +1438,8 @@ impl SdCard {
 
         data.block_size_set(8);
         data.block_count_set(1);
-        data.rx_data_set(Some(vec![0;8])); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        let tmp_buf = vec![0; 8];
+        data.rx_data_set(Some(tmp_buf)); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1393,6 +1451,7 @@ impl SdCard {
         }
 
         let raw_src = content.data_mut().unwrap().rx_data_mut().unwrap();
+        info!("in scr_send raw_src is {:b}", raw_src[0]);
 
         /* according to spec. there are two types of Data packet format for SD card
             1. Usual data (8-bit width), are sent in LSB first
@@ -1437,13 +1496,16 @@ impl SdCard {
         let csd = &mut self.csd;
         // todo 可能存在性能问题
         let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
+        info!("in decode_csd rawcsd is {:x?}", rawcsd);
 
         csd.csd_structure = ((rawcsd[3] & 0xC0000000) >> 30) as u8;
+        info!("csd structure is {:b}", csd.csd_structure);
         csd.data_read_access_time1 = ((rawcsd[3] & 0xFF0000) >> 16) as u8;
         csd.data_read_access_time2 = ((rawcsd[3] & 0xFF00) >> 8) as u8;
         csd.transfer_speed = (rawcsd[3] & 0xFF) as u8;
         csd.card_command_classes = ((rawcsd[2] & 0xFFF00000) >> 20) as u16;
         csd.read_block_length = ((rawcsd[2] & 0xF0000) >> 16) as u8;
+        warn!("card_command_classes is {:b}", csd.card_command_classes);
         if rawcsd[2] & 0x8000 != 0 {
             csd.flags |= CsdFlags::READ_BLOCK_PARTIAL.bits();
         }
@@ -1479,7 +1541,8 @@ impl SdCard {
             self.base.block_size = MCI_HOST_DEFAULT_BLOCK_SIZE;
             csd.device_size =
                 ((rawcsd[2] & 0x3F) << 16) | ((rawcsd[1] & 0xFFFF0000) >> 16);
-            if csd.device_size >= 0xFFF {
+            if csd.device_size >= 0xFFFF {
+                info!("device size is {}, supports sdxc", csd.device_size);
                 self.flags |= SdCardFlag::SupportSdxc;
             }
             self.block_count = (csd.device_size + 1) * 1024;

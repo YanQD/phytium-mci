@@ -13,10 +13,14 @@ mod mci_intr;
 pub mod mci_data;
 mod mci_cmddata;
 mod mci_pio;
+pub mod mci_dma;
 
+use alloc::vec::Vec;
+use dma_api::DSlice;
 //* 包内的引用 */
 use err::*;
 use constants::*;
+use mci_dma::{FSdifIDmaDescList, FSdifIDmaDesc};
 use regs::*;
 use log::*;
 
@@ -35,8 +39,9 @@ pub struct MCI {
     is_ready: bool,
     prev_cmd: u32, // todo 这里需要实现成一个实现了Command的enum
     curr_timing: MCITiming,
-    //todo cur_cmd needed
+    cur_cmd: Option<MCICmdData>,
     io_pad: Option<IoPad>,
+    desc_list: FSdifIDmaDescList,
 }
 
 //* MCI constance */
@@ -54,7 +59,9 @@ impl MCI {
             is_ready: false,
             prev_cmd: 0,
             curr_timing: MCITiming::new(),
+            cur_cmd: None,
             io_pad: None,
+            desc_list: FSdifIDmaDescList::new(),
         }
     }
 
@@ -64,7 +71,9 @@ impl MCI {
             is_ready: true,
             prev_cmd: 0,
             curr_timing: MCITiming::new(),
+            cur_cmd: None,
             io_pad: None,
+            desc_list: FSdifIDmaDescList::new(),
         }
     }
 }
@@ -78,6 +87,11 @@ impl MCI {
 
     pub fn iopad_take(&mut self) -> Option<IoPad> {
         self.io_pad.take()
+    }
+
+    // todo 避免所有权问题先用了clone
+    pub fn cur_cmd_set(&mut self, cmd: &MCICmdData) {
+        self.cur_cmd = Some(cmd.clone());
     }
 
     /* initialization SDIF controller instance */
@@ -114,7 +128,42 @@ impl MCI {
         Ok(())
     }
 
-    /* Setup DMA descriptor for SDIF controller instance */ // TODO
+    // pub fn desc_list_get(&self) -> FSdifIDmaDescList {
+    //     self.desc_list
+    // }
+
+    /* Setup DMA descriptor for SDIF controller instance */
+    // 暂时修改报错类型
+    pub fn set_idma_list(&mut self, desc: *mut FSdifIDmaDesc, desc_num: u32) {
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            // return Err(MCIHostError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            // return Err(MCIError::InvalidState);
+        }
+
+        // todo 这样以后内存肯定会溢出
+        let desc_vec = unsafe {
+            core::mem::ManuallyDrop::new(
+                Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+            )
+        };
+        // let desc_vec = unsafe {
+        //     Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+        // };
+        let slice = DSlice::from(&desc_vec[..]);
+        self.desc_list.first_desc = desc;
+        self.desc_list.first_desc_dma = slice.bus_addr() as usize;
+        self.desc_list.desc_num = desc_num;
+        self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
+
+        debug!("idma_list set success!");
+
+        // Ok(())
+    }
 
     /* Set the Card clock freqency */
     pub fn clk_freq_set(&mut self, clk_hz: u32) -> MCIResult {
@@ -192,8 +241,109 @@ impl MCI {
         Ok(())
     }
 
-    /* Start command and data transfer in DMA mode */ // TODO
-    /* Wait DMA transfer finished by poll */ // TODO
+    /// Start command and data transfer in DMA mode
+    pub fn dma_transfer(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+        cmd_data.success_set(false);
+        self.cur_cmd_set(&cmd_data);
+
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            return Err(MCIError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            return Err(MCIError::InvalidState);
+        }
+
+        // for removable media, check if card exists
+        if !self.config.non_removable() && !self.check_if_card_exist() {
+            error!("card is not detected !!!");
+            return Err(MCIError::NoCard);
+        }
+
+        // wait previous command finished and card not busy
+        self.poll_wait_busy_card()?;
+
+        // 清除原始中断寄存器
+        info!("in dma_transfer, before clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
+        self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xFFFF_FFFF));
+        info!("in dma_transfer, after clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
+
+        /* reset fifo and DMA before transfer */
+        self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
+
+        // enable use of DMA
+        self.config.reg().modify_reg(|reg| { MCICtrl::USE_INTERNAL_DMAC | reg });
+        self.config.reg().modify_reg(|reg| { MCIBusMode::DE | reg });
+
+        // transfer data
+        if cmd_data.get_data().is_some() {
+            self.dma_transfer_data(cmd_data.get_data().unwrap())?;
+        }
+
+        // transfer command
+        info!("in dma_transfer, before cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
+        self.cmd_transfer(&cmd_data)?;
+        info!("in dma_transfer, after cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
+
+        Ok(())
+    }
+
+    /* Wait DMA transfer finished by poll */
+    pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+        let wait_bits = if cmd_data.get_data().is_none() {
+            FSDIF_INT_CMD_BIT
+        } else {
+            FSDIF_INT_CMD_BIT | FSDIF_INT_DTO_BIT
+        };
+        info!("in poll_wait_dma_end, wait_bits is 0x{:x}, raw_ints is 0x{:x}", wait_bits, self.config.reg().read_reg::<MCIRawInts>());
+        let mut reg_val;
+
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            return Err(MCIError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            return Err(MCIError::InvalidState);
+        }
+
+        /* wait command done or data timeout */
+        let mut delay = RETRIES_TIMEOUT;
+        loop {
+            reg_val = self.config.reg().read_reg::<MCIRawInts>().bits();
+            if delay % 1000 == 0 {
+                debug!("reg_val = 0x{:x}", reg_val);
+            }
+            // todo relax handler? 
+
+            delay -= 1;
+            if wait_bits & reg_val == wait_bits || delay == 0 {
+                break;
+            }
+        }
+
+        /* clear status to ack data done */
+        self.raw_status_clear();
+
+        if wait_bits & reg_val != wait_bits && delay <= 0 {
+            error!("Wait command done timeout, raw ints: 0x{:x}!", reg_val);
+            return Err(MCIError::CmdTimeout);
+        }
+
+        if cmd_data.get_data().is_some() {
+            let read = cmd_data.flag().bits() & FSDIF_CMD_FLAG_READ_DATA;
+            if read != 0 {
+                unsafe { dsb(); }
+            }
+        }
+
+        self.cmd_response_get(cmd_data)?;
+
+        Ok(())
+    }
 
     /* Start command and data transfer in PIO mode */
     pub fn pio_transfer(&self, cmd_data: &mut MCICmdData) -> MCIResult {
@@ -240,7 +390,7 @@ impl MCI {
             /* if need to write, write to fifo before send command */
             if !read { 
                 /* invalide buffer for data to write */
-                // unsafe { dsb() };
+                unsafe { dsb() };
                 self.pio_write_data(data)?;
             }
         }
@@ -322,11 +472,40 @@ impl MCI {
 
         /* reset internal DMA */
         if self.config.trans_mode() == MCITransMode::DMA {
+            debug!("DMA enabled, reseting internal DMA!");
             self.idma_reset();
         }
         Ok(())
     }
 
+    pub fn set_dma_mode(&mut self) {
+        self.config.reg().modify_reg(|reg| {
+            MCIBusMode::DE | reg
+        });
+    }
+
+    pub fn set_dma_intr(&mut self) {
+        // self.config.reg().modify_reg(|reg| {
+        //     MCIDMACIntEn::all()
+        // });
+        self.config.reg().write_reg(MCIDMACIntEn::all());
+    }
+
+    pub fn set_desc_list_star_reg(&mut self, ptr: *mut FSdifIDmaDesc) {
+        let addr = ptr as usize;
+        self.config.reg().write_reg(MCIDescListAddrH::from_bits_truncate((addr >> 32) as u32));
+        self.config.reg().write_reg(MCIDescListAddrL::from_bits_truncate(addr as u32));
+    }
+
+    pub fn set_read_addr(&mut self, buf_ptr: *const Vec<u32>) {
+        // todo 寄存器是32位的，但地址可能是64位？
+        let addr = buf_ptr as u32;
+        self.config.reg().write_reg(MCICmdArg::from_bits_truncate(addr));
+    }
+
+    pub fn enable_dma(&mut self) {
+        self.config.trans_mode_set(MCITransMode::DMA);
+    }
 
     /* Dump all register value of SDIF instance */
     pub fn register_dump(&self) {

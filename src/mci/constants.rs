@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use bitflags::bitflags;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -87,7 +89,30 @@ impl From<u32> for MCIClkSpeed {
 
 #[inline(always)]
 pub unsafe fn dsb() {
-    core::arch::asm!("dsb sy", options(nostack, preserves_flags));
+    core::arch::asm!("dsb sy");
+    core::arch::asm!("isb sy");
+}
+
+#[inline(always)]
+pub unsafe fn flush(addr: *const u8, size: usize) {
+    let mut addr = addr as usize;
+    let end = addr + size;
+    while addr < end {
+        asm!("dc civac, {0}", in(reg) addr, options(nostack, preserves_flags));
+        addr += 64;
+    }
+    dsb();
+}
+
+#[inline(always)]
+pub unsafe fn invalidate(addr: *const u8, size: usize) {
+    let mut addr = addr as usize;
+    let end = addr + size;
+    while addr < end {
+        asm!("dc ivac, {0}", in(reg) addr, options(nostack, preserves_flags));
+        addr += core::mem::size_of::<u32>();
+    }
+    asm!("dsb sy");
 }
 
 /** @name Register Map
@@ -145,3 +170,46 @@ pub const FSDIF_DELAY_US:u32 = 5;
 pub const MCI_MAX_FIFO_CNT:u32 = 0x800;
 
 pub const FSL_SDMMC_MAX_CMD_RETRIES:u32 = 10;
+
+pub const FSDIF0_ID: u32 = 0;
+pub const FSDIF1_ID: u32 = 1;
+
+pub const FT_COMPONENT_IS_READY: u32 = 0x11111111;
+
+// DMA相关
+pub const FSDIF_IDMAC_DES0_DIC: u32 = 1 << 1;    /* 内部描述表不触发TI/RI中断 */
+pub const FSDIF_IDMAC_DES0_LD: u32 = 1 << 2;     /* 数据的最后一个描述符 */
+pub const FSDIF_IDMAC_DES0_FD: u32 = 1 << 3;     /* 数据的第一个描述符 */
+pub const FSDIF_IDMAC_DES0_CH: u32 = 1 << 4;     /* 链接下一个描述符地址 */
+pub const FSDIF_IDMAC_DES0_ER: u32 = 1 << 5;     /* 链表已经到达最后一个链表 */
+pub const FSDIF_IDMAC_DES0_CES: u32 = 1 << 30;   /* RINTSTS寄存器错误汇总 */
+pub const FSDIF_IDMAC_DES0_OWN: u32 = 1 << 31;   /* 描述符关联DMA，完成传输后该位置置0 */
+pub const FSDIF_IDMAC_MAX_BUF_SIZE: u32 = 0x1000; // 每个desc在chained mode最多传输的字节数
+
+pub const FSDIF_INT_RE_BIT: u32 = 1 << 1;
+pub const FSDIF_INT_CMD_BIT: u32 = 1 << 2;
+pub const FSDIF_INT_DTO_BIT: u32 = 1 << 3;
+pub const FSDIF_INT_RCRC_BIT: u32 = 1 << 6;
+pub const FSDIF_INT_DCRC_BIT: u32 = 1 << 7;
+pub const FSDIF_INT_RTO_BIT: u32 = 1 << 8;
+pub const FSDIF_INT_DRTO_BIT: u32 = 1 << 9;
+pub const FSDIF_INT_HTO_BIT: u32 = 1 << 10;
+pub const FSDIF_INT_HLE_BIT: u32 = 1 << 12;
+pub const FSDIF_INT_SBE_BCI_BIT: u32 = 1 << 13;
+
+pub const FSDIF_INTS_CMD_MASK: u32 = FSDIF_INT_RE_BIT | FSDIF_INT_CMD_BIT | FSDIF_INT_RCRC_BIT |
+                                      FSDIF_INT_RTO_BIT | FSDIF_INT_HTO_BIT | FSDIF_INT_HLE_BIT;
+
+pub const FSDIF_DMAC_INT_ENA_TI: u32 = 1;    /* RW 发送完成中断使能 */
+pub const FSDIF_DMAC_INT_ENA_RI: u32 = 1 << 1;    /* RW 接收完成中断使能 */
+pub const FSDIF_DMAC_INT_ENA_FBE: u32 = 1 << 2;   /* RW 总线错误中断使能 */
+pub const FSDIF_DMAC_INT_ENA_DU: u32 = 1 << 4;     /* RW 描述符不可读中断使能 */
+pub const FSDIF_DMAC_INT_ENA_NIS: u32 = 1 << 8;    /* RW 正常中断汇总使能 */
+pub const FSDIF_DMAC_INT_ENA_AIS: u32 = 1 << 9;    /* RW 异常中断汇总使能 */
+
+pub const FSDIF_DMAC_INTS_MASK: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU |
+                                       FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
+pub const FSDIF_DMAC_INTS_MASK_ALL: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU | FSDIF_DMAC_INT_ENA_TI |
+                                          FSDIF_DMAC_INT_ENA_RI | FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
+
+pub const FSDIF_CMD_FLAG_READ_DATA: u32 = 1 << 7;   /* need trans data to read card */
