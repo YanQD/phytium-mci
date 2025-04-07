@@ -19,7 +19,7 @@ mod tests {
     fn test_work() {
         let fdt = match &global_val().platform_info {
             PlatformInfoKind::DeviceTree(fdt) => fdt.get(),
-            _ => panic!("unsupported platform"),
+            // _ => panic!("unsupported platform"),
         };
     
         let mci0 = fdt.find_compatible(&["phytium,mci"]).next().unwrap();
@@ -36,9 +36,13 @@ mod tests {
     
         let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
 
-        let mut buffer = Vec::new();
+        let mut buffer: Vec<u32> = Vec::with_capacity(128);
+        for i in 0..buffer.len() {
+            buffer[i] = i as u32;
+        }
+
+        let _ = sdcard.write_blocks(&mut buffer, 131072 + 200, 1);
         
-        // sdcard.dma_rw_init(&buffer as *const Vec<u32>);
         let _ = sdcard.read_blocks(&mut buffer, 131072+200,1);
     
         error!("test_work passed\n");

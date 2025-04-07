@@ -21,7 +21,7 @@ use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
 use crate::{sleep, IoPad};
-use crate::tools::u8_to_u32_slice;
+use crate::tools::{swap_word_byte_sequence_u32, u8_to_u32_slice};
 
 use super::err::{MCIHostError, MCIHostStatus};
 use super::mci_card_base::MCICardBase;
@@ -56,7 +56,7 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        let mci_host_config = MCIHostConfig::mci0_sd_dma_instance();
+        let mci_host_config = MCIHostConfig::mci0_sd_instance();
 
         // 组装 base
         let buffer = vec![0u8;mci_host_config.max_trans_size];
@@ -185,46 +185,9 @@ impl SdCard {
             stat: SdStatus::new(),
         }
     }
-
-    pub fn dma_rw_init(&mut self, buf_ptr: *const Vec<u32>) {
-        warn!("dma_rw_init!");
-        // 设置卡块大小长度 
-        // 原本在DMA初始化第二步，为了解决借用的问题放到函数开头
-        let _ = self.block_size_set(512);
-
-        let base = &mut self.base;
-        let host = base.host.as_mut().unwrap();
-        host.config.enable_dma = true;
-        let dev = host.get_dev().unwrap();
-
-        // 配置blksiz寄存器数据块大小为512B
-        dev.blksize_set(512);
-
-        // 配置传输字节数bytcnt
-        // todo 目前只传输一个块
-        dev.trans_bytes_set(512);
-
-        // 配置bus_mode_reg选择dma模式
-        dev.set_dma_mode();
-
-        // 配置intr_en_reg开启dma中断
-        dev.set_dma_intr();
-
-        // 将第一个descriptor地址写入寄存器
-        dev.set_desc_list_star_reg();
-
-        // 将读操作的起始地址写入cmdarg
-        dev.set_read_addr(buf_ptr);
-
-        // 配置config开启dma
-        dev.enable_dma();
-
-        warn!("dma_rw_init success!");
-
-        // Ok(())
-    }
 }
 
+/// SD卡其他操作命令
 impl SdCard{
     pub fn init(&mut self,addr:NonNull<u8>) -> MCIHostStatus {
         let status = if !self.base.is_host_ready {
@@ -588,6 +551,41 @@ impl SdCard{
         Err(MCIHostError::CardStatusBusy)
     }
 
+    fn write_successful_block_send(&mut self, blocks: &mut u32) -> MCIHostStatus {
+        if Err(MCIHostError::CardStatusIdle) != self.polling_card_status_busy(SD_CARD_ACCESS_WAIT_IDLE_TIMEOUT) {
+            return Err(MCIHostError::WaitWriteCompleteFailed);
+        }
+
+        if self.application_cmd_send(self.base.relative_address).is_err() {
+            return Err(MCIHostError::SendApplicationCommandFailed);
+        }
+
+        let mut command = MCIHostCmd::new();
+        command.index_set(SdAppCmd::SendNumberWriteBlocks as u32);
+        command.response_type_set(MCIHostResponseType::R1);
+
+        let mut data = MCIHostData::new();
+        data.block_size_set(4);
+        data.block_count_set(1);
+        let tmp_buf = vec![0; 4];
+        data.rx_data_set(Some(tmp_buf));
+
+        let mut content = MCIHostTransfer::new();
+        content.set_cmd(Some(command));
+        content.set_data(Some(data));
+
+        let result = self.transfer(&mut content, 3);
+        let response = content.cmd().unwrap().response();
+        if result.is_err() || response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits() != 0 {
+            error!("\r\n\r\nError: send CMD6 failed with host error {:?}, response {:x}\r\n", result, response[0]);
+            return result;
+        } else {
+            *blocks = swap_word_byte_sequence_u32(response[0]);
+        }
+
+        Ok(())
+    }
+
     fn bus_timing_select(&mut self) -> MCIHostStatus {
         
         if self.operation_voltage != MCIHostOperationVoltage::Voltage180V {
@@ -805,9 +803,42 @@ impl SdCard{
                 return Err(MCIHostError::TransferFailed);
             }
 
+            buffer.clear();
             buffer.extend(once_buffer.iter());
         }
         
+        Ok(())
+    }
+
+    pub fn write_blocks(&mut self, buffer: &mut Vec<u32>, start_block: u32, block_count: u32) -> MCIHostStatus {
+        let mut block_left = block_count;
+        let mut block_count_one_time: u32;
+        let mut block_written_one_time = 0; // 一次写操作写成功的块数
+
+        while block_left != 0 {
+            let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
+            if block_left > host.max_block_count.get() {
+                block_count_one_time = host.max_block_count.get();
+            } else {
+                block_count_one_time = block_left;
+            }
+
+            let mut once_buffer = vec![0u32; MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
+            let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE;
+            let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE;
+            once_buffer.copy_from_slice(&buffer[start_addr as usize..end_addr as usize]);
+            if self.write(&mut once_buffer, 
+                start_block + block_count - block_left, 
+                MCI_HOST_DEFAULT_BLOCK_SIZE, 
+                block_count_one_time, 
+                &mut block_written_one_time
+            ).is_err() {
+                return Err(MCIHostError::TransferFailed);
+            }
+
+            block_left -= block_count_one_time;
+        }
+
         Ok(())
     }
 
@@ -863,8 +894,8 @@ impl SdCard{
 
 }
 
+/// SDIO规范CMD指令
 impl SdCard {
-    
     //* CMD 0 */
     fn go_idle(&self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
@@ -1225,8 +1256,7 @@ impl SdCard {
 
         let mut command = MCIHostCmd::new();
         
-        // ! debug 
-        warn!("block_size = {}, block_count = {}",block_size,block_count);
+        info!("read cmd, block_size = {}, block_count = {}", block_size, block_count);
         command.index_set({
             if block_count == 1 {
                 MCIHostCommonCmd::ReadSingleBlock as u32 
@@ -1260,17 +1290,9 @@ impl SdCard {
         context.set_cmd(Some(command));
         context.set_data(Some(data));
 
-        // ! debug 这里出现问题
         if let Err(err) = self.transfer(&mut context, 3) {
             return Err(err);
         }
-
-        // unsafe {
-        //     // let len = tmp_buf.len() * core::mem::size_of::<u32>();
-        //     asm!("dsb ishst");
-        //     asm!("dc ivac, {}", in(reg) ptr);
-        //     asm!("dsb ish");
-        // }
 
         let data = context.data_mut().unwrap();
         let rx_data = data.rx_data().unwrap();
@@ -1289,6 +1311,76 @@ impl SdCard {
         self.base.internal_buffer.clear();
         self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
         status
+    }
+
+    /// CMD 24/25
+    pub fn write(&mut self, 
+        buffer: &mut Vec<u32>, 
+        start_block: u32, 
+        block_size: u32, 
+        block_count: u32, 
+        written_blocks: &mut u32
+    ) -> MCIHostStatus {
+        if (self.flags.contains(SdCardFlag::SupportHighCapacity) && block_size != 512) ||
+            (block_size > self.base.block_size) || 
+            ({
+                let host  = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
+                block_size > host.max_block_size
+            }) ||
+            (block_size % 4 != 0) 
+        {
+            error!("\r\nError: write with parameter, block size {} is not support\r\n", block_size);
+            return Err(MCIHostError::CardNotSupport);
+        }
+
+        if Err(MCIHostError::CardStatusIdle) != self.polling_card_status_busy(SD_CARD_ACCESS_WAIT_IDLE_TIMEOUT) {
+            error!("Error : read failed with wrong card busy\r\n");
+            return Err(MCIHostError::PollingCardIdleFailed);
+        }
+
+        let mut command = MCIHostCmd::new();
+        command.response_type_set(MCIHostResponseType::R1);
+        command.response_error_flags_set(MCIHostCardStatusFlag::ALL_ERROR_FLAG);
+        command.index_set( 
+            if block_count == 1 {
+                MCIHostCommonCmd::WriteSingleBlock as u32
+            } else {
+                MCIHostCommonCmd::WriteMultipleBlock as u32
+            }
+        );
+        command.argument_set(
+            if self.flags.contains(SdCardFlag::SupportHighCapacity) {
+                start_block
+            } else {
+                start_block * block_size
+            }
+        );
+
+        let mut data = MCIHostData::new();
+        data.enable_auto_command12_set(true);
+        data.block_size_set(block_size as usize);
+        data.block_count_set(block_count);
+        // todo 减少内存开销
+        let tmp_buf = buffer.clone();
+        data.tx_data_set(Some(tmp_buf));
+
+        *written_blocks = block_count;
+
+        let mut content = MCIHostTransfer::new();
+        content.set_cmd(Some(command));
+        content.set_data(Some(data));
+
+        if let Err(e) = self.transfer(&mut content, 3) {
+            return Err(e);
+        } else {
+            if let Err(e) = self.write_successful_block_send(written_blocks) {
+                return Err(e);
+            } else if *written_blocks == 0 {
+                return Err(MCIHostError::TransferFailed);
+            }
+        }
+
+        Ok(())
     }
 
     //* CMD 55 */

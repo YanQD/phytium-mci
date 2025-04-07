@@ -58,28 +58,6 @@ impl SDIFDev {
     pub fn iopad_set(&self,iopad:IoPad) {
         self.hc.borrow_mut().iopad_set(iopad);
     }
-    pub fn blksize_set(&self, blksize: u32) {
-        self.hc.borrow_mut().blksize_set(blksize);
-    }
-    pub fn trans_bytes_set(&self, bytes: u32) {
-        self.hc.borrow_mut().trans_bytes_set(bytes);
-    }
-    pub fn set_dma_mode(&self) {
-        self.hc.borrow_mut().set_dma_mode();
-    }
-    pub fn set_dma_intr(&self) {
-        self.hc.borrow_mut().set_dma_intr();
-    }
-    pub fn set_desc_list_star_reg(&self) {
-        let ptr = self.rw_desc;
-        self.hc.borrow_mut().set_desc_list_star_reg(ptr);
-    }
-    pub fn set_read_addr(&self, buf_ptr: *const Vec<u32>) {
-        self.hc.borrow_mut().set_read_addr(buf_ptr);
-    }
-    pub fn enable_dma(&self) {
-        self.hc.borrow_mut().enable_dma();
-    }
 }
 
 impl MCIHostDevice for SDIFDev {
