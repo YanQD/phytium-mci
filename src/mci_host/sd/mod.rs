@@ -56,7 +56,7 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        let mci_host_config = MCIHostConfig::mci0_sd_instance();
+        let mci_host_config = MCIHostConfig::mci0_sd_dma_instance();
 
         // 组装 base
         let buffer = vec![0u8;mci_host_config.max_trans_size];
@@ -1281,7 +1281,6 @@ impl SdCard {
         data.block_count_set(block_count);
 
         let tmp_buf = vec![0;block_size as usize * block_count as usize];
-        error!("in read, tmp_buf: 0x{:p}", tmp_buf.as_ptr());
         data.rx_data_set(Some(tmp_buf));
         data.enable_auto_command12_set(true);
 

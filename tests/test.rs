@@ -36,7 +36,8 @@ mod tests {
     
         let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
 
-        let mut buffer: Vec<u32> = Vec::with_capacity(128);
+        let mut buffer: Vec<u32> = Vec::with_capacity(512);
+        buffer.resize(512, 0);
         for i in 0..buffer.len() {
             buffer[i] = i as u32;
         }

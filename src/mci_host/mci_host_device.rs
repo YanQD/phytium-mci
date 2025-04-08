@@ -1,4 +1,3 @@
-use core::any::TypeId;
 use core::ptr::NonNull;
 
 use alloc::vec::Vec;
@@ -50,8 +49,6 @@ pub(crate) trait MCIHostDevice {
     fn pre_command(&self,content: &mut MCIHostTransfer, host:&MCIHost) -> MCIHostStatus;
     fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICmdData;
     fn transfer_function(&self, content: &mut MCIHostTransfer, host:&MCIHost) -> MCIHostStatus;
-
-    fn type_id(&self) -> TypeId where Self: 'static; // 用于获取类型
 
     /* boot related functions */
     // todo 永远不会用到它们

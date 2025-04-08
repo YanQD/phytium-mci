@@ -1,5 +1,4 @@
 use core::alloc::Layout;
-use core::any::TypeId;
 use core::cell::{Cell, RefCell};
 use core::mem::take;
 use core::ptr::NonNull;
@@ -347,7 +346,6 @@ impl MCIHostDevice for SDIFDev {
             flag |= MCICmdFlag::EXP_DATA;
             
             let buf = if let Some(rx_data) = in_data.rx_data_mut() {
-                error!("in conver_command_info rx_data is {:p}", rx_data.as_ptr());
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
                 //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
@@ -367,7 +365,6 @@ impl MCIHostDevice for SDIFDev {
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
             let slice = DSlice::from(&buf[..]);
             out_data.buf_dma_set(slice.bus_addr() as usize);
-            error!("in convert_command_info buf_dma is 0x{:x}", slice.bus_addr());
             drop(slice);
             out_data.buf_set(Some(buf));
 
@@ -445,9 +442,5 @@ impl MCIHostDevice for SDIFDev {
         }
 
         Ok(())
-    }
-
-    fn type_id(&self) -> core::any::TypeId where Self: 'static {
-        TypeId::of::<SDIFDev>()
     }
 }

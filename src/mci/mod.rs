@@ -266,9 +266,7 @@ impl MCI {
         self.poll_wait_busy_card()?;
 
         // 清除原始中断寄存器
-        info!("in dma_transfer, before clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
         self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xFFFF_FFFF));
-        info!("in dma_transfer, after clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
 
         /* reset fifo and DMA before transfer */
         self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
@@ -283,9 +281,7 @@ impl MCI {
         }
 
         // transfer command
-        info!("in dma_transfer, before cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
         self.cmd_transfer(&cmd_data)?;
-        info!("in dma_transfer, after cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
 
         Ok(())
     }
@@ -297,7 +293,6 @@ impl MCI {
         } else {
             FSDIF_INT_CMD_BIT | FSDIF_INT_DTO_BIT
         };
-        info!("in poll_wait_dma_end, wait_bits is 0x{:x}, raw_ints is 0x{:x}", wait_bits, self.config.reg().read_reg::<MCIRawInts>());
         let mut reg_val;
 
         if !self.is_ready {
@@ -315,7 +310,7 @@ impl MCI {
         loop {
             reg_val = self.config.reg().read_reg::<MCIRawInts>().bits();
             if delay % 1000 == 0 {
-                debug!("reg_val = 0x{:x}", reg_val);
+                debug!("polling dma end, reg_val = 0x{:x}", reg_val);
             }
             // todo relax handler? 
 

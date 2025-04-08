@@ -74,7 +74,6 @@ impl MCI {
         let desc_blocks = desc_list.desc_trans_sz / data.blksz(); 
         let mut remain_blocks = data.blkcnt();
         let mut buf_addr = data.buf_dma();
-        error!("in setup_dma_descriptor buf_dma is 0x{:x}", buf_addr);
         let mut trans_blocks: u32; // 本次循环被传输的块
         let mut is_first;
         let mut is_last;
@@ -174,13 +173,11 @@ impl MCI {
         self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK_ALL, true);
 
         self.setup_dma_descriptor(&data)?;
-        warn!("mark");
 
         let data_len = data.blkcnt() * data.blksz();
         info!("Descriptor@{:p}, trans bytes: {}, block size: {}", self.desc_list.first_desc, data_len, data.blksz());
 
         self.descriptor_set(self.desc_list.first_desc_dma);
-        warn!("after descriptor_set, desclist hi: 0x{:x}, lo: 0x{:x}", self.config.reg().read_reg::<MCIDescListAddrH>(), self.config.reg().read_reg::<MCIDescListAddrL>());
         self.trans_bytes_set(data_len);
         self.blksize_set(data.blksz());
 
