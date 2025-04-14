@@ -6,7 +6,6 @@ use core::time::Duration;
 
 use alloc::alloc::alloc;
 use alloc::vec::Vec;
-use dma_api::DSlice;
 use log::*;
 
 use crate::mci::regs::MCIIntMask;
@@ -16,7 +15,7 @@ use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
 use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::MCIHostCardIntFn;
-use crate::{sleep, IoPad};
+use crate::{map, sleep, Direction, IoPad};
 use crate::tools::swap_half_word_byte_sequence_u32;
 use crate::mci_host::mci_host_device::MCIHostDevice;
 use super::constants::SDStatus;
@@ -362,9 +361,12 @@ impl MCIHostDevice for SDIFDev {
             out_data.blksz_set(in_data.block_size() as u32);
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
-            let slice = DSlice::from(&buf[..]);
-            out_data.buf_dma_set(slice.bus_addr() as usize);
-            drop(slice);
+            // let slice = DSlice::from(&buf[..]);
+            // out_data.buf_dma_set(slice.bus_addr() as usize);
+            // drop(slice);
+            let buf_ptr = unsafe { NonNull::new_unchecked(buf.as_ptr() as usize as *mut u32) };
+            let bus_addr = map(buf_ptr.cast(), size_of_val(&buf[..]), Direction::Bidirectional);
+            out_data.buf_dma_set(bus_addr as usize);
             out_data.buf_set(Some(buf));
 
             debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
