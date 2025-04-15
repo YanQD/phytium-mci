@@ -68,10 +68,10 @@ impl FMemp {
         Ok(())
     }
 
-    pub fn osa_malloc_align(&mut self, length: u32, align: usize) -> Option<NonNull<u8>> {
+    pub fn osa_aligned_malloc(&mut self, length: u32, align: u32) -> Option<NonNull<u8>> {
         let size = if length > 20 { length } else { 20 };
         if self.tlsf_ptr.is_some() {
-            let layout = Layout::from_size_align(size as usize, align).unwrap();
+            let layout = Layout::from_size_align(size as usize, align as usize).unwrap();
             let ret = unsafe { self.tlsf_ptr_mut().unwrap().alloc(layout) };
             if ret.is_err() {
                 error!("osa malloc aligned failed!");
@@ -94,15 +94,14 @@ pub fn osa_deinit() {
 
 }
 
-pub fn osa_alloc(length: u32) -> Option<NonNull<u8>> {
-    GLOBAL_FMEMP.lock().osa_malloc_align(length, 8)
+pub fn osa_aligned_alloc(length: u32, align: u32) -> Option<NonNull<u8>> {
+    GLOBAL_FMEMP.lock().osa_aligned_malloc(length, align)
 }
 
 // #[bare_test::tests]
 // mod tests {
 //     use super::*;
 
-//     // 模拟裸机环境下的内存区域
 //     #[test]
 //     fn test_fmemp_init() {
 //         unsafe {
