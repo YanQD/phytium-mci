@@ -46,6 +46,8 @@
   3. 经过进一步调试，ACMD51（获取卡scr）为初始化中第一次需要接收数据的情况，后续第二次需要接收数据（CMD6或其他情况）时代码会卡死。调试发现因为`Vec::from_raw_parts()`会转移所有权，该`Vec`生命周期结束后会被自动释放导致后续访问`desc`无效。修改使用了`core::mem::ManullyDrop`来阻止编译器释放Vec的内存。至此DMA读成功，读出内容与dd命令相比较一致。
   4. 后续考虑使用更优雅的方法进行`flush()`
 
+* 删除大量无用注释；发现invalidate函数确实有用，而且是必要的，但这样有的地方使用invalidate，有的地方使用DSlice，不太规范，后面再改；单块读写DMA/PIO模式都没问题，但DMA模式好像会额外拓展buffer长度，待修改；下一步解析多块读逻辑进行开发
+
 ## 初始化
 
 * 为`SDIFDevPIO::new()`添加了`desc_num`字段，以便创建`SDIFDevPIO`实例时为`rw_desc`分配空间
