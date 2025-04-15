@@ -289,9 +289,9 @@ impl MCI {
     /* Wait DMA transfer finished by poll */
     pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
         let wait_bits = if cmd_data.get_data().is_none() {
-            FSDIF_INT_CMD_BIT
+            MCIIntMask::CMD_BIT.bits()
         } else {
-            FSDIF_INT_CMD_BIT | FSDIF_INT_DTO_BIT
+            MCIIntMask::CMD_BIT.bits() | MCIIntMask::DTO_BIT.bits()
         };
         let mut reg_val;
 
@@ -329,8 +329,8 @@ impl MCI {
         }
 
         if cmd_data.get_data().is_some() {
-            let read = cmd_data.flag().bits() & FSDIF_CMD_FLAG_READ_DATA;
-            if read != 0 {
+            let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
+            if !read {
                 unsafe { dsb(); }
             }
         }

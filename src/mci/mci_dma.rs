@@ -169,8 +169,8 @@ impl MCI {
 
     /// start DMA transfers for data
     pub(crate) fn dma_transfer_data(&mut self, data: &MCIData) -> MCIResult {
-        self.interrupt_mask_set(MCIIntrType::GeneralIntr, FSDIF_INTS_CMD_MASK, true);
-        self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK_ALL, true);
+        self.interrupt_mask_set(MCIIntrType::GeneralIntr, MCIIntMask::INTS_CMD_MASK.bits(), true);
+        self.interrupt_mask_set(MCIIntrType::DmaIntr, MCIDMACIntEn::INTS_MASK.bits(), true);
 
         self.setup_dma_descriptor(&data)?;
 

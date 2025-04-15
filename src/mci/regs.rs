@@ -583,7 +583,7 @@ bitflags! {
         const NIS = 1 << 8; /* RW 正常中断汇总使能 */
         const AIS = 1 << 9; /* RW 异常中断汇总使能 */
         const ALL_BITS = 0x3ff;
-        const INTS_MASK = 0x314;
+        const INTS_MASK = MCIDMACIntEn::FBE.bits() | MCIDMACIntEn::DU.bits() | MCIDMACIntEn::NIS.bits() | MCIDMACIntEn::AIS.bits();
     }
 }
 
