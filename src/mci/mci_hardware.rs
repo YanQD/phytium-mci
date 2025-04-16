@@ -6,7 +6,7 @@ use super::regs::*;
 
 use log::*;
 
-//* 直接操作寄存器相关的 API */
+/// 直接操作寄存器相关的 API
 impl MCI {
     pub(crate) fn status_get(&self) -> MCIStatus {
         let reg = self.config.reg();

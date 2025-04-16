@@ -896,13 +896,13 @@ impl SdCard{
 
 /// SDIO规范CMD指令
 impl SdCard {
-    //* CMD 0 */
+    /// CMD 0 
     fn go_idle(&self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.go_idle()
     }
 
-    //* CMD 2 */
+    /// CMD 2 
     fn all_cid_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -928,7 +928,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 3 */
+    /// CMD 3 
     fn rca_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -961,7 +961,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 6 */
+    /// CMD 6 
     fn func_swtich(&mut self,mode: SdSwitchMode,group: SdGroupNum,num: SdTimingFuncNum) -> Option<Vec<u32>> {
         let host = self.base.host.as_ref()?;
 
@@ -1011,14 +1011,14 @@ impl SdCard {
         data.rx_data_take()
     }
 
-    //* CMD 7 */
+    /// CMD 7 
     fn card_select(&mut self,is_selected:bool) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.card_select(self.base.relative_address, is_selected)
     }
 
 
-    //* CMD 8 */
+    /// CMD 8 
     fn interface_condition_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -1061,7 +1061,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 9 */
+    /// CMD 9 
     fn csd_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -1097,8 +1097,8 @@ impl SdCard {
         Ok(())
         }
 
-        //* CMD 11 */
-        fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
+    /// CMD 11
+    fn voltage_switch(&mut self,voltage: MCIHostOperationVoltage) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
         let mut command = MCIHostCmd::new();
@@ -1165,7 +1165,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 12 */
+    /// CMD 12 
     fn transmission_stop(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -1189,7 +1189,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 13 */
+    /// CMD 13 
     fn card_status_send(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         
@@ -1229,13 +1229,13 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 16 */
+    /// CMD 16 
     fn block_size_set(&mut self,block_size:u32) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.block_size_set(block_size)
     }
 
-    //* CMD17 / 18 */
+    /// CMD 17/18 
     fn read(&mut self,buffer:&mut Vec<u32>,start_block:u32,block_size:u32,block_count:u32) -> MCIHostStatus {
         if (self.flags.contains(SdCardFlag::SupportHighCapacity) && block_size != 512) ||
            (block_size > self.base.block_size) ||
@@ -1301,7 +1301,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 19 */
+    /// CMD 19 
     fn tuning_execute(&mut self) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         let mut buffer = vec![0u32;64];
@@ -1382,7 +1382,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* CMD 55 */
+    /// CMD 55 
     fn application_cmd_send(&mut self,relative_address:u32) -> MCIHostStatus {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         host.application_command_send(relative_address)
@@ -1393,7 +1393,7 @@ impl SdCard {
 
 impl SdCard {
 
-    //* ACMD 6 */
+    /// ACMD 6 
     fn data_bus_width_set(&mut self,width: MCIHostBusWdith) -> MCIHostStatus {
 
         /*
@@ -1441,7 +1441,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* ACMD 13 */
+    /// ACMD 13 
     fn status_read(&mut self) -> MCIHostStatus {
 
         // todo polling card status
@@ -1449,7 +1449,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* ACMD 41 */
+    /// ACMD 41 
     fn application_opration_condition_send(&mut self,argument: u32) -> MCIHostStatus {
         
         let mut command = MCIHostCmd::new();
@@ -1510,7 +1510,7 @@ impl SdCard {
         Ok(())
     }
 
-    //* ACMD 51 */
+    /// ACMD 51 
     fn scr_send(&mut self) -> MCIHostStatus {
         
         if self.application_cmd_send(self.base.relative_address).is_err() {

@@ -27,17 +27,15 @@ use crate::mci::constants::*;
 use crate::mci_host::sd::constants::SdCmd;
 use crate::mci::mci_dma::FSdifIDmaDesc;
 
-
 pub(crate) struct SDIFDev {
-    hc: RefCell<MCI>,                            // SDIF 硬件控制器
-    hc_cfg: RefCell<MCIConfig>,                  // SDIF 配置
-    rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输
+    hc: RefCell<MCI>,                           // SDIF 硬件控制器
+    hc_cfg: RefCell<MCIConfig>,                 // SDIF 配置
+    rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
-        // 应该不会报错
         // todo desclist对齐到MCIHostConfig.def_block_size
         let layout = Layout::array::<FSdifIDmaDesc>(desc_num).unwrap(); 
         let rw_desc = unsafe {
@@ -76,7 +74,7 @@ impl MCIHostDevice for SDIFDev {
         *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr, id));
         self.hc.borrow_mut().iopad_set(iopad);
         
-        // ?强行 restart 一下
+        // 强行 restart 一下
         let restart_mci = MCI::new_restart(MCIConfig::restart(addr, id));
         restart_mci.restart().unwrap_or_else(|e| error!("restart failed: {:?}", e));
 
@@ -90,7 +88,10 @@ impl MCIHostDevice for SDIFDev {
         }
 
         if host.config.enable_dma {
-            self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get());
+            if let Err(_) = self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get()) {
+                error!("idma list set failed!");
+                return Err(MCIHostError::Fail);
+            }
         }
 
         *self.hc_cfg.borrow_mut() = mci_config;

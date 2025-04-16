@@ -1,22 +1,19 @@
-//* 引入的包的模块 */
 use core::ptr::NonNull;
 
-//* 同一个包的模块 */
 use super::mci_timing::*;
 use super::constants::*;
 use super::regs::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct MCIConfig {
-    instance_id: MCIId,           /* Device instance id */
-    reg: MCIReg,              /* Device register base address */
+    instance_id: MCIId,         /* Device instance id */
+    reg: MCIReg,                /* Device register base address */
     irq_num: u32,               /* Device IRQ number */
-    trans_mode: MCITransMode, /* Trans mode, PIO/DMA */
+    trans_mode: MCITransMode,   /* Trans mode, PIO/DMA */
     non_removable: bool,        /* Non-removable media, e.g. eMMC */
 }
 
 impl MCIConfig {
-
     /* Get the device instance default configure  */
     pub fn lookup_config(addr: NonNull<u8>,id: MCIId) -> Self {
         match id {
@@ -91,8 +88,6 @@ impl MCIConfig {
             non_removable: false,
         }
     }
-
-    
 
     pub fn restart_mci1(addr: NonNull<u8>) -> Self {
         MCIConfig {
