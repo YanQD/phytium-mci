@@ -65,8 +65,8 @@ impl SdCard {
         let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
         // let internal_buffer_ptr = unsafe {
         //     osa_alloc_aligned(
-        //         mci_host_config.max_trans_size as usize, 
-        //         mci_host_config.def_block_size as usize
+        //         mci_host_config.max_trans_size, 
+        //         mci_host_config.def_block_size
         //     )
         // };
         
