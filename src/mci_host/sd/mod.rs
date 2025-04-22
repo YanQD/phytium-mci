@@ -20,7 +20,7 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
-use crate::osa::{osa_aligned_alloc, osa_init};
+use crate::osa::{osa_alloc, osa_alloc_aligned, osa_init};
 use crate::{sleep, IoPad};
 use crate::tools::{swap_word_byte_sequence_u32, u8_to_u32_slice};
 
@@ -57,22 +57,23 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        osa_init();
+        unsafe { osa_init(); }
 
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
-        // let buffer = vec![0u8;mci_host_config.max_trans_size];
-        let internal_buffer_ptr = 
-            osa_aligned_alloc(
-                mci_host_config.max_trans_size as u32, 
-                mci_host_config.def_block_size as u32
-            )
-            .unwrap();
-        let internal_buffer = unsafe {
-            let capacity = mci_host_config.max_trans_size;
-            Vec::from_raw_parts(internal_buffer_ptr.as_ptr(), capacity, capacity)
-        };
+        let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
+        // let internal_buffer_ptr = unsafe {
+        //     osa_alloc_aligned(
+        //         mci_host_config.max_trans_size as usize, 
+        //         mci_host_config.def_block_size as usize
+        //     )
+        // };
+        
+        // let internal_buffer = unsafe {
+        //     let capacity = mci_host_config.max_trans_size;
+        //     Vec::from_raw_parts(internal_buffer_ptr.as_ptr(), capacity, capacity)
+        // };
         let base = MCICardBase::from_buffer(internal_buffer);
 
         info!("Internal buffer@0x{:x}, length = 0x{}",base.internal_buffer.as_ptr() as usize,base.internal_buffer.len());

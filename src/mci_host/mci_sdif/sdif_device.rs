@@ -16,7 +16,7 @@ use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
 use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::MCIHostCardIntFn;
-use crate::osa::osa_aligned_alloc;
+use crate::osa::osa_alloc_aligned;
 use crate::sd::constants::SD_BLOCK_SIZE;
 use crate::{sleep, IoPad};
 use crate::tools::swap_half_word_byte_sequence_u32;
@@ -38,16 +38,10 @@ pub(crate) struct SDIFDev {
 
 impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
-        let align = SD_BLOCK_SIZE as u32;
-        let length = (core::mem::size_of::<FSdifIDmaDesc>() * desc_num) as u32;
-        let rw_desc = match osa_aligned_alloc(length, align) {
-            None => {
-                error!("osa alloc rw_desc failed!");
-                core::ptr::null_mut()
-            },
-            Some(ptr) => {
-                ptr.as_ptr() as *mut FSdifIDmaDesc
-            }
+        let align = SD_BLOCK_SIZE;
+        let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
+        let rw_desc = unsafe {
+            osa_alloc_aligned(length, align)
         };
         // 应该不会报错
         // todo desclist对齐到MCIHostConfig.def_block_size ok
@@ -61,7 +55,7 @@ impl SDIFDev {
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
-            rw_desc,
+            rw_desc: rw_desc.as_ptr() as *mut FSdifIDmaDesc,
             desc_num: (desc_num as u32).into(),
         }
     }

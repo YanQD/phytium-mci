@@ -1,115 +1,57 @@
-use core::{alloc::Layout, ptr::NonNull};
+use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 
+use consts::MAX_POOL_SIZE;
 use err::FMempStatus;
-use log::{error, warn};
-use tlsf::*;
+use log::{error, info, warn};
+use rlsf::Tlsf;
 use spin::Mutex;
 use lazy_static::*;
 
 mod err;
+mod consts;
 
-static mut MEMORY: [u8; 4096] = [0; 4096];
+static mut POOL: [MaybeUninit<u8>; MAX_POOL_SIZE] = [MaybeUninit::uninit(); MAX_POOL_SIZE];
 
-pub struct FMemp {
-    tlsf_ptr: Option<Tlsf>,
+pub struct FMemp<'a> {
+    tlsf_ptr: Tlsf<'a, u32, u32, 32, 32>,
     is_ready: bool,
 }
 
 lazy_static! {
-    pub static ref GLOBAL_FMEMP: Mutex<FMemp> = 
+    pub static ref GLOBAL_FMEMP: Mutex<FMemp<'static>> = 
         Mutex::new(FMemp::new());
 }
 
-// pub static mut GLOBAL_FMEMP: FMemp = {
-//     FMemp {
-//         tlsf_ptr: None,
-//         is_ready: false,
-//     }
-// };
-
-impl FMemp {
+impl<'a> FMemp<'a> {
     pub fn new() -> Self {
         Self {
-            tlsf_ptr: None,
+            tlsf_ptr: Tlsf::new(),
             is_ready: false,
         }
     }
 
-    pub fn tlsf_ptr_mut(&mut self) -> Option<&mut Tlsf> {
-        self.tlsf_ptr.as_mut()
-    }
-
-    pub fn is_ready(&self) -> bool {
-        self.is_ready
-    }
-
-    pub fn fmemp_init(&mut self) -> FMempStatus {
-        if self.is_ready() {
-            warn!("Memory pool already inited!");
-            return Ok(());
-        }
-
-        if self.tlsf_ptr.is_none() {
-            let mut tlsf = Tlsf::new();
-
-            unsafe {
-                if tlsf.extend(&mut MEMORY) == 0 {
-                    error!("Allocate TLSF buf failed!");
-                    return Err(err::FMempError::InitTlsfError);
-                }
-                self.tlsf_ptr = Some(tlsf);
-            }
-        } else {
-            warn!("TLSF buf aleady exists, skip from allocate!")
-        }
-
+    unsafe fn init(&mut self) {
+        self.tlsf_ptr.insert_free_block(&mut POOL[..]);
         self.is_ready = true;
-
-        Ok(())
     }
 
-    pub fn osa_aligned_malloc(&mut self, length: u32, align: u32) -> Option<NonNull<u8>> {
-        let size = if length > 20 { length } else { 20 };
-        if self.tlsf_ptr.is_some() {
-            let layout = Layout::from_size_align(size as usize, align as usize).unwrap();
-            let ret = unsafe { self.tlsf_ptr_mut().unwrap().alloc(layout) };
-            if ret.is_err() {
-                error!("osa malloc aligned failed!");
-                return None;
-            } else {
-                return Some(ret.unwrap());
-            }
-        }
-        None
+    unsafe fn alloc_aligned(&mut self, size: usize, align: usize) -> NonNull<u8> {
+        let layout = Layout::from_size_align_unchecked(size, align);
+        self.tlsf_ptr.allocate(layout).unwrap()
     }
 }
 
-pub fn osa_init() {
-    if GLOBAL_FMEMP.lock().fmemp_init().is_err() {
-        panic!("OSA init failed!");
-    }
+/// 初始化内存池 大小为1MiB
+pub unsafe fn osa_init() {
+    GLOBAL_FMEMP.lock().init();
 }
 
-pub fn osa_deinit() {
-
+/// 分配'size'大小的空间，默认64KiB对齐
+pub unsafe fn osa_alloc(size: usize) -> NonNull<u8> {
+    GLOBAL_FMEMP.lock().alloc_aligned(size, size_of::<usize>())
 }
 
-pub fn osa_aligned_alloc(length: u32, align: u32) -> Option<NonNull<u8>> {
-    GLOBAL_FMEMP.lock().osa_aligned_malloc(length, align)
+/// 申请'size'大小的空间，对齐到'align'
+pub unsafe fn osa_alloc_aligned(size: usize, align: usize) -> NonNull<u8> {
+    GLOBAL_FMEMP.lock().alloc_aligned(size, align)
 }
-
-// #[bare_test::tests]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn test_fmemp_init() {
-//         unsafe {
-//             let result = GLOBAL_FMEMP.fmemp_init();
-
-//             // 检查初始化是否成功
-//             assert!(result.is_ok());
-//             assert!(GLOBAL_FMEMP.is_ready);
-//         }
-//     }
-// }
