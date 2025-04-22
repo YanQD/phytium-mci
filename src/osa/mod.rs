@@ -1,14 +1,13 @@
 use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 
 use consts::MAX_POOL_SIZE;
-use err::FMempStatus;
-use log::{error, info, warn};
 use rlsf::Tlsf;
 use spin::Mutex;
 use lazy_static::*;
 
 mod err;
 mod consts;
+pub mod pool_buffer;
 
 static mut POOL: [MaybeUninit<u8>; MAX_POOL_SIZE] = [MaybeUninit::uninit(); MAX_POOL_SIZE];
 
@@ -39,6 +38,10 @@ impl<'a> FMemp<'a> {
         let layout = Layout::from_size_align_unchecked(size, align);
         self.tlsf_ptr.allocate(layout).unwrap()
     }
+
+    unsafe fn dealloc(&mut self, addr: NonNull<u8>, size: usize) {
+        self.tlsf_ptr.deallocate(addr, size);
+    }
 }
 
 /// 初始化内存池 大小为1MiB
@@ -54,4 +57,8 @@ pub unsafe fn osa_alloc(size: usize) -> NonNull<u8> {
 /// 申请'size'大小的空间，对齐到'align'
 pub unsafe fn osa_alloc_aligned(size: usize, align: usize) -> NonNull<u8> {
     GLOBAL_FMEMP.lock().alloc_aligned(size, align)
+}
+
+pub fn osa_dealloc(addr: NonNull<u8>, size: usize) {
+    unsafe { GLOBAL_FMEMP.lock().dealloc(addr, size); }
 }

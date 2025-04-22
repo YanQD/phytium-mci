@@ -1,10 +1,8 @@
-use core::alloc::Layout;
 use core::cell::{Cell, RefCell};
 use core::mem::take;
 use core::ptr::NonNull;
 use core::time::Duration;
 
-use alloc::alloc::alloc;
 use alloc::vec::Vec;
 use dma_api::DSlice;
 use log::*;

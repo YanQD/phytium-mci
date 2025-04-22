@@ -20,9 +20,10 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
-use crate::osa::{osa_alloc, osa_alloc_aligned, osa_init};
+use crate::osa::pool_buffer::PoolBuffer;
+use crate::osa::{osa_alloc_aligned, osa_init};
 use crate::{sleep, IoPad};
-use crate::tools::{swap_word_byte_sequence_u32, u8_to_u32_slice};
+use crate::tools::swap_word_byte_sequence_u32;
 
 use super::err::{MCIHostError, MCIHostStatus};
 use super::mci_card_base::MCICardBase;
@@ -62,13 +63,14 @@ impl SdCard {
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
-        let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
-        // let internal_buffer_ptr = unsafe {
-        //     osa_alloc_aligned(
-        //         mci_host_config.max_trans_size, 
-        //         mci_host_config.def_block_size
-        //     )
-        // };
+        // let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
+        let internal_buffer_ptr = unsafe {
+            osa_alloc_aligned(
+                mci_host_config.max_trans_size, 
+                mci_host_config.def_block_size
+            )
+        };
+        let internal_buffer = PoolBuffer::new(mci_host_config.max_trans_size, internal_buffer_ptr);
         
         // let internal_buffer = unsafe {
         //     let capacity = mci_host_config.max_trans_size;
@@ -76,7 +78,7 @@ impl SdCard {
         // };
         let base = MCICardBase::from_buffer(internal_buffer);
 
-        info!("Internal buffer@0x{:x}, length = 0x{}",base.internal_buffer.as_ptr() as usize,base.internal_buffer.len());
+        info!("Internal buffer@0x{:p}, length = 0x{}",base.internal_buffer.addr().as_ptr(), base.internal_buffer.size());
         
         // 组装 host
         let desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
@@ -86,7 +88,7 @@ impl SdCard {
         let host_type = host.config.host_type;
 
         // 初步组装 SdCard
-        let mut sd_card = SdCard::new();
+        let mut sd_card = SdCard::from_base(base);
         sd_card.base.host = Some(host);
 
         if host_type == MCIHostType::SDIF {
@@ -182,9 +184,9 @@ impl SdCard {
         Ok(())
     }
 
-    fn new() -> Self {
+    fn from_base(base: MCICardBase) -> Self {
         SdCard {
-            base: MCICardBase::new(),
+            base,
             usr_param: SdUsrParam::new(),
             version: SdSpecificationVersion::Version1_0,
             flags: SdCardFlag::empty(),
@@ -935,7 +937,10 @@ impl SdCard {
         let response = command.response();
 
         self.base.internal_buffer.clear();
-        self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
+        // self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
+        if self.base.internal_buffer.copy_from_slice(response).is_err() {
+            return Err(MCIHostError::Fail);
+        }
 
         self.decode_cid();
 
@@ -1104,7 +1109,11 @@ impl SdCard {
         info!("in csd_send response is: {:x?}", response);
 
         self.base.internal_buffer.clear();
-        self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
+        // self.base.internal_buffer.extend(response.iter().flat_map(|&val| val.to_ne_bytes()));
+        if let Err(e) = self.base.internal_buffer.copy_from_slice(response) {
+            error!("copy to PoolBuffer failed! err: {:?}", e);
+            return Err(MCIHostError::Fail);
+        }
 
         self.decode_csd();
 
@@ -1320,9 +1329,16 @@ impl SdCard {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         let mut buffer = vec![0u32;64];
         let status = host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64);
+        
         // todo 性能问题
         self.base.internal_buffer.clear();
-        self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
+        // self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
+        let buffer = buffer.iter().flat_map(|&val| val.to_ne_bytes()).collect::<Vec<u8>>();
+        if let Err(e) = self.base.internal_buffer.copy_from_slice(&buffer[..]) {
+            error!("copy to PoolBuffer failed! err: {:?}", e);
+            return Err(MCIHostError::Fail)
+        }
+
         status
     }
 
@@ -1577,7 +1593,8 @@ impl SdCard {
 
         let cid = &mut self.cid;
         // todo 可能存在性能问题
-        let rawcid = u8_to_u32_slice(&self.base.internal_buffer);
+        // let rawcid = u8_to_u32_slice(&self.base.internal_buffer);
+        let rawcid = self.base.internal_buffer.to_vec_u32();
 
 
         cid.manufacturer_id = ((rawcid[3] & 0xFF000000) >> 24) as u8;
@@ -1600,8 +1617,8 @@ impl SdCard {
 
         let csd = &mut self.csd;
         // todo 可能存在性能问题
-        let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
-        info!("in decode_csd rawcsd is {:x?}", rawcsd);
+        // let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
+        let rawcsd = self.base.internal_buffer.to_vec_u32();
 
         csd.csd_structure = ((rawcsd[3] & 0xC0000000) >> 30) as u8;
         info!("csd structure is {:b}", csd.csd_structure);
