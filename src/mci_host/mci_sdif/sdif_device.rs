@@ -46,8 +46,8 @@ impl SDIFDev {
             ptr
         };
         Self {
-            hc: MCI::new(MCIConfig::new_mci1(addr)).into(),
-            hc_cfg: MCIConfig::new_mci1(addr).into(),
+            hc: MCI::new(MCIConfig::new(addr)).into(),
+            hc_cfg: MCIConfig::new(addr).into(),
             rw_desc,
             desc_num: (desc_num as u32).into(),
         }
@@ -66,16 +66,14 @@ impl MCIHostDevice for SDIFDev {
     }
 
     fn do_init(&self,addr: NonNull<u8>,host:&MCIHost) -> MCIHostStatus {
-        let id = host.config.host_id;
-
-        let mci_config = MCIConfig::lookup_config(addr, id);
+        let mci_config = MCIConfig::lookup_config(addr);
         let iopad = self.hc.borrow_mut().iopad_take().ok_or(MCIHostError::NoData)?;
 
-        *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr, id));
+        *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr));
         self.hc.borrow_mut().iopad_set(iopad);
         
         // 强行 restart 一下
-        let restart_mci = MCI::new_restart(MCIConfig::restart(addr, id));
+        let restart_mci = MCI::new_restart(MCIConfig::restart(addr));
         restart_mci.restart().unwrap_or_else(|e| error!("restart failed: {:?}", e));
 
         if let Err(_) = self.hc.borrow_mut().config_init(&mci_config) {

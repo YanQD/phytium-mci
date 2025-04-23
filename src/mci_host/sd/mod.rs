@@ -56,7 +56,7 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        let mci_host_config = MCIHostConfig::mci0_sd_dma_instance();
+        let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
         let buffer = vec![0u8;mci_host_config.max_trans_size];
@@ -86,7 +86,7 @@ impl SdCard {
         }
 
         if let Err(err) = sd_card.init(addr) {
-            warn!("Sd Card Init Fail, error = {:?}",err);
+            error!("Sd Card Init Fail, error = {:?}",err);
             panic!("Sd Card Init Fail");
         }
         

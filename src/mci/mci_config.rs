@@ -1,3 +1,6 @@
+#[cfg(all(feature = "dma", feature = "pio"))]
+compile_error!("can't enable feature dma and pio at the same time!");
+
 use core::ptr::NonNull;
 
 use super::mci_timing::*;
@@ -14,16 +17,31 @@ pub struct MCIConfig {
 }
 
 impl MCIConfig {
-    /* Get the device instance default configure  */
-    pub fn lookup_config(addr: NonNull<u8>,id: MCIId) -> Self {
-        match id {
-            MCIId::MCI0 => {
-                MCIConfig::new_mci0(addr)
-            },
-            MCIId::MCI1 => {
-                MCIConfig::new_mci1(addr)
-            },
+    #[cfg(feature="dma")]
+    pub fn new(addr: NonNull<u8>) -> Self {
+        Self {
+            instance_id: MCIId::MCI1,
+            reg: MCIReg::new(addr),
+            irq_num: 105,
+            trans_mode: MCITransMode::DMA,
+            non_removable: false,
         }
+    }
+
+    #[cfg(feature="pio")]
+    pub fn new(addr: NonNull<u8>) -> Self {
+        Self {
+            instance_id: MCIId::MCI0,
+            reg: MCIReg::new(addr),
+            irq_num: 104,
+            trans_mode: MCITransMode::PIO,
+            non_removable: false,
+        }
+    }
+
+    /* Get the device instance default configure  */
+    pub fn lookup_config(addr: NonNull<u8>) -> Self {
+        Self::new(addr)
     }
     /* Get time-tuning related parameters and method */
     pub fn get_tuning(clock_freq: MCIClkSpeed, non_removable: bool) ->  Option<MCITiming> {
@@ -42,61 +60,8 @@ impl MCIConfig {
         }
     }
 
-    pub fn new(addr:NonNull<u8>) -> Self {
-        MCIConfig {
-            instance_id: MCIId::MCI0,
-            reg: MCIReg::new(addr),
-            irq_num: 104,
-            trans_mode: MCITransMode::DMA,
-            non_removable: false,
-        }
-    }
-
-    pub fn new_mci0(addr:NonNull<u8>) -> Self {
-        MCIConfig {
-            instance_id: MCIId::MCI0,
-            reg: MCIReg::new(addr),
-            irq_num: 104,
-            trans_mode: MCITransMode::PIO,
-            non_removable: false,
-        }
-    }
-
-    pub fn new_mci1(addr:NonNull<u8>) -> Self {
-        MCIConfig {
-            instance_id: MCIId::MCI1,
-            reg: MCIReg::new(addr),
-            irq_num: 105,
-            trans_mode: MCITransMode::DMA,
-            non_removable: false,
-        }
-    }
-
-    pub fn restart(addr: NonNull<u8>, id: MCIId) -> Self {
-        match id {
-            MCIId::MCI0 => Self::restart_mci0(addr),
-            MCIId::MCI1 => Self::restart_mci1(addr),
-        }
-    }
-
-    pub fn restart_mci0(addr:NonNull<u8>) -> Self {
-        MCIConfig {
-            instance_id: MCIId::MCI0,
-            reg: MCIReg::new(addr),
-            irq_num: 104,
-            trans_mode: MCITransMode::PIO,
-            non_removable: false,
-        }
-    }
-
-    pub fn restart_mci1(addr: NonNull<u8>) -> Self {
-        MCIConfig {
-            instance_id: MCIId::MCI1,
-            reg: MCIReg::new(addr),
-            irq_num: 105,
-            trans_mode: MCITransMode::DMA,
-            non_removable: false,
-        }
+    pub fn restart(addr: NonNull<u8>) -> Self {
+        Self::new(addr)
     }
 
     pub fn reg(&self) -> &MCIReg {
