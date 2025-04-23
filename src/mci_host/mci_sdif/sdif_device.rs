@@ -38,16 +38,14 @@ impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
         let align = SD_BLOCK_SIZE;
         let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
-        let rw_desc = osa_alloc_aligned(length, align);
-        // 应该不会报错
-        // todo desclist对齐到MCIHostConfig.def_block_size ok
-        // let rw_desc = unsafe {
-        //     let ptr = alloc(layout) as *mut FSdifIDmaDesc;
-        //     if ptr.is_null() {
-        //         error!("failed to allcate memory for rw_desc!");
-        //     }
-        //     ptr
-        // };
+        let rw_desc = match osa_alloc_aligned(length, align) {
+            Err(e) => {
+                error!("alloc internal buffer failed! err: {:?}", e);
+                panic!("Failed to allocate internal buffer");
+            }
+            Ok(ptr) => ptr,
+        };
+
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),

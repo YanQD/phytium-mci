@@ -45,17 +45,19 @@ mod tests {
         }
 
         let _ = sdcard.write_blocks(&mut buffer, 131072 + 200, 1);
+
+        let mut receive_buf = Vec::new();
         
-        let _ = sdcard.read_blocks(&mut buffer, 131072+200,1);
+        let _ = sdcard.read_blocks(&mut receive_buf, 131072+200,1);
     
-        error!("test_work passed\n");
-        for i in 0..buffer.len() {
+        for i in 0..receive_buf.len() {
             warn!("{:x},{:x},{:x},{:x}",
-                    buffer[i] as u8,
-                    (buffer[i] >> 8) as u8,
-                    (buffer[i] >> 16) as u8,
-                    (buffer[i] >> 24) as u8);
+            receive_buf[i] as u8,
+            (receive_buf[i] >> 8) as u8,
+            (receive_buf[i] >> 16) as u8,
+            (receive_buf[i] >> 24) as u8);
         }
+        error!("test_work passed\n");
         assert!(true);
     }
     

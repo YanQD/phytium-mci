@@ -63,19 +63,18 @@ impl SdCard {
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
-        // let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
-        let internal_buffer_ptr = osa_alloc_aligned(
+        let internal_buffer_ptr = match osa_alloc_aligned(
             mci_host_config.max_trans_size, 
             mci_host_config.def_block_size
-        );
+        ) {
+            Err(e) => {
+                error!("alloc internal buffer failed! err: {:?}", e);
+                panic!("Failed to allocate internal buffer");
+            }
+            Ok(ptr) => ptr,
+        };
         let internal_buffer = PoolBuffer::new(mci_host_config.max_trans_size, internal_buffer_ptr);
-        
-        // let internal_buffer = unsafe {
-        //     let capacity = mci_host_config.max_trans_size;
-        //     Vec::from_raw_parts(internal_buffer_ptr.as_ptr(), capacity, capacity)
-        // };
         let base = MCICardBase::from_buffer(internal_buffer);
-
         info!("Internal buffer@0x{:p}, length = 0x{}",base.internal_buffer.addr().as_ptr(), base.internal_buffer.size());
         
         // 组装 host
