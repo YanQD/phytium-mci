@@ -1,16 +1,20 @@
+//! A managed memory buffer for aligned allocations.
+//!
+//! Provides [`PoolBuffer`] - a safe wrapper around pooled memory
 use core::{ptr::{copy_nonoverlapping, write_bytes, NonNull}, slice::{from_raw_parts, from_raw_parts_mut}};
 
 use alloc::vec::Vec;
-use log::warn;
 
-use super::osa_dealloc;
+use super::{err::FMempError, osa_dealloc};
 
+/// PoolBuffer definition
 pub struct PoolBuffer {
     size: usize,
     addr: NonNull<u8>,
 }
 
 impl PoolBuffer {
+    /// Construct a PoolBuffer
     pub fn new(size: usize, addr: NonNull<u8>) -> Self {
         Self {
             size,
@@ -18,28 +22,7 @@ impl PoolBuffer {
         }
     }
 
-    pub fn as_slice(&self) -> &[u8] {
-        unsafe { from_raw_parts(self.addr.as_ptr(), self.size) }
-    }
-
-    pub fn as_slice_u32(&self) -> &[u32] {
-        unsafe { from_raw_parts(self.addr.as_ptr() as *const u32, self.size / size_of::<u32>()) }
-    }
-
-    pub fn as_slice_mut(&mut self) -> &mut [u8] {
-        unsafe { from_raw_parts_mut(self.addr.as_ptr(), self.size) }
-    }
-
-    pub fn to_vec_u32(&self) -> Vec<u32> {
-        let slice = self.as_slice_u32();
-        warn!("now size is {}", self.size());
-        slice.to_vec()
-    }
-
-    pub fn clear(&mut self) {
-        unsafe { write_bytes(self.addr.as_ptr(), 0, self.size); }
-    }
-
+    /// Construct from &[T]
     pub fn copy_from_slice<T: Copy>(&mut self, src: &[T]) -> Result<(), &'static str> {
         let len = src.len() * size_of::<T>();
         if self.size < len {
@@ -47,6 +30,7 @@ impl PoolBuffer {
         }
 
         unsafe {
+            // equivalent to memcpy in C
             copy_nonoverlapping(
                 src.as_ptr() as *mut u8,
                 self.addr.as_ptr(),
@@ -57,10 +41,49 @@ impl PoolBuffer {
         Ok(())
     }
 
+    /// Construct a &[T] from self
+    pub fn as_slice<T>(&self) -> Result<&[T], FMempError> {
+        let size = size_of::<T>();
+        if self.size() % size != 0 {
+            return Err(FMempError::SizeNotAligned);
+        }
+
+        unsafe {
+            let result = from_raw_parts(self.addr.as_ptr() as *const T, self.size() / size);
+            Ok(result)
+        }
+    }
+
+    /// Construct a &mut [T] from self
+    pub fn as_slice_mut<T>(&self) -> Result<&[T], FMempError> {
+        let size = size_of::<T>();
+        if self.size() % size != 0 {
+            return Err(FMempError::SizeNotAligned);
+        }
+
+        unsafe {
+            let result = from_raw_parts_mut(self.addr.as_ptr() as *mut T, self.size() / size);
+            Ok(result)
+        }
+    }
+
+    /// Construct a Vec<u32> from self
+    pub fn to_vec<T: Clone>(&self) -> Result<Vec<T>, FMempError> {
+        let slice = self.as_slice::<T>()?;
+        Ok(slice.to_vec())
+    }
+
+    /// Clear buffer, leaving 0s in original places
+    pub fn clear(&mut self) {
+        unsafe { write_bytes(self.addr.as_ptr(), 0, self.size); }
+    }
+
+    /// Get size
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// Get addr
     pub fn addr(&self) -> NonNull<u8> {
         self.addr.clone()
     }

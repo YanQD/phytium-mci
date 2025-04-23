@@ -58,18 +58,16 @@ pub struct SdCard{
 
 impl SdCard {
     pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
-        unsafe { osa_init(); }
+        osa_init();
 
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
         // let internal_buffer = vec![0u8;mci_host_config.max_trans_size];
-        let internal_buffer_ptr = unsafe {
-            osa_alloc_aligned(
-                mci_host_config.max_trans_size, 
-                mci_host_config.def_block_size
-            )
-        };
+        let internal_buffer_ptr = osa_alloc_aligned(
+            mci_host_config.max_trans_size, 
+            mci_host_config.def_block_size
+        );
         let internal_buffer = PoolBuffer::new(mci_host_config.max_trans_size, internal_buffer_ptr);
         
         // let internal_buffer = unsafe {
@@ -1329,7 +1327,7 @@ impl SdCard {
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
         let mut buffer = vec![0u32;64];
         let status = host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64);
-        
+
         // todo 性能问题
         self.base.internal_buffer.clear();
         // self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
@@ -1594,8 +1592,13 @@ impl SdCard {
         let cid = &mut self.cid;
         // todo 可能存在性能问题
         // let rawcid = u8_to_u32_slice(&self.base.internal_buffer);
-        let rawcid = self.base.internal_buffer.to_vec_u32();
-
+        let rawcid = match self.base.internal_buffer.to_vec::<u32>() {
+            Err(e) => {
+                error!("Construct Vec<u32> from internal_buffer failed! err: {:?}", e);
+                panic!();
+            },
+            Ok(rawcid) => rawcid,
+        };
 
         cid.manufacturer_id = ((rawcid[3] & 0xFF000000) >> 24) as u8;
         cid.application_id = ((rawcid[3] & 0xFFFF00) >> 8) as u16;
@@ -1618,7 +1621,13 @@ impl SdCard {
         let csd = &mut self.csd;
         // todo 可能存在性能问题
         // let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
-        let rawcsd = self.base.internal_buffer.to_vec_u32();
+        let rawcsd = match self.base.internal_buffer.to_vec::<u32>() {
+            Err(e) => {
+                error!("Construct Vec<u32> from internal_buffer failed! err: {:?}", e);
+                panic!();
+            },
+            Ok(rawcsd) => rawcsd,
+        };
 
         csd.csd_structure = ((rawcsd[3] & 0xC0000000) >> 30) as u8;
         info!("csd structure is {:b}", csd.csd_structure);

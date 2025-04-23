@@ -38,9 +38,7 @@ impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
         let align = SD_BLOCK_SIZE;
         let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
-        let rw_desc = unsafe {
-            osa_alloc_aligned(length, align)
-        };
+        let rw_desc = osa_alloc_aligned(length, align);
         // 应该不会报错
         // todo desclist对齐到MCIHostConfig.def_block_size ok
         // let rw_desc = unsafe {
