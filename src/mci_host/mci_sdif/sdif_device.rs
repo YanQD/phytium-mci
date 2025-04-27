@@ -15,6 +15,7 @@ use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::MCIHostCardIntFn;
 use crate::osa::osa_alloc_aligned;
+use crate::osa::pool_buffer::PoolBuffer;
 use crate::sd::constants::SD_BLOCK_SIZE;
 use crate::{sleep, IoPad};
 use crate::tools::swap_half_word_byte_sequence_u32;
@@ -30,7 +31,7 @@ use crate::mci::mci_dma::FSdifIDmaDesc;
 pub(crate) struct SDIFDev {
     hc: RefCell<MCI>,                           // SDIF 硬件控制器
     hc_cfg: RefCell<MCIConfig>,                 // SDIF 配置
-    rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
+    rw_desc: PoolBuffer,                        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
@@ -49,7 +50,7 @@ impl SDIFDev {
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
-            rw_desc: rw_desc.as_ptr() as *mut FSdifIDmaDesc,
+            rw_desc: PoolBuffer::new(length, rw_desc),
             desc_num: (desc_num as u32).into(),
         }
     }
@@ -87,7 +88,7 @@ impl MCIHostDevice for SDIFDev {
         }
 
         if host.config.enable_dma {
-            if let Err(_) = self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get()) {
+            if let Err(_) = self.hc.borrow_mut().set_idma_list(&self.rw_desc, self.desc_num.get()) {
                 error!("idma list set failed!");
                 return Err(MCIHostError::Fail);
             }

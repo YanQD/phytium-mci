@@ -25,7 +25,7 @@ pub use mci_cmddata::*;
 pub use mci_config::*;
 pub use mci_timing::*;
 
-use crate::{regs::*, sleep, IoPad};
+use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep, IoPad};
 use core::time::Duration;
 
 pub struct MCI {
@@ -122,7 +122,7 @@ impl MCI {
     }
 
     /// Setup DMA descriptor for SDIF controller instance
-    pub fn set_idma_list(&mut self, desc: *mut FSdifIDmaDesc, desc_num: u32) -> MCIResult {
+    pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
         if !self.is_ready {
             error!("Device is not yet initialized!");
             return Err(MCIError::NotInit);
@@ -136,12 +136,12 @@ impl MCI {
         // todo 不太优雅 后续考虑修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(
-                Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+                Vec::from_raw_parts(desc.addr().as_ptr(), desc_num as usize, desc_num as usize)
             )
         };
         let slice = DSlice::from(&desc_vec[..]); // 获取物理地址
         self.desc_list.first_desc_dma = slice.bus_addr() as usize;
-        self.desc_list.first_desc = desc;
+        self.desc_list.first_desc = desc.addr().as_ptr() as *mut FSdifIDmaDesc;
         self.desc_list.desc_num = desc_num;
         self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
 
@@ -456,35 +456,6 @@ impl MCI {
             self.idma_reset();
         }
         Ok(())
-    }
-
-    pub fn set_dma_mode(&mut self) {
-        self.config.reg().modify_reg(|reg| {
-            MCIBusMode::DE | reg
-        });
-    }
-
-    pub fn set_dma_intr(&mut self) {
-        // self.config.reg().modify_reg(|reg| {
-        //     MCIDMACIntEn::all()
-        // });
-        self.config.reg().write_reg(MCIDMACIntEn::all());
-    }
-
-    pub fn set_desc_list_star_reg(&mut self, ptr: *mut FSdifIDmaDesc) {
-        let addr = ptr as usize;
-        self.config.reg().write_reg(MCIDescListAddrH::from_bits_truncate((addr >> 32) as u32));
-        self.config.reg().write_reg(MCIDescListAddrL::from_bits_truncate(addr as u32));
-    }
-
-    pub fn set_read_addr(&mut self, buf_ptr: *const Vec<u32>) {
-        // todo 寄存器是32位的，但地址可能是64位？
-        let addr = buf_ptr as u32;
-        self.config.reg().write_reg(MCICmdArg::from_bits_truncate(addr));
-    }
-
-    pub fn enable_dma(&mut self) {
-        self.config.trans_mode_set(MCITransMode::DMA);
     }
 
     /// Dump all register value of SDIF instance 
