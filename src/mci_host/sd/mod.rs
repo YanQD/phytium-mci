@@ -57,7 +57,7 @@ pub struct SdCard{
 }
 
 impl SdCard {
-    pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
+    pub fn new(addr: NonNull<u8>,iopad:IoPad) -> Self {
         osa_init();
 
         let mci_host_config = MCIHostConfig::new();
@@ -792,13 +792,14 @@ impl SdCard{
         host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64)
     } 
     
+    /// will clear buffer passed to this method
     pub fn read_blocks(&mut self,buffer:&mut Vec<u32>,start_block:u32,block_count:u32) -> MCIHostStatus {
+        buffer.clear();
         let mut block_left = block_count;
-
         let mut block_count_one_time:u32;
 
         while block_left != 0 {
-            // 如果修正当前的性能问题,则需要考虑对齐问题
+            // todo如果修正当前的性能问题,则需要考虑对齐问题
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
             if block_left > host.max_block_count.get() {
                 block_left -= host.max_block_count.get();
@@ -808,15 +809,17 @@ impl SdCard{
                 block_left = 0;
             }
 
-            let mut once_buffer = vec![0u32;MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
+            let len = block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            error!("len is {}", len);
+            let mut once_buffer = vec![0u32; len as usize];
             if self.read(&mut once_buffer, 
                         start_block, 
                         MCI_HOST_DEFAULT_BLOCK_SIZE,
                         block_count_one_time).is_err() {
                 return Err(MCIHostError::TransferFailed);
             }
+            error!("once buffer len is {}", once_buffer.len());
 
-            buffer.clear();
             buffer.extend(once_buffer.iter());
         }
         
@@ -836,9 +839,10 @@ impl SdCard{
                 block_count_one_time = block_left;
             }
 
-            let mut once_buffer = vec![0u32; MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
-            let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE;
-            let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE;
+            let len = MCI_HOST_DEFAULT_BLOCK_SIZE * block_count_one_time / 4;
+            let mut once_buffer = vec![0u32; len as usize];
+            let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
             once_buffer.copy_from_slice(&buffer[start_addr as usize..end_addr as usize]);
             if self.write(&mut once_buffer, 
                 start_block + block_count - block_left, 
@@ -1300,7 +1304,8 @@ impl SdCard {
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
 
-        let tmp_buf = vec![0;block_size as usize * block_count as usize];
+        let len = block_size * block_count / 4;
+        let tmp_buf = vec![0; len as usize];
         data.rx_data_set(Some(tmp_buf));
         data.enable_auto_command12_set(true);
 
