@@ -74,7 +74,6 @@ impl MCI {
         let desc_blocks = desc_list.desc_trans_sz / data.blksz(); 
         let mut remain_blocks = data.blkcnt();
         let mut buf_addr = data.buf_dma();
-        error!("in setup_dma_descriptor buf_dma is 0x{:x}", buf_addr);
         let mut trans_blocks: u32; // 本次循环被传输的块
         let mut is_first;
         let mut is_last;
@@ -97,7 +96,6 @@ impl MCI {
         // setup DMA descriptor list, so that we just need to update buffer address in each transcation
         let total_size = desc_list.desc_num as usize * core::mem::size_of::<FSdifIDmaDesc>();
         unsafe {
-            // todo 这里是*mut u8?
             core::ptr::write_bytes(desc_list.first_desc as *mut u8, 0, total_size);
         }
 
@@ -125,12 +123,13 @@ impl MCI {
                     return Err(MCIError::DmaBufUnalign);
                 }
 
-                // for aarch64
-                (*cur_desc).addr_hi = ((buf_addr >> 32) & 0xFFFF_FFFF) as u32;
-                (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
-                // todo 好像不是aarch 64？
-                // (*cur_desc).addr_hi = 0;
-                // (*cur_desc).addr_lo = buf_addr;
+                if cfg!(target_arch = "aarch64") {
+                    (*cur_desc).addr_hi = ((buf_addr >> 32) & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
+                } else {
+                    (*cur_desc).addr_hi = 0;
+                    (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
+                }
 
                 // set address of next descriptor entry, NULL for last entry
                 next_desc_addr = if is_last { 0 } else { next_desc_addr };
@@ -139,27 +138,25 @@ impl MCI {
                     return Err(MCIError::DmaBufUnalign);
                 }
 
-                // for aarch 64
-                (*cur_desc).desc_hi = (next_desc_addr >> 32) as u32;
-                (*cur_desc).desc_lo = next_desc_addr as u32;
-                // todo 同上
-                // (*cur_desc).desc_hi = 0;
-                // (*cur_desc).desc_lo = next_desc_addr;
+                if cfg!(target_arch = "aarch64") {
+                    (*cur_desc).desc_hi = ((next_desc_addr >> 32) & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
+                } else {
+                    (*cur_desc).desc_hi = 0;
+                    (*cur_desc).desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
+                }
 
                 buf_addr += (*cur_desc).len as usize;
                 remain_blocks -= trans_blocks;
             }
         }
 
-        // todo 这样以后内存肯定会溢出
+        // todo 不太优雅 考虑后续修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(
                 Vec::from_raw_parts(desc_list.first_desc, desc_num as usize, desc_num as usize)
             )
         };
-        // let desc_vec = unsafe {
-        //     Vec::from_raw_parts(desc_list.first_desc, desc_num as usize, desc_num as usize)
-        // };
         let _ = DSlice::from(&desc_vec[..]);
         // unsafe { dsb(); }
         self.dump_dma_descriptor(desc_num);
@@ -170,17 +167,15 @@ impl MCI {
 
     /// start DMA transfers for data
     pub(crate) fn dma_transfer_data(&mut self, data: &MCIData) -> MCIResult {
-        self.interrupt_mask_set(MCIIntrType::GeneralIntr, FSDIF_INTS_CMD_MASK, true);
-        self.interrupt_mask_set(MCIIntrType::DmaIntr, FSDIF_DMAC_INTS_MASK_ALL, true);
+        self.interrupt_mask_set(MCIIntrType::GeneralIntr, MCIIntMask::INTS_CMD_MASK.bits(), true);
+        self.interrupt_mask_set(MCIIntrType::DmaIntr, MCIDMACIntEn::INTS_MASK.bits(), true);
 
         self.setup_dma_descriptor(&data)?;
-        warn!("mark");
 
         let data_len = data.blkcnt() * data.blksz();
         info!("Descriptor@{:p}, trans bytes: {}, block size: {}", self.desc_list.first_desc, data_len, data.blksz());
 
         self.descriptor_set(self.desc_list.first_desc_dma);
-        warn!("after descriptor_set, desclist hi: 0x{:x}, lo: 0x{:x}", self.config.reg().read_reg::<MCIDescListAddrH>(), self.config.reg().read_reg::<MCIDescListAddrL>());
         self.trans_bytes_set(data_len);
         self.blksize_set(data.blksz());
 

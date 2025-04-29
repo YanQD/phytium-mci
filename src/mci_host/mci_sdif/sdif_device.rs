@@ -1,11 +1,8 @@
-use core::alloc::Layout;
-use core::any::TypeId;
 use core::cell::{Cell, RefCell};
 use core::mem::take;
 use core::ptr::NonNull;
 use core::time::Duration;
 
-use alloc::alloc::alloc;
 use alloc::vec::Vec;
 use dma_api::DSlice;
 use log::*;
@@ -17,6 +14,9 @@ use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
 use crate::mci_host::mci_host_config::*;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::MCIHostCardIntFn;
+use crate::osa::osa_alloc_aligned;
+use crate::osa::pool_buffer::PoolBuffer;
+use crate::sd::constants::SD_BLOCK_SIZE;
 use crate::{sleep, IoPad};
 use crate::tools::swap_half_word_byte_sequence_u32;
 use crate::mci_host::mci_host_device::MCIHostDevice;
@@ -28,61 +28,38 @@ use crate::mci::constants::*;
 use crate::mci_host::sd::constants::SdCmd;
 use crate::mci::mci_dma::FSdifIDmaDesc;
 
-
-pub(crate) struct SDIFDevPIO {
-    hc: RefCell<MCI>,                            // SDIF 硬件控制器
-    hc_cfg: RefCell<MCIConfig>,                  // SDIF 配置
-    rw_desc: *mut FSdifIDmaDesc,                // DMA 描述符指针，用于管理数据传输
+pub(crate) struct SDIFDev {
+    hc: RefCell<MCI>,                           // SDIF 硬件控制器
+    hc_cfg: RefCell<MCIConfig>,                 // SDIF 配置
+    rw_desc: PoolBuffer,                        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
-impl SDIFDevPIO {
+impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
-        // 应该不会报错
-        // todo desclist对齐到MCIHostConfig.def_block_size
-        let layout = Layout::array::<FSdifIDmaDesc>(desc_num).unwrap(); 
-        let rw_desc = unsafe {
-            let ptr = alloc(layout) as *mut FSdifIDmaDesc;
-            if ptr.is_null() {
-                error!("failed to allcate memory for rw_desc!");
+        let align = SD_BLOCK_SIZE;
+        let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
+        let rw_desc = match osa_alloc_aligned(length, align) {
+            Err(e) => {
+                error!("alloc internal buffer failed! err: {:?}", e);
+                panic!("Failed to allocate internal buffer");
             }
-            ptr
+            Ok(ptr) => ptr,
         };
+
         Self {
-            hc: MCI::new(MCIConfig::new_mci1(addr)).into(),
-            hc_cfg: MCIConfig::new_mci1(addr).into(),
-            rw_desc,
+            hc: MCI::new(MCIConfig::new(addr)).into(),
+            hc_cfg: MCIConfig::new(addr).into(),
+            rw_desc: PoolBuffer::new(length, rw_desc),
             desc_num: (desc_num as u32).into(),
         }
     }
     pub fn iopad_set(&self,iopad:IoPad) {
         self.hc.borrow_mut().iopad_set(iopad);
     }
-    pub fn blksize_set(&self, blksize: u32) {
-        self.hc.borrow_mut().blksize_set(blksize);
-    }
-    pub fn trans_bytes_set(&self, bytes: u32) {
-        self.hc.borrow_mut().trans_bytes_set(bytes);
-    }
-    pub fn set_dma_mode(&self) {
-        self.hc.borrow_mut().set_dma_mode();
-    }
-    pub fn set_dma_intr(&self) {
-        self.hc.borrow_mut().set_dma_intr();
-    }
-    pub fn set_desc_list_star_reg(&self) {
-        let ptr = self.rw_desc;
-        self.hc.borrow_mut().set_desc_list_star_reg(ptr);
-    }
-    pub fn set_read_addr(&self, buf_ptr: *const Vec<u32>) {
-        self.hc.borrow_mut().set_read_addr(buf_ptr);
-    }
-    pub fn enable_dma(&self) {
-        self.hc.borrow_mut().enable_dma();
-    }
 }
 
-impl MCIHostDevice for SDIFDevPIO {
+impl MCIHostDevice for SDIFDev {
 
     fn init(&self, addr: NonNull<u8>,host:&MCIHost) -> MCIHostStatus {
         let num_of_desc = host.config.max_trans_size/host.config.def_block_size;
@@ -91,16 +68,14 @@ impl MCIHostDevice for SDIFDevPIO {
     }
 
     fn do_init(&self,addr: NonNull<u8>,host:&MCIHost) -> MCIHostStatus {
-        let id = host.config.host_id;
-
-        let mci_config = MCIConfig::lookup_config(addr, id);
+        let mci_config = MCIConfig::lookup_config(addr);
         let iopad = self.hc.borrow_mut().iopad_take().ok_or(MCIHostError::NoData)?;
 
-        *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr, id));
+        *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr));
         self.hc.borrow_mut().iopad_set(iopad);
         
-        // ?强行 restart 一下
-        let restart_mci = MCI::new_restart(MCIConfig::restart(addr, id));
+        // 强行 restart 一下
+        let restart_mci = MCI::new_restart(MCIConfig::restart(addr));
         restart_mci.restart().unwrap_or_else(|e| error!("restart failed: {:?}", e));
 
         if let Err(_) = self.hc.borrow_mut().config_init(&mci_config) {
@@ -113,7 +88,10 @@ impl MCIHostDevice for SDIFDevPIO {
         }
 
         if host.config.enable_dma {
-            self.hc.borrow_mut().set_idma_list(self.rw_desc, self.desc_num.get());
+            if let Err(_) = self.hc.borrow_mut().set_idma_list(&self.rw_desc, self.desc_num.get()) {
+                error!("idma list set failed!");
+                return Err(MCIHostError::Fail);
+            }
         }
 
         *self.hc_cfg.borrow_mut() = mci_config;
@@ -369,7 +347,6 @@ impl MCIHostDevice for SDIFDevPIO {
             flag |= MCICmdFlag::EXP_DATA;
             
             let buf = if let Some(rx_data) = in_data.rx_data_mut() {
-                error!("in conver_command_info rx_data is {:p}", rx_data.as_ptr());
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
                 //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
@@ -387,10 +364,14 @@ impl MCIHostDevice for SDIFDevPIO {
             out_data.blksz_set(in_data.block_size() as u32);
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
+
             let slice = DSlice::from(&buf[..]);
             out_data.buf_dma_set(slice.bus_addr() as usize);
-            error!("in convert_command_info buf_dma is 0x{:x}", slice.bus_addr());
             drop(slice);
+
+            // let buf_ptr = unsafe { NonNull::new_unchecked(buf.as_ptr() as usize as *mut u32) };
+            // let bus_addr = map(buf_ptr.cast(), size_of_val(&buf[..]), Direction::Bidirectional);
+            // out_data.buf_dma_set(bus_addr as usize);
             out_data.buf_set(Some(buf));
 
             debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
@@ -467,9 +448,5 @@ impl MCIHostDevice for SDIFDevPIO {
         }
 
         Ok(())
-    }
-
-    fn type_id(&self) -> core::any::TypeId where Self: 'static {
-        TypeId::of::<SDIFDevPIO>()
     }
 }

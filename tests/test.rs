@@ -19,7 +19,7 @@ mod tests {
     fn test_work() {
         let fdt = match &global_val().platform_info {
             PlatformInfoKind::DeviceTree(fdt) => fdt.get(),
-            _ => panic!("unsupported platform"),
+            // _ => panic!("unsupported platform"),
         };
     
         let mci0 = fdt.find_compatible(&["phytium,mci"]).next().unwrap();
@@ -36,19 +36,28 @@ mod tests {
     
         let mut sdcard = SdCard::example_instance(mci_reg_base,iopad);
 
-        let mut buffer = Vec::new();
-        
-        // sdcard.dma_rw_init(&buffer as *const Vec<u32>);
-        let _ = sdcard.read_blocks(&mut buffer, 131072+200,1);
-    
-        error!("test_work passed\n");
+        ////////////////////// SD card init finished //////////////////////
+
+        let mut buffer: Vec<u32> = Vec::with_capacity(512);
+        buffer.resize(512, 0);
         for i in 0..buffer.len() {
-            warn!("{:x},{:x},{:x},{:x}",
-                    buffer[i] as u8,
-                    (buffer[i] >> 8) as u8,
-                    (buffer[i] >> 16) as u8,
-                    (buffer[i] >> 24) as u8);
+            buffer[i] = i as u32;
         }
+
+        let _ = sdcard.write_blocks(&mut buffer, 131072 + 200, 1);
+
+        let mut receive_buf = Vec::new();
+        
+        let _ = sdcard.read_blocks(&mut receive_buf, 131072+200,1);
+    
+        for i in 0..receive_buf.len() {
+            warn!("{:x},{:x},{:x},{:x}",
+            receive_buf[i] as u8,
+            (receive_buf[i] >> 8) as u8,
+            (receive_buf[i] >> 16) as u8,
+            (receive_buf[i] >> 24) as u8);
+        }
+        error!("test_work passed\n");
         assert!(true);
     }
     

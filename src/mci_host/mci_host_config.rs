@@ -1,3 +1,6 @@
+#[cfg(all(feature = "dma", feature = "pio"))]
+compile_error!("can't enable feature dma and pio at the same time!");
+
 use crate::mci::constants::MCIId;
 
 use super::sd::constants::{SD_BLOCK_SIZE, SD_CLOCK_50MHZ, SD_MAX_RW_BLK};
@@ -19,33 +22,35 @@ pub struct MCIHostConfig {
 
 #[allow(unused)]
 impl MCIHostConfig {
-    pub fn mci0_sd_instance() -> Self {
-        MCIHostConfig {
-            host_id: MCIId::MCI0,
-            host_type: MCIHostType::SDIF,
-            card_type: MCIHostCardType::MicroSD,
-            enable_irq: false, // todo 暂时不支持中断
-            enable_dma: false, // todo 暂时不支持 DMA
-            endian_mode: MCIHostEndianMode::Little,
-            max_trans_size: SD_MAX_RW_BLK*SD_BLOCK_SIZE,
-            def_block_size: SD_BLOCK_SIZE,
-            card_clock: SD_CLOCK_50MHZ,
-            is_uhs_card: false, // todo 需要测试能不能支持UHS模式
-        }
-    }
-
-    pub fn mci0_sd_dma_instance() -> Self {
-        MCIHostConfig {
+    #[cfg(feature="dma")]
+    pub fn new() -> Self {
+        Self {
             host_id: MCIId::MCI1,
             host_type: MCIHostType::SDIF,
             card_type: MCIHostCardType::MicroSD,
-            enable_irq: false,
+            enable_irq: false, // todo 后续实现了irq相关会改为true
             enable_dma: true,
             endian_mode: MCIHostEndianMode::Little,
             max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
             def_block_size: SD_BLOCK_SIZE,
             card_clock: SD_CLOCK_50MHZ,
             is_uhs_card: false, // todo 需要测试能不能支持UHS模式
+        }
+    }
+
+    #[cfg(feature="pio")]
+    pub fn new() -> Self {
+        Self {
+            host_id: MCIId::MCI0,
+            host_type: MCIHostType::SDIF,
+            card_type: MCIHostCardType::MicroSD,
+            enable_irq: false, // todo 后续实现了irq相关会改为true
+            enable_dma: false,
+            endian_mode: MCIHostEndianMode::Little,
+            max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
+            def_block_size: SD_BLOCK_SIZE,
+            card_clock: SD_CLOCK_50MHZ,
+            is_uhs_card: false,
         }
     }
 }

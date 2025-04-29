@@ -5,7 +5,6 @@ use crate::regs::BitsOps;
 
 use super::constants::*;
 
-//* MCITiming */
 pub struct MCITiming {
     use_hold: bool,
     clk_div: u32,
@@ -59,7 +58,6 @@ impl MCITiming {
     }
 }
 
-//* 常量部分 */
 pub const MMC_SD_400K_HZ: MCITiming = MCITiming {
     use_hold: true,
     clk_div: 0x7e7dfa,
@@ -124,7 +122,7 @@ pub const MMC_100MHZ: MCITiming = MCITiming {
     pad_delay: MCIPadDelay::Set,
 };
 
-//* 管脚相关定义 */
+/* 管脚相关定义 */
 type Fsdif0SdCclkOutDelay = Aj49Reg1;
 type Fsdif1SdCclkOutDelay = J53Reg1;
 

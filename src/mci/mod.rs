@@ -1,10 +1,8 @@
-
-//* 包内共用的一些子包 可能其它模块有同名的子包 不要pub出来 */
+//! 注意不应把重名的子模块设为pub
 pub mod constants;
 pub mod regs;
 mod err;
 
-//* 功能相关的子包 */
 mod mci_timing;
 mod mci_config;
 mod mci_cmd;
@@ -17,7 +15,6 @@ pub mod mci_dma;
 
 use alloc::vec::Vec;
 use dma_api::DSlice;
-//* 包内的引用 */
 use err::*;
 use constants::*;
 use mci_dma::{FSdifIDmaDescList, FSdifIDmaDesc};
@@ -28,12 +25,9 @@ pub use mci_cmddata::*;
 pub use mci_config::*;
 pub use mci_timing::*;
 
-
-//* 包外的引用 */
-use crate::{regs::*, sleep, IoPad};
+use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep, IoPad};
 use core::time::Duration;
 
-//* MCI */
 pub struct MCI {
     config: MCIConfig,
     is_ready: bool,
@@ -44,7 +38,6 @@ pub struct MCI {
     desc_list: FSdifIDmaDescList,
 }
 
-//* MCI constance */
 impl MCI {
     const SWITCH_VOLTAGE: u32 = 11;
     const EXT_APP_CMD: u32 = 55;
@@ -78,7 +71,7 @@ impl MCI {
     }
 }
 
-//* MCI pub API */
+/// MCI pub API
 impl MCI {
 
     pub fn iopad_set(&mut self, iopad: IoPad) {
@@ -94,7 +87,7 @@ impl MCI {
         self.cur_cmd = Some(cmd.clone());
     }
 
-    /* initialization SDIF controller instance */
+    /// initialization SDIF controller instance
     pub fn config_init(&mut self,config: &MCIConfig) -> MCIResult {
         if self.is_ready {
             warn!("Device is already initialized!!!");
@@ -109,7 +102,7 @@ impl MCI {
         Ok(())
     }
 
-    /* deinitialization SDIF controller instance */
+    /// deinitialization SDIF controller instance
     pub fn config_deinit(&mut self) -> MCIResult {
         self.interrupt_mask_set(MCIIntrType::GeneralIntr, MCIIntMask::ALL_BITS.bits(), false); /* 关闭控制器中断位 */
         self.interrupt_mask_set(MCIIntrType::DmaIntr, MCIDMACIntEn::ALL_BITS.bits(), false); /* 关闭DMA中断位 */
@@ -128,44 +121,36 @@ impl MCI {
         Ok(())
     }
 
-    // pub fn desc_list_get(&self) -> FSdifIDmaDescList {
-    //     self.desc_list
-    // }
-
-    /* Setup DMA descriptor for SDIF controller instance */
-    // 暂时修改报错类型
-    pub fn set_idma_list(&mut self, desc: *mut FSdifIDmaDesc, desc_num: u32) {
+    /// Setup DMA descriptor for SDIF controller instance
+    pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
         if !self.is_ready {
             error!("Device is not yet initialized!");
-            // return Err(MCIHostError::NotInit);
+            return Err(MCIError::NotInit);
         }
 
         if self.config.trans_mode() != MCITransMode::DMA {
             error!("Device is not configured in DMA transfer mode!");
-            // return Err(MCIError::InvalidState);
+            return Err(MCIError::InvalidState);
         }
 
-        // todo 这样以后内存肯定会溢出
+        // todo 不太优雅 后续考虑修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(
-                Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
+                Vec::from_raw_parts(desc.addr().as_ptr(), desc_num as usize, desc_num as usize)
             )
         };
-        // let desc_vec = unsafe {
-        //     Vec::from_raw_parts(desc, desc_num as usize, desc_num as usize)
-        // };
-        let slice = DSlice::from(&desc_vec[..]);
-        self.desc_list.first_desc = desc;
+        let slice = DSlice::from(&desc_vec[..]); // 获取物理地址
         self.desc_list.first_desc_dma = slice.bus_addr() as usize;
+        self.desc_list.first_desc = desc.addr().as_ptr() as *mut FSdifIDmaDesc;
         self.desc_list.desc_num = desc_num;
         self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
 
         debug!("idma_list set success!");
 
-        // Ok(())
+        Ok(())
     }
 
-    /* Set the Card clock freqency */
+    /// Set the Card clock freqency 
     pub fn clk_freq_set(&mut self, clk_hz: u32) -> MCIResult {
         let reg = self.config.reg();
         let mut reg_val = MCICmd::UPD_CLK;
@@ -266,9 +251,7 @@ impl MCI {
         self.poll_wait_busy_card()?;
 
         // 清除原始中断寄存器
-        info!("in dma_transfer, before clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
         self.config.reg().write_reg(MCIRawInts::from_bits_truncate(0xFFFF_FFFF));
-        info!("in dma_transfer, after clear raw_ints, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
 
         /* reset fifo and DMA before transfer */
         self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
@@ -283,21 +266,18 @@ impl MCI {
         }
 
         // transfer command
-        info!("in dma_transfer, before cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
         self.cmd_transfer(&cmd_data)?;
-        info!("in dma_transfer, after cmd_transfer, raw_ints is 0x{:x}", self.config.reg().read_reg::<MCIRawInts>());
 
         Ok(())
     }
 
-    /* Wait DMA transfer finished by poll */
+    /// Wait DMA transfer finished by poll 
     pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
         let wait_bits = if cmd_data.get_data().is_none() {
-            FSDIF_INT_CMD_BIT
+            MCIIntMask::CMD_BIT.bits()
         } else {
-            FSDIF_INT_CMD_BIT | FSDIF_INT_DTO_BIT
+            MCIIntMask::CMD_BIT.bits() | MCIIntMask::DTO_BIT.bits()
         };
-        info!("in poll_wait_dma_end, wait_bits is 0x{:x}, raw_ints is 0x{:x}", wait_bits, self.config.reg().read_reg::<MCIRawInts>());
         let mut reg_val;
 
         if !self.is_ready {
@@ -315,7 +295,7 @@ impl MCI {
         loop {
             reg_val = self.config.reg().read_reg::<MCIRawInts>().bits();
             if delay % 1000 == 0 {
-                debug!("reg_val = 0x{:x}", reg_val);
+                debug!("polling dma end, reg_val = 0x{:x}", reg_val);
             }
             // todo relax handler? 
 
@@ -334,8 +314,8 @@ impl MCI {
         }
 
         if cmd_data.get_data().is_some() {
-            let read = cmd_data.flag().bits() & FSDIF_CMD_FLAG_READ_DATA;
-            if read != 0 {
+            let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
+            if !read {
                 unsafe { dsb(); }
             }
         }
@@ -345,7 +325,7 @@ impl MCI {
         Ok(())
     }
 
-    /* Start command and data transfer in PIO mode */
+    /// Start command and data transfer in PIO mode 
     pub fn pio_transfer(&self, cmd_data: &mut MCICmdData) -> MCIResult {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
         let reg = self.config.reg();
@@ -398,7 +378,7 @@ impl MCI {
         Ok(())
     }
 
-    /* Wait PIO transfer finished by poll */
+    /// Wait PIO transfer finished by poll 
     pub fn poll_wait_pio_end(&mut self,cmd_data: &mut MCICmdData) -> MCIResult{
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
         let reg = self.config.reg();
@@ -453,7 +433,7 @@ impl MCI {
     /* Interrupt handler for SDIF instance */ //todo 在中断模式下会使用到
     /* Register event call-back function as handler for interrupt events */ //todo 在中断模式下会使用到
 
-    /* Reset controller from error state */
+    /// Reset controller from error state 
     pub fn restart(&self) -> MCIResult {
 
         if false == self.is_ready {
@@ -478,36 +458,7 @@ impl MCI {
         Ok(())
     }
 
-    pub fn set_dma_mode(&mut self) {
-        self.config.reg().modify_reg(|reg| {
-            MCIBusMode::DE | reg
-        });
-    }
-
-    pub fn set_dma_intr(&mut self) {
-        // self.config.reg().modify_reg(|reg| {
-        //     MCIDMACIntEn::all()
-        // });
-        self.config.reg().write_reg(MCIDMACIntEn::all());
-    }
-
-    pub fn set_desc_list_star_reg(&mut self, ptr: *mut FSdifIDmaDesc) {
-        let addr = ptr as usize;
-        self.config.reg().write_reg(MCIDescListAddrH::from_bits_truncate((addr >> 32) as u32));
-        self.config.reg().write_reg(MCIDescListAddrL::from_bits_truncate(addr as u32));
-    }
-
-    pub fn set_read_addr(&mut self, buf_ptr: *const Vec<u32>) {
-        // todo 寄存器是32位的，但地址可能是64位？
-        let addr = buf_ptr as u32;
-        self.config.reg().write_reg(MCICmdArg::from_bits_truncate(addr));
-    }
-
-    pub fn enable_dma(&mut self) {
-        self.config.trans_mode_set(MCITransMode::DMA);
-    }
-
-    /* Dump all register value of SDIF instance */
+    /// Dump all register value of SDIF instance 
     pub fn register_dump(&self) {
         let reg = self.config.reg();
         warn!("cntrl: 0x{:x}", reg.read_reg::<MCICtrl>());
@@ -555,7 +506,7 @@ impl MCI {
         warn!("enableshift: 0x{:x}", reg.read_reg::<MCIEnableShift>());
     }
 
-    /* Dump command and data info */
+    /// Dump command and data info 
     pub fn cmd_info_dump(cmd_data: &MCICmdData){
         debug!("cmd struct @{:p}",cmd_data);
         debug!("   opcode: {}",cmd_data.cmdidx());
@@ -579,7 +530,7 @@ impl MCI {
 }
 
 
-//* MCI private API */
+/// MCI private API 
 impl MCI {
     fn reset(&self) -> MCIResult {
         /* set fifo */

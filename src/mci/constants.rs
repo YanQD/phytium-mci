@@ -185,31 +185,3 @@ pub const FSDIF_IDMAC_DES0_ER: u32 = 1 << 5;     /* 链表已经到达最后一�
 pub const FSDIF_IDMAC_DES0_CES: u32 = 1 << 30;   /* RINTSTS寄存器错误汇总 */
 pub const FSDIF_IDMAC_DES0_OWN: u32 = 1 << 31;   /* 描述符关联DMA，完成传输后该位置置0 */
 pub const FSDIF_IDMAC_MAX_BUF_SIZE: u32 = 0x1000; // 每个desc在chained mode最多传输的字节数
-
-pub const FSDIF_INT_RE_BIT: u32 = 1 << 1;
-pub const FSDIF_INT_CMD_BIT: u32 = 1 << 2;
-pub const FSDIF_INT_DTO_BIT: u32 = 1 << 3;
-pub const FSDIF_INT_RCRC_BIT: u32 = 1 << 6;
-pub const FSDIF_INT_DCRC_BIT: u32 = 1 << 7;
-pub const FSDIF_INT_RTO_BIT: u32 = 1 << 8;
-pub const FSDIF_INT_DRTO_BIT: u32 = 1 << 9;
-pub const FSDIF_INT_HTO_BIT: u32 = 1 << 10;
-pub const FSDIF_INT_HLE_BIT: u32 = 1 << 12;
-pub const FSDIF_INT_SBE_BCI_BIT: u32 = 1 << 13;
-
-pub const FSDIF_INTS_CMD_MASK: u32 = FSDIF_INT_RE_BIT | FSDIF_INT_CMD_BIT | FSDIF_INT_RCRC_BIT |
-                                      FSDIF_INT_RTO_BIT | FSDIF_INT_HTO_BIT | FSDIF_INT_HLE_BIT;
-
-pub const FSDIF_DMAC_INT_ENA_TI: u32 = 1;    /* RW 发送完成中断使能 */
-pub const FSDIF_DMAC_INT_ENA_RI: u32 = 1 << 1;    /* RW 接收完成中断使能 */
-pub const FSDIF_DMAC_INT_ENA_FBE: u32 = 1 << 2;   /* RW 总线错误中断使能 */
-pub const FSDIF_DMAC_INT_ENA_DU: u32 = 1 << 4;     /* RW 描述符不可读中断使能 */
-pub const FSDIF_DMAC_INT_ENA_NIS: u32 = 1 << 8;    /* RW 正常中断汇总使能 */
-pub const FSDIF_DMAC_INT_ENA_AIS: u32 = 1 << 9;    /* RW 异常中断汇总使能 */
-
-pub const FSDIF_DMAC_INTS_MASK: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU |
-                                       FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
-pub const FSDIF_DMAC_INTS_MASK_ALL: u32 = FSDIF_DMAC_INT_ENA_FBE | FSDIF_DMAC_INT_ENA_DU | FSDIF_DMAC_INT_ENA_TI |
-                                          FSDIF_DMAC_INT_ENA_RI | FSDIF_DMAC_INT_ENA_NIS | FSDIF_DMAC_INT_ENA_AIS;
-
-pub const FSDIF_CMD_FLAG_READ_DATA: u32 = 1 << 7;   /* need trans data to read card */

@@ -57,8 +57,6 @@ pub enum MCIHostError {
     CardStatusIdle,                      // Card idle
     CardStatusBusy,                      // Card busy
     CardInitFailed,                      // Card init failed
-    NotInit,
-    InvalidState,
 }
 
 pub type MCIHostStatus<T=()> = Result<T,MCIHostError>;

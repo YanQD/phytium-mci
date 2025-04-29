@@ -6,7 +6,6 @@ use super::constants::*;
 use super::regs::*;
 
 impl MCI {
-
     pub(crate) fn pio_write_data(&self, data: &MCIData) -> MCIResult {
         let reg = self.config.reg();
         let wr_times: usize = (data.datalen() / 4) as usize; /* u8 --> u32 */
