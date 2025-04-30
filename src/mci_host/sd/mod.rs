@@ -850,6 +850,7 @@ impl SdCard{
                 block_count_one_time, 
                 &mut block_written_one_time
             ).is_err() {
+                error!("write block(s) failed!");
                 return Err(MCIHostError::TransferFailed);
             }
 

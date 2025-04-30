@@ -69,7 +69,7 @@ mod tests {
         let mut receive_buf = Vec::new();
 
         sdcard
-            .read_blocks(&mut receive_buf, 131072 + 200, 1)
+            .read_blocks(&mut receive_buf, 131072 + 200, 2)
             .unwrap();
 
         // for i in 0..receive_buf.len() {
@@ -82,7 +82,7 @@ mod tests {
             (receive_buf[i] >> 16) as u8,
             (receive_buf[i] >> 24) as u8);
         }
-        warn!("buffer len is {}", buffer.len());
+        warn!("buffer len is {}", receive_buf.len());
 
         info!("test_work passed\n");
         assert!(true);
