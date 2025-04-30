@@ -4,6 +4,7 @@ use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 
 use consts::MAX_POOL_SIZE;
 use err::FMempError;
+use pool_buffer::PoolBuffer;
 use rlsf::Tlsf;
 use spin::Mutex;
 use lazy_static::*;
@@ -41,10 +42,11 @@ impl<'a> FMemp<'a> {
         self.is_ready = true;
     }
 
-    unsafe fn alloc_aligned(&mut self, size: usize, align: usize) -> Result<NonNull<u8>, FMempError> {
+    unsafe fn alloc_aligned(&mut self, size: usize, align: usize) -> Result<PoolBuffer, FMempError> {
         let layout = Layout::from_size_align_unchecked(size, align);
         if let Some(result) = self.tlsf_ptr.allocate(layout) {
-            Ok(result)
+            let buffer = PoolBuffer::new(size, result);
+            Ok(buffer)
         } else {
             Err(FMempError::BadMalloc)
         }
@@ -61,12 +63,12 @@ pub fn osa_init() {
 }
 
 /// Alloc 'size' bytes space, aligned to 64 KiB by default
-pub fn osa_alloc(size: usize) -> Result<NonNull<u8>, FMempError> {
+pub fn osa_alloc(size: usize) -> Result<PoolBuffer, FMempError> {
     unsafe { GLOBAL_FMEMP.lock().alloc_aligned(size, size_of::<usize>()) }
 }
 
 /// Alloc 'size' bytes space, aligned to 'align' bytes
-pub fn osa_alloc_aligned(size: usize, align: usize) -> Result<NonNull<u8>, FMempError> {
+pub fn osa_alloc_aligned(size: usize, align: usize) -> Result<PoolBuffer, FMempError> {
     unsafe { GLOBAL_FMEMP.lock().alloc_aligned(size, align) }
 }
 

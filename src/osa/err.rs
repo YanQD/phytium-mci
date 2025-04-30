@@ -8,4 +8,5 @@ pub enum FMempError {
     SizeNotAligned,         // PoolBuffer size isn't aligned to size::T
 }
 
+#[allow(unused)]
 pub type FMempStatus<T=()> = Result<T, FMempError>;

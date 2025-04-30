@@ -20,7 +20,6 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
-use crate::osa::pool_buffer::PoolBuffer;
 use crate::osa::{osa_alloc_aligned, osa_init};
 use crate::{sleep, IoPad};
 use crate::tools::swap_word_byte_sequence_u32;
@@ -63,7 +62,7 @@ impl SdCard {
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
-        let internal_buffer_ptr = match osa_alloc_aligned(
+        let internal_buffer = match osa_alloc_aligned(
             mci_host_config.max_trans_size, 
             mci_host_config.def_block_size
         ) {
@@ -71,9 +70,8 @@ impl SdCard {
                 error!("alloc internal buffer failed! err: {:?}", e);
                 panic!("Failed to allocate internal buffer");
             }
-            Ok(ptr) => ptr,
+            Ok(buffer) => buffer,
         };
-        let internal_buffer = PoolBuffer::new(mci_host_config.max_trans_size, internal_buffer_ptr);
         let base = MCICardBase::from_buffer(internal_buffer);
         info!("Internal buffer@0x{:p}, length = 0x{}",base.internal_buffer.addr().as_ptr(), base.internal_buffer.size());
         

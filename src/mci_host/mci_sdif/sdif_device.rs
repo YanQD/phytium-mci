@@ -44,13 +44,13 @@ impl SDIFDev {
                 error!("alloc internal buffer failed! err: {:?}", e);
                 panic!("Failed to allocate internal buffer");
             }
-            Ok(ptr) => ptr,
+            Ok(buffer) => buffer,
         };
 
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
-            rw_desc: PoolBuffer::new(length, rw_desc),
+            rw_desc,
             desc_num: (desc_num as u32).into(),
         }
     }
