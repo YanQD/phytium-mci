@@ -34,7 +34,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -590,7 +590,7 @@ impl SdCard{
         let result = self.transfer(&mut content, 3);
         let response = content.cmd().unwrap().response();
         if result.is_err() || response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits() != 0 {
-            error!("\r\n\r\nError: send CMD6 failed with host error {:?}, response {:x}\r\n", result, response[0]);
+            error!("\r\n\r\nError: send ACMD22 failed with host error {:?}, response {:x}\r\n", result, response[0]);
             return result;
         } else {
             *blocks = swap_word_byte_sequence_u32(response[0]);
@@ -810,7 +810,6 @@ impl SdCard{
             }
 
             let len = block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
-            error!("len is {}", len);
             let mut once_buffer = vec![0u32; len as usize];
             if self.read(&mut once_buffer, 
                         start_block, 
@@ -818,7 +817,6 @@ impl SdCard{
                         block_count_one_time).is_err() {
                 return Err(MCIHostError::TransferFailed);
             }
-            error!("once buffer len is {}", once_buffer.len());
 
             buffer.extend(once_buffer.iter());
         }
@@ -843,6 +841,7 @@ impl SdCard{
             let mut once_buffer = vec![0u32; len as usize];
             let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
             let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            debug!("write block(s) one time, relative addr(u32) from {} - {}, block count {}", start_addr, end_addr, block_count_one_time);
             once_buffer.copy_from_slice(&buffer[start_addr as usize..end_addr as usize]);
             if self.write(&mut once_buffer, 
                 start_block + block_count - block_left, 
@@ -1377,6 +1376,7 @@ impl SdCard {
             if block_count == 1 {
                 MCIHostCommonCmd::WriteSingleBlock as u32
             } else {
+                debug!("write multiple blocks! block count {}", block_count);
                 MCIHostCommonCmd::WriteMultipleBlock as u32
             }
         );
@@ -1389,7 +1389,7 @@ impl SdCard {
         );
 
         let mut data = MCIHostData::new();
-        data.enable_auto_command12_set(true);
+        data.enable_auto_command12_set(false);
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
         // todo 减少内存开销
@@ -1410,6 +1410,7 @@ impl SdCard {
             } else if *written_blocks == 0 {
                 return Err(MCIHostError::TransferFailed);
             }
+            debug!("written blocks this time is {}", written_blocks);
         }
 
         Ok(())

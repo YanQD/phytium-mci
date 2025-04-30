@@ -294,7 +294,7 @@ impl MCIHostDevice for SDIFDev {
            let block_count = data.block_count();
 
            if block_count > 1 {
-                host.max_block_count.set(block_count);
+                return host.block_count_set(block_count);
            }
         }
         Ok(())

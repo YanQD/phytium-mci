@@ -18,8 +18,9 @@ mod tests {
     use phytium_mci::{iopad::PAD_ADDRESS, sd::SdCard, *};
 
     const SD_START_BLOCK: u32 = 131072;
-    const SD_USE_BLOCK: u32 = 2;
+    const SD_USE_BLOCK: u32 = 10;
     const SD_BLOCK_SIZE: u32 = 512;
+    const SD_MAX_RW_BLK: u32 = 1024;
 
     #[test]
     fn test_work() {
@@ -48,44 +49,32 @@ mod tests {
 
         ////////////////////// SD card init finished //////////////////////
 
-        // 第i个块的每个字节都设置为i+1
-        let mut buffer: Vec<u32> = Vec::with_capacity(512);
-        buffer.resize(512, 0);
-        // for block in 0..SD_USE_BLOCK {
-        //     for i in 0..SD_BLOCK_SIZE / 4 {
-        //         let pos = ((SD_START_BLOCK + block) * SD_BLOCK_SIZE + i) as usize;
-        //         let idx = (block + 1) as u32;
-        //         let val = idx | (idx << 8) | (idx << 16) | (idx << 24);
-        //         buffer[pos] = val;
-        //     }
-        // }
-        for i in 0..512 {
-            let val = (i | i << 8 | i << 16 | i << 24) as u32;
-            buffer[i] = val;
+        // 初始化write buffer
+        let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
+        buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);
+        for i in 0..buffer.len() {
+            buffer[i] = i as u32;
         }
 
-        sdcard.write_blocks(&mut buffer, 131072 + 200, 1).unwrap();
+        sdcard.write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK).unwrap();
 
         let mut receive_buf = Vec::new();
 
-        sdcard
-            .read_blocks(&mut receive_buf, 131072 + 200, 2)
-            .unwrap();
+        sdcard.read_blocks(&mut receive_buf, SD_START_BLOCK, SD_USE_BLOCK).unwrap();
 
-        // for i in 0..receive_buf.len() {
-        //     assert_eq!(receive_buf[i], buffer[i]);
-        // }
         for i in 0..receive_buf.len() {
-            warn!("{:x},{:x},{:x},{:x}",
-            receive_buf[i] as u8,
-            (receive_buf[i] >> 8) as u8,
-            (receive_buf[i] >> 16) as u8,
-            (receive_buf[i] >> 24) as u8);
+            assert_eq!(receive_buf[i], buffer[i]);
         }
-        warn!("buffer len is {}", receive_buf.len());
+        // for i in 0..receive_buf.len() {
+        //     warn!("{:x},{:x},{:x},{:x}",
+        //     receive_buf[i] as u8,
+        //     (receive_buf[i] >> 8) as u8,
+        //     (receive_buf[i] >> 16) as u8,
+        //     (receive_buf[i] >> 24) as u8);
+        // }
+        info!("buffer len is {}", receive_buf.len());
 
         info!("test_work passed\n");
-        assert!(true);
     }
 
     fn sleep(duration: Duration) {
