@@ -20,7 +20,6 @@ use core::time::Duration;
 use crate::mci_host::mci_host_config::MCIHostType;
 use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
 use crate::mci_host::MCIHost;
-use crate::osa::pool_buffer::PoolBuffer;
 use crate::osa::{osa_alloc_aligned, osa_init};
 use crate::{sleep, IoPad};
 use crate::tools::swap_word_byte_sequence_u32;
@@ -34,7 +33,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -57,13 +56,13 @@ pub struct SdCard{
 }
 
 impl SdCard {
-    pub fn example_instance(addr: NonNull<u8>,iopad:IoPad) -> Self {
+    pub fn new(addr: NonNull<u8>,iopad:IoPad) -> Self {
         osa_init();
 
         let mci_host_config = MCIHostConfig::new();
 
         // 组装 base
-        let internal_buffer_ptr = match osa_alloc_aligned(
+        let internal_buffer = match osa_alloc_aligned(
             mci_host_config.max_trans_size, 
             mci_host_config.def_block_size
         ) {
@@ -71,9 +70,8 @@ impl SdCard {
                 error!("alloc internal buffer failed! err: {:?}", e);
                 panic!("Failed to allocate internal buffer");
             }
-            Ok(ptr) => ptr,
+            Ok(buffer) => buffer,
         };
-        let internal_buffer = PoolBuffer::new(mci_host_config.max_trans_size, internal_buffer_ptr);
         let base = MCICardBase::from_buffer(internal_buffer);
         info!("Internal buffer@0x{:p}, length = 0x{}",base.internal_buffer.addr().as_ptr(), base.internal_buffer.size());
         
@@ -590,7 +588,7 @@ impl SdCard{
         let result = self.transfer(&mut content, 3);
         let response = content.cmd().unwrap().response();
         if result.is_err() || response[0] & MCIHostCardStatusFlag::ALL_ERROR_FLAG.bits() != 0 {
-            error!("\r\n\r\nError: send CMD6 failed with host error {:?}, response {:x}\r\n", result, response[0]);
+            error!("\r\n\r\nError: send ACMD22 failed with host error {:?}, response {:x}\r\n", result, response[0]);
             return result;
         } else {
             *blocks = swap_word_byte_sequence_u32(response[0]);
@@ -792,13 +790,14 @@ impl SdCard{
         host.dev.execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64)
     } 
     
+    /// will clear buffer passed to this method
     pub fn read_blocks(&mut self,buffer:&mut Vec<u32>,start_block:u32,block_count:u32) -> MCIHostStatus {
+        buffer.clear();
         let mut block_left = block_count;
-
         let mut block_count_one_time:u32;
 
         while block_left != 0 {
-            // 如果修正当前的性能问题,则需要考虑对齐问题
+            // todo如果修正当前的性能问题,则需要考虑对齐问题
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
             if block_left > host.max_block_count.get() {
                 block_left -= host.max_block_count.get();
@@ -808,7 +807,8 @@ impl SdCard{
                 block_left = 0;
             }
 
-            let mut once_buffer = vec![0u32;MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
+            let len = block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            let mut once_buffer = vec![0u32; len as usize];
             if self.read(&mut once_buffer, 
                         start_block, 
                         MCI_HOST_DEFAULT_BLOCK_SIZE,
@@ -816,7 +816,6 @@ impl SdCard{
                 return Err(MCIHostError::TransferFailed);
             }
 
-            buffer.clear();
             buffer.extend(once_buffer.iter());
         }
         
@@ -836,9 +835,11 @@ impl SdCard{
                 block_count_one_time = block_left;
             }
 
-            let mut once_buffer = vec![0u32; MCI_HOST_DEFAULT_BLOCK_SIZE as usize * block_count_one_time as usize];
-            let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE;
-            let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE;
+            let len = MCI_HOST_DEFAULT_BLOCK_SIZE * block_count_one_time / 4;
+            let mut once_buffer = vec![0u32; len as usize];
+            let start_addr = (block_count - block_left) * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            let end_addr = start_addr + block_count_one_time * MCI_HOST_DEFAULT_BLOCK_SIZE / 4;
+            debug!("write block(s) one time, relative addr(u32) from {} - {}, block count {}", start_addr, end_addr, block_count_one_time);
             once_buffer.copy_from_slice(&buffer[start_addr as usize..end_addr as usize]);
             if self.write(&mut once_buffer, 
                 start_block + block_count - block_left, 
@@ -846,6 +847,7 @@ impl SdCard{
                 block_count_one_time, 
                 &mut block_written_one_time
             ).is_err() {
+                error!("write block(s) failed!");
                 return Err(MCIHostError::TransferFailed);
             }
 
@@ -1300,7 +1302,8 @@ impl SdCard {
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
 
-        let tmp_buf = vec![0;block_size as usize * block_count as usize];
+        let len = block_size * block_count / 4;
+        let tmp_buf = vec![0; len as usize];
         data.rx_data_set(Some(tmp_buf));
         data.enable_auto_command12_set(true);
 
@@ -1371,6 +1374,7 @@ impl SdCard {
             if block_count == 1 {
                 MCIHostCommonCmd::WriteSingleBlock as u32
             } else {
+                debug!("write multiple blocks! block count {}", block_count);
                 MCIHostCommonCmd::WriteMultipleBlock as u32
             }
         );
@@ -1383,7 +1387,7 @@ impl SdCard {
         );
 
         let mut data = MCIHostData::new();
-        data.enable_auto_command12_set(true);
+        data.enable_auto_command12_set(false);
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
         // todo 减少内存开销
@@ -1404,6 +1408,7 @@ impl SdCard {
             } else if *written_blocks == 0 {
                 return Err(MCIHostError::TransferFailed);
             }
+            debug!("written blocks this time is {}", written_blocks);
         }
 
         Ok(())

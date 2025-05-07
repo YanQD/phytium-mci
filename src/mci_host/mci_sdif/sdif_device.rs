@@ -44,13 +44,13 @@ impl SDIFDev {
                 error!("alloc internal buffer failed! err: {:?}", e);
                 panic!("Failed to allocate internal buffer");
             }
-            Ok(ptr) => ptr,
+            Ok(buffer) => buffer,
         };
 
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
-            rw_desc: PoolBuffer::new(length, rw_desc),
+            rw_desc,
             desc_num: (desc_num as u32).into(),
         }
     }
@@ -294,7 +294,7 @@ impl MCIHostDevice for SDIFDev {
            let block_count = data.block_count();
 
            if block_count > 1 {
-                host.max_block_count.set(block_count);
+                return host.block_count_set(block_count);
            }
         }
         Ok(())
@@ -352,10 +352,10 @@ impl MCIHostDevice for SDIFDev {
                 //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
                 // rx_data.clone()
                 take(rx_data)
-            } else if let Some(tx_data) = in_data.tx_data() {
+            } else if let Some(tx_data) = in_data.tx_data_mut() {
                 // Handle transmit data
                 flag |= MCICmdFlag::WRITE_DATA;
-                tx_data.clone()
+                take(tx_data)
             } else {
                 // Neither rx_data nor tx_data is available
                 panic!("Transaction data initialized but contains neither rx_data nor tx_data");
@@ -428,7 +428,7 @@ impl MCIHostDevice for SDIFDev {
         //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
         if let Some(_) = content.data() {
             let data = cmd_data.get_data().unwrap();
-            unsafe { invalidate(data.buf().unwrap().as_ptr() as *const u8, data.buf().unwrap().len()); }
+            unsafe { invalidate(data.buf().unwrap().as_ptr() as *const u8, data.buf().unwrap().len() * 4); }
             if let Some(rx_data) = data.buf() {
                 if let Some(in_data) = content.data_mut() {
                     in_data.rx_data_set(Some(rx_data.clone()));
