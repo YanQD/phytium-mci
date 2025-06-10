@@ -44,8 +44,8 @@ mod tests {
         let iopad_reg_base = iomap((PAD_ADDRESS as usize).into(), 0x2000);
 
         let iopad = IoPad::new(iopad_reg_base);
-    
-        let mut sdcard = SdCard::new(mci_reg_base,iopad);
+
+        let mut sdcard = SdCard::new(mci_reg_base, iopad);
 
         ////////////////////// SD card init finished //////////////////////
 
@@ -56,22 +56,19 @@ mod tests {
             buffer[i] = i as u32;
         }
 
-        sdcard.write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK).unwrap();
+        sdcard
+            .write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK)
+            .unwrap();
 
         let mut receive_buf = Vec::new();
 
-        sdcard.read_blocks(&mut receive_buf, SD_START_BLOCK, SD_USE_BLOCK).unwrap();
+        sdcard
+            .read_blocks(&mut receive_buf, SD_START_BLOCK, SD_USE_BLOCK)
+            .unwrap();
 
         for i in 0..receive_buf.len() {
             assert_eq!(receive_buf[i], buffer[i]);
         }
-        // for i in 0..receive_buf.len() {
-        //     warn!("{:x},{:x},{:x},{:x}",
-        //     receive_buf[i] as u8,
-        //     (receive_buf[i] >> 8) as u8,
-        //     (receive_buf[i] >> 16) as u8,
-        //     (receive_buf[i] >> 24) as u8);
-        // }
         info!("buffer len is {}", receive_buf.len());
 
         info!("test_work passed\n");

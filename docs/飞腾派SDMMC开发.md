@@ -278,7 +278,7 @@ sudo dd if=/dev/mmcblk0p1 of=output.bin bs=512 count=4 skip=100 | hexdump -C out
 
 这个是关于 `IOPAD`的驱动,在 `src\iopad\regs.rs`使用宏的方式定义了通用的 `Reg`的操作.
 
-但是由于 `rustc`的解析能力有限,我不能把所有的宏都放在里边,这会导致解析灾难,你的自动代码于法检测会因此瘫痪.
+但是由于 `rustc`的解析能力有限,我不能把所有的宏都放在里边,这会导致解析灾难,你的自动代码语法检测会因此瘫痪.
 
 在需要某个 `IOPAD`的时候 从 `src\python\input_xreg0.rs`和 `src\python\input_xreg1.rs`拷贝即可.
 

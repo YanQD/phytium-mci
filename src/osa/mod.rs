@@ -4,13 +4,13 @@ use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 
 use consts::MAX_POOL_SIZE;
 use err::FMempError;
+use lazy_static::*;
 use pool_buffer::PoolBuffer;
 use rlsf::Tlsf;
 use spin::Mutex;
-use lazy_static::*;
 
-mod err;
 mod consts;
+mod err;
 pub mod pool_buffer;
 
 /// Memory menaged by Tlsf pool
@@ -24,7 +24,7 @@ pub struct FMemp<'a> {
 
 lazy_static! {
     /// Global memory pool manager
-    pub static ref GLOBAL_FMEMP: Mutex<FMemp<'static>> = 
+    pub static ref GLOBAL_FMEMP: Mutex<FMemp<'static>> =
         Mutex::new(FMemp::new());
 }
 
@@ -42,7 +42,11 @@ impl<'a> FMemp<'a> {
         self.is_ready = true;
     }
 
-    unsafe fn alloc_aligned(&mut self, size: usize, align: usize) -> Result<PoolBuffer, FMempError> {
+    unsafe fn alloc_aligned(
+        &mut self,
+        size: usize,
+        align: usize,
+    ) -> Result<PoolBuffer, FMempError> {
         let layout = Layout::from_size_align_unchecked(size, align);
         if let Some(result) = self.tlsf_ptr.allocate(layout) {
             let buffer = PoolBuffer::new(size, result);
@@ -55,11 +59,13 @@ impl<'a> FMemp<'a> {
     unsafe fn dealloc(&mut self, addr: NonNull<u8>, size: usize) {
         self.tlsf_ptr.deallocate(addr, size);
     }
-}  
+}
 
 /// Init memory pool with size of ['MAX_POOL_SIZE']
 pub fn osa_init() {
-    unsafe { GLOBAL_FMEMP.lock().init(); }
+    unsafe {
+        GLOBAL_FMEMP.lock().init();
+    }
 }
 
 /// Alloc 'size' bytes space, aligned to 64 KiB by default
@@ -74,5 +80,7 @@ pub fn osa_alloc_aligned(size: usize, align: usize) -> Result<PoolBuffer, FMempE
 
 /// Dealloc 'size' bytes space from 'addr'
 pub fn osa_dealloc(addr: NonNull<u8>, size: usize) {
-    unsafe { GLOBAL_FMEMP.lock().dealloc(addr, size); }
+    unsafe {
+        GLOBAL_FMEMP.lock().dealloc(addr, size);
+    }
 }

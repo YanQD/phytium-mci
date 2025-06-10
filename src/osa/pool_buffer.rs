@@ -1,7 +1,10 @@
 //! A managed memory buffer for aligned allocations.
 //!
 //! Provides [`PoolBuffer`] - a safe wrapper around pooled memory
-use core::{ptr::{copy_nonoverlapping, write_bytes, NonNull}, slice::{from_raw_parts, from_raw_parts_mut}};
+use core::{
+    ptr::{copy_nonoverlapping, write_bytes, NonNull},
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
 
 use alloc::vec::Vec;
 
@@ -16,10 +19,7 @@ pub struct PoolBuffer {
 impl PoolBuffer {
     /// Construct a PoolBuffer
     pub fn new(size: usize, addr: NonNull<u8>) -> Self {
-        Self {
-            size,
-            addr,
-        }
+        Self { size, addr }
     }
 
     /// Construct from &[T]
@@ -31,11 +31,7 @@ impl PoolBuffer {
 
         unsafe {
             // equivalent to memcpy in C
-            copy_nonoverlapping(
-                src.as_ptr() as *mut u8,
-                self.addr.as_ptr(),
-                len
-            );
+            copy_nonoverlapping(src.as_ptr() as *mut u8, self.addr.as_ptr(), len);
         }
 
         Ok(())
@@ -75,7 +71,9 @@ impl PoolBuffer {
 
     /// Clear buffer, leaving 0s in original places
     pub fn clear(&mut self) {
-        unsafe { write_bytes(self.addr.as_ptr(), 0, self.size); }
+        unsafe {
+            write_bytes(self.addr.as_ptr(), 0, self.size);
+        }
     }
 
     /// Get size
@@ -98,8 +96,8 @@ impl Drop for PoolBuffer {
 impl Into<Vec<u32>> for PoolBuffer {
     fn into(self) -> Vec<u32> {
         unsafe {
-           let slice = from_raw_parts(self.addr.as_ptr() as *const u32, self.size / 4);
-           slice.to_vec()
+            let slice = from_raw_parts(self.addr.as_ptr() as *const u32, self.size / 4);
+            slice.to_vec()
         }
     }
 }
