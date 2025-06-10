@@ -2,7 +2,7 @@ use crate::osa::pool_buffer::PoolBuffer;
 
 use super::MCIHost;
 
-pub(crate) struct MCICardBase {
+pub struct MCICardBase {
     pub host: Option<MCIHost>,
     pub is_host_ready: bool,
     pub no_interal_align: bool,

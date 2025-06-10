@@ -49,6 +49,11 @@ mod tests {
 
         ////////////////////// SD card init finished //////////////////////
 
+		// 获取SD卡的基本信息
+		info!("sdcard block_size: {:?}", sdcard.base().block_size);
+		// 获取SD卡的块计数
+		info!("block_count: {:X?}", sdcard.block_count());
+
         // 初始化write buffer
         let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
         buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);

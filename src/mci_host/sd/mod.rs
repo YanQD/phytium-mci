@@ -56,6 +56,16 @@ pub struct SdCard {
 }
 
 impl SdCard {
+    pub fn block_count(&self) -> u32 {
+        self.block_count
+    }
+
+    pub fn base(&self) -> &MCICardBase {
+        &self.base
+    }
+}
+
+impl SdCard {
     pub fn new(addr: NonNull<u8>, iopad: IoPad) -> Self {
         osa_init();
 
