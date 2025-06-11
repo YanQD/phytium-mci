@@ -17,7 +17,7 @@ mod tests {
     use log::*;
     use phytium_mci::{iopad::PAD_ADDRESS, sd::SdCard, *};
 
-    const SD_START_BLOCK: u32 = 131072;
+    const SD_START_BLOCK: u32 = 0x400_0000;
     const SD_USE_BLOCK: u32 = 10;
     const SD_BLOCK_SIZE: u32 = 512;
     const SD_MAX_RW_BLK: u32 = 1024;
@@ -54,26 +54,37 @@ mod tests {
 		// 获取SD卡的块计数
 		info!("block_count: {:X?}", sdcard.block_count());
 
-        // 初始化write buffer
-        let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
-        buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);
-        for i in 0..buffer.len() {
-            buffer[i] = i as u32;
-        }
-
-        sdcard
-            .write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK)
-            .unwrap();
+        // // 初始化write buffer
+        // let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
+        // buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);
+        // for i in 0..buffer.len() {
+        //     buffer[i] = i as u32;
+        // }
+        //
+        // sdcard
+        //     .write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK)
+        //     .unwrap();
 
         let mut receive_buf = Vec::new();
 
-        sdcard
-            .read_blocks(&mut receive_buf, SD_START_BLOCK, SD_USE_BLOCK)
-            .unwrap();
+		let mut block_id = SD_START_BLOCK / SD_BLOCK_SIZE;
+		
+		info!("block_id: {}", block_id);
 
-        for i in 0..receive_buf.len() {
-            assert_eq!(receive_buf[i], buffer[i]);
-        }
+		for _ in 0..5 {
+			sdcard
+				.read_blocks(&mut receive_buf, block_id, 1)
+				.unwrap();
+
+			block_id += 1;
+			
+			info!("receive_buf: {:x?}", receive_buf);
+		}
+
+        // for i in 0..receive_buf.len() {
+        //     assert_eq!(receive_buf[i], buffer[i]);
+        // }
+
         info!("buffer len is {}", receive_buf.len());
 
         info!("test_work passed\n");

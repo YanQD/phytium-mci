@@ -93,6 +93,7 @@ impl MCIHostDevice for SDIFDev {
         }
 
         if host.config.enable_dma {
+            #[cfg(feature = "dma")]
             if let Err(_) = self
                 .hc
                 .borrow_mut()
@@ -440,6 +441,7 @@ impl MCIHostDevice for SDIFDev {
         let mut cmd_data = self.covert_command_info(content);
 
         if host.config.enable_dma {
+            #[cfg(feature = "dma")]
             if let Err(_) = self.hc.borrow_mut().dma_transfer(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
             }

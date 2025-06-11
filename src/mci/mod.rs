@@ -120,7 +120,9 @@ impl MCI {
         Ok(())
     }
 
+
     /// Setup DMA descriptor for SDIF controller instance
+    #[cfg(feature = "dma")]
     pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
         if !self.is_ready {
             error!("Device is not yet initialized!");
@@ -227,6 +229,7 @@ impl MCI {
     }
 
     /// Start command and data transfer in DMA mode
+    #[cfg(feature = "dma")]
     pub fn dma_transfer(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
         cmd_data.success_set(false);
         self.cur_cmd_set(&cmd_data);

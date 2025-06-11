@@ -39,6 +39,7 @@ impl FSdifIDmaDescList {
 }
 
 //* DMA 相关的函数 */
+#[cfg(feature = "dma")]
 impl MCI {
     pub fn dma_int_set(&mut self) {
         self.config
