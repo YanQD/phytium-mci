@@ -4,6 +4,7 @@ use core::ptr::NonNull;
 use core::time::Duration;
 
 use alloc::vec::Vec;
+#[cfg(feature = "dma")]
 use dma_api::DSlice;
 use log::*;
 
@@ -403,21 +404,24 @@ impl MCIHostDevice for SDIFDev {
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count());
 
-            let slice = DSlice::from(&buf[..]);
-            out_data.buf_dma_set(slice.bus_addr() as usize);
-            drop(slice);
+            #[cfg(feature = "dma")] 
+            {
+                let slice = DSlice::from(&buf[..]);
+                out_data.buf_dma_set(slice.bus_addr() as usize);
+                drop(slice);
+            }
 
             // let buf_ptr = unsafe { NonNull::new_unchecked(buf.as_ptr() as usize as *mut u32) };
             // let bus_addr = map(buf_ptr.cast(), size_of_val(&buf[..]), Direction::Bidirectional);
             // out_data.buf_dma_set(bus_addr as usize);
             out_data.buf_set(Some(buf));
 
-            debug!(
-                "buf PA: 0x{:x}, blksz: {}, datalen: {}",
-                out_data.buf_dma(),
-                out_data.blksz(),
-                out_data.datalen()
-            );
+            // debug!(
+            //     "buf PA: 0x{:x}, blksz: {}, datalen: {}",
+            //     out_data.buf_dma(),
+            //     out_data.blksz(),
+            //     out_data.datalen()
+            // );
 
             Some(out_data)
         } else {
