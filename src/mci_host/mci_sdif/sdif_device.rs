@@ -11,7 +11,14 @@ use super::constants::SDStatus;
 use super::MCIHost;
 use crate::mci::constants::*;
 use crate::mci::mci_data::MCIData;
-use crate::mci::mci_dma::FSdifIDmaDesc;
+cfg_if::cfg_if!(
+    if #[cfg(feature = "dma")] {
+        use crate::mci::mci_dma::FSdifIDmaDesc;
+        use crate::osa::osa_alloc_aligned;
+        use crate::osa::pool_buffer::PoolBuffer;
+        use crate::sd::constants::SD_BLOCK_SIZE;
+    }
+);
 use crate::mci::regs::MCIIntMask;
 use crate::mci::{MCICmdData, MCIConfig, MCI};
 use crate::mci_host::constants::*;
@@ -22,34 +29,36 @@ use crate::mci_host::mci_host_device::MCIHostDevice;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::sd::constants::SdCmd;
 use crate::mci_host::MCIHostCardIntFn;
-use crate::osa::osa_alloc_aligned;
-use crate::osa::pool_buffer::PoolBuffer;
-use crate::sd::constants::SD_BLOCK_SIZE;
 use crate::tools::swap_half_word_byte_sequence_u32;
 use crate::{sleep, IoPad};
 
 pub(crate) struct SDIFDev {
     hc: RefCell<MCI>,           // SDIF 硬件控制器
     hc_cfg: RefCell<MCIConfig>, // SDIF 配置
+    #[cfg(feature = "dma")]
     rw_desc: PoolBuffer,        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
     desc_num: Cell<u32>,        // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
-        let align = SD_BLOCK_SIZE;
-        let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
-        let rw_desc = match osa_alloc_aligned(length, align) {
-            Err(e) => {
-                error!("alloc internal buffer failed! err: {:?}", e);
-                panic!("Failed to allocate internal buffer");
-            }
-            Ok(buffer) => buffer,
-        };
+        #[cfg(feature = "dma")]
+        {
+            let align = SD_BLOCK_SIZE;
+            let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
+            let rw_desc = match osa_alloc_aligned(length, align) {
+                Err(e) => {
+                    error!("alloc internal buffer failed! err: {:?}", e);
+                    panic!("Failed to allocate internal buffer");
+                }
+                Ok(buffer) => buffer,
+            };
+        }
 
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
+            #[cfg(feature = "dma")]
             rw_desc,
             desc_num: (desc_num as u32).into(),
         }

@@ -7,25 +7,33 @@ mod mci_cmd;
 mod mci_cmddata;
 mod mci_config;
 pub mod mci_data;
-pub mod mci_dma;
 mod mci_hardware;
 mod mci_intr;
 mod mci_pio;
 mod mci_timing;
 
-use alloc::vec::Vec;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "dma")] {
+        pub mod mci_dma;
+
+        use alloc::vec::Vec;
+        use dma_api::DSlice;
+        use mci_dma::FSdifIDmaDesc;
+        use crate::osa::pool_buffer::PoolBuffer;
+        use mci_dma::FSdifIDmaDescList;
+    }
+}
+
 use constants::*;
-use dma_api::DSlice;
 use err::*;
 use log::*;
-use mci_dma::{FSdifIDmaDesc, FSdifIDmaDescList};
 use regs::*;
 
 pub use mci_cmddata::*;
 pub use mci_config::*;
 pub use mci_timing::*;
 
-use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep, IoPad};
+use crate::{regs::*, sleep, IoPad};
 use core::time::Duration;
 
 pub struct MCI {
@@ -35,6 +43,7 @@ pub struct MCI {
     curr_timing: MCITiming,
     cur_cmd: Option<MCICmdData>,
     io_pad: Option<IoPad>,
+    #[cfg(feature = "dma")]
     desc_list: FSdifIDmaDescList,
 }
 
@@ -54,6 +63,7 @@ impl MCI {
             curr_timing: MCITiming::new(),
             cur_cmd: None,
             io_pad: None,
+            #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
     }
@@ -66,6 +76,7 @@ impl MCI {
             curr_timing: MCITiming::new(),
             cur_cmd: None,
             io_pad: None,
+            #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
     }
