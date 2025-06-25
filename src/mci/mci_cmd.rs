@@ -146,7 +146,7 @@ impl MCI {
         /* disable related interrupt */
         self.interrupt_mask_set(MCIIntrType::GeneralIntr,(MCIIntMask::INTS_CMD_MASK | MCIIntMask::INTS_DATA_MASK).bits(),false);
         self.interrupt_mask_set(MCIIntrType::DmaIntr,MCIDMACIntEn::INTS_MASK.bits(),false);
-        info!("cmd send done ...");
+        trace!("cmd send done ...");
 
         self.prev_cmd = cmd_data.cmdidx();
 

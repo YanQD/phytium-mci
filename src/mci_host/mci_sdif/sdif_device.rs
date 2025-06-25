@@ -4,6 +4,7 @@ use core::ptr::NonNull;
 use core::time::Duration;
 
 use alloc::vec::Vec;
+#[cfg(feature = "dma")]
 use dma_api::DSlice;
 use log::*;
 
@@ -26,30 +27,37 @@ use crate::mci_host::err::*;
 use crate::mci_host::constants::*;
 use crate::mci::constants::*;
 use crate::mci_host::sd::constants::SdCmd;
+
+#[cfg(feature = "dma")]
 use crate::mci::mci_dma::FSdifIDmaDesc;
 
 pub(crate) struct SDIFDev {
     hc: RefCell<MCI>,                           // SDIF 硬件控制器
     hc_cfg: RefCell<MCIConfig>,                 // SDIF 配置
+    #[cfg(feature = "dma")]
     rw_desc: PoolBuffer,                        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
     desc_num: Cell<u32>,                        // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
     pub fn new(addr: NonNull<u8>, desc_num: usize) -> Self {
-        let align = SD_BLOCK_SIZE;
-        let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
-        let rw_desc = match osa_alloc_aligned(length, align) {
-            Err(e) => {
-                error!("alloc internal buffer failed! err: {:?}", e);
-                panic!("Failed to allocate internal buffer");
-            }
-            Ok(buffer) => buffer,
-        };
+        #[cfg(feature = "dma")]
+        {
+            let align = SD_BLOCK_SIZE;
+            let length = core::mem::size_of::<FSdifIDmaDesc>() * desc_num;
+            let rw_desc = match osa_alloc_aligned(length, align) {
+                Err(e) => {
+                    error!("alloc internal buffer failed! err: {:?}", e);
+                    panic!("Failed to allocate internal buffer");
+                }
+                Ok(buffer) => buffer,
+            };            
+        }
 
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
             hc_cfg: MCIConfig::new(addr).into(),
+            #[cfg(feature = "dma")]
             rw_desc,
             desc_num: (desc_num as u32).into(),
         }
@@ -60,7 +68,6 @@ impl SDIFDev {
 }
 
 impl MCIHostDevice for SDIFDev {
-
     fn init(&self, addr: NonNull<u8>,host:&MCIHost) -> MCIHostStatus {
         let num_of_desc = host.config.max_trans_size/host.config.def_block_size;
         self.desc_num.set(num_of_desc as u32);
@@ -87,6 +94,7 @@ impl MCIHostDevice for SDIFDev {
             // todo
         }
 
+        #[cfg(feature = "dma")]
         if host.config.enable_dma {
             if let Err(_) = self.hc.borrow_mut().set_idma_list(&self.rw_desc, self.desc_num.get()) {
                 error!("idma list set failed!");
@@ -365,15 +373,19 @@ impl MCIHostDevice for SDIFDev {
             out_data.blkcnt_set(in_data.block_count());
             out_data.datalen_set(in_data.block_size() as u32 * in_data.block_count() );
 
-            let slice = DSlice::from(&buf[..]);
-            out_data.buf_dma_set(slice.bus_addr() as usize);
-            drop(slice);
+            #[cfg(feature = "dma")]
+            {
+                let slice = DSlice::from(&buf[..]);
+                out_data.buf_dma_set(slice.bus_addr() as usize);
+                drop(slice);
+            }
 
             // let buf_ptr = unsafe { NonNull::new_unchecked(buf.as_ptr() as usize as *mut u32) };
             // let bus_addr = map(buf_ptr.cast(), size_of_val(&buf[..]), Direction::Bidirectional);
             // out_data.buf_dma_set(bus_addr as usize);
             out_data.buf_set(Some(buf));
 
+            #[cfg(feature = "dma")]
             debug!("buf PA: 0x{:x}, blksz: {}, datalen: {}", out_data.buf_dma(), out_data.blksz(), out_data.datalen());
 
             Some(out_data)
@@ -406,18 +418,20 @@ impl MCIHostDevice for SDIFDev {
         let mut cmd_data = self.covert_command_info(content);
 
         if host.config.enable_dma {
+            #[cfg(feature = "dma")]
             if let Err(_) = self.hc.borrow_mut().dma_transfer(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
             }
+            #[cfg(feature = "dma")]
             if let Err(_) = self.hc.borrow_mut().poll_wait_dma_end(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
             }
         } else {
-
+            #[cfg(feature = "pio")]
             if let Err(_) = self.hc.borrow_mut().pio_transfer(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
             }
-
+            #[cfg(feature = "pio")]
             if let Err(_) = self.hc.borrow_mut().poll_wait_pio_end(&mut cmd_data) {
                 return Err(MCIHostError::NoData);
             }

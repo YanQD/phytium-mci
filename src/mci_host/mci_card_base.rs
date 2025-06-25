@@ -26,4 +26,8 @@ impl MCICardBase {
             block_size: 0,
         }
     }
+
+    pub fn block_size(&self) -> u32 {
+        self.block_size
+    }
 }
