@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 pub(crate) struct MCIData {
     //TODO 使用智能指针会不会影响性能?
     buf: Option<Vec<u32>>,
+    #[cfg(feature = "dma")]
     buf_dma: usize,
     blksz: u32,
     blkcnt: u32,
@@ -15,6 +16,7 @@ impl MCIData {
     pub(crate) fn new() -> Self {
         MCIData {
             buf: None,
+            #[cfg(feature = "dma")]
             buf_dma: 0,
             blksz: 0,
             blkcnt: 0,
@@ -58,10 +60,12 @@ impl MCIData {
         self.buf = buf
     }
 
+    #[cfg(feature = "dma")]
     pub(crate) fn buf_dma(&self) -> usize {
         self.buf_dma
     }
 
+    #[cfg(feature = "dma")]
     pub(crate) fn buf_dma_set(&mut self, buf_dma: usize) {
         self.buf_dma = buf_dma;
     }

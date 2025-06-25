@@ -1,7 +1,7 @@
 //! 注意不应把重名的子模块设为pub
 pub mod constants;
 pub mod regs;
-mod err;
+pub mod err;
 
 mod mci_timing;
 mod mci_config;
@@ -10,14 +10,21 @@ mod mci_hardware;
 mod mci_intr;
 pub mod mci_data;
 mod mci_cmddata;
+#[cfg(feature = "pio")]
 mod mci_pio;
+#[cfg(feature = "dma")]
 pub mod mci_dma;
 
+pub use err::*;
+
 use alloc::vec::Vec;
+#[cfg(feature = "dma")]
 use dma_api::DSlice;
-use err::*;
 use constants::*;
+
+#[cfg(feature = "dma")]
 use mci_dma::{FSdifIDmaDescList, FSdifIDmaDesc};
+
 use regs::*;
 use log::*;
 
@@ -35,6 +42,7 @@ pub struct MCI {
     curr_timing: MCITiming,
     cur_cmd: Option<MCICmdData>,
     io_pad: Option<IoPad>,
+    #[cfg(feature = "dma")]
     desc_list: FSdifIDmaDescList,
 }
 
@@ -54,6 +62,7 @@ impl MCI {
             curr_timing: MCITiming::new(),
             cur_cmd: None,
             io_pad: None,
+            #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
     }
@@ -66,6 +75,7 @@ impl MCI {
             curr_timing: MCITiming::new(),
             cur_cmd: None,
             io_pad: None,
+            #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
     }
@@ -73,7 +83,6 @@ impl MCI {
 
 /// MCI pub API
 impl MCI {
-
     pub fn iopad_set(&mut self, iopad: IoPad) {
         self.io_pad = Some(iopad);
     }
@@ -122,6 +131,7 @@ impl MCI {
     }
 
     /// Setup DMA descriptor for SDIF controller instance
+    #[cfg(feature = "dma")]
     pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
         if !self.is_ready {
             error!("Device is not yet initialized!");
@@ -227,6 +237,7 @@ impl MCI {
     }
 
     /// Start command and data transfer in DMA mode
+    #[cfg(feature = "dma")]
     pub fn dma_transfer(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
         cmd_data.success_set(false);
         self.cur_cmd_set(&cmd_data);
@@ -393,7 +404,7 @@ impl MCI {
             return Err(MCIError::InvalidState);
         }
 
-        info!("wait for PIO cmd to finish ...");
+        trace!("wait for PIO cmd to finish ...");
         if let Err(err) = reg.retry_for(|reg: MCIRawInts|{
             let result = reg.contains(MCIRawInts::CMD_BIT);
             MCI::relax_handler();
@@ -406,7 +417,7 @@ impl MCI {
 
         /* if need to read data, read fifo after send command */
         if cmd_data.get_data().is_some() && read {
-            info!("wait for PIO data to read ...");
+            trace!("wait for PIO data to read ...");
             if let Err(err)=reg.retry_for(|reg|{
                 MCI::relax_handler();
                 (MCIRawInts::DTO_BIT & reg).bits() != 0
@@ -417,7 +428,7 @@ impl MCI {
 
             /* clear status to ack */
             self.raw_status_clear();
-            info!("card cnt: 0x{:x}, fifo cnt: 0x{:x}",
+            trace!("card cnt: 0x{:x}, fifo cnt: 0x{:x}",
                    reg.read_reg::<MCITranCardCnt>(),
                    reg.read_reg::<MCITranFifoCnt>());
         }

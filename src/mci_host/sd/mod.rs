@@ -33,7 +33,7 @@ use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
 use super::mci_sdif::constants::SDStatus;
 use cid::SdCid;
 use constants::*;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, warn, trace};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
@@ -102,6 +102,14 @@ impl SdCard {
         }
         
         sd_card
+    }
+
+    pub fn block_size(&self) -> u32{
+        self.base.block_size()
+    }
+
+    pub fn block_count(&self) -> u32 {
+        self.block_count
     }
 
     fn sdif_config(&mut self) -> MCIHostStatus {
