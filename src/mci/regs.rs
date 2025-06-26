@@ -1,7 +1,7 @@
 use core::ops;
 
-use bitflags::bitflags;
 use crate::mci::{constants::*, err::MCIError};
+use bitflags::bitflags;
 
 use super::{FlagReg, Reg};
 
@@ -87,21 +87,19 @@ impl FlagReg for MCIClkDiv {
 }
 
 impl MCIClkDiv {
-    pub fn clk_sample_set(x:u32) -> Self {
+    pub fn clk_sample_set(x: u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 23, 16))
     }
-    pub fn clk_drv_set(x:u32) -> Self {
+    pub fn clk_drv_set(x: u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 15, 8))
     }
-    pub fn clk_divider_set(x:u32) -> Self {
+    pub fn clk_divider_set(x: u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 7, 0))
     }
-    pub fn clk_div(samp:u32,drv:u32,div:u32) -> Self {
-        Self::clk_sample_set(samp) | 
-        Self::clk_drv_set(drv) | 
-        Self::clk_divider_set(div)
+    pub fn clk_div(samp: u32, drv: u32, div: u32) -> Self {
+        Self::clk_sample_set(samp) | Self::clk_drv_set(drv) | Self::clk_divider_set(div)
     }
-    pub fn clk_divider_get(div_reg:u32) -> Self {
+    pub fn clk_divider_get(div_reg: u32) -> Self {
         MCIClkDiv::from_bits_truncate(get_reg32_bits!(div_reg, 7, 0))
     }
 }
@@ -164,10 +162,9 @@ impl FlagReg for MCITimeout {
 }
 
 impl MCITimeout {
-    pub fn timeout_data(data_timeout:MCITimeout,resp_timeout:MCITimeout) -> MCITimeout{
+    pub fn timeout_data(data_timeout: MCITimeout, resp_timeout: MCITimeout) -> MCITimeout {
         MCITimeout::from_bits_truncate(
-            (genmask!(31,8) & (data_timeout.bits() << 8)) | 
-            (genmask!(7,0) & resp_timeout.bits())
+            (genmask!(31, 8) & (data_timeout.bits() << 8)) | (genmask!(7, 0) & resp_timeout.bits()),
         )
     }
 }
@@ -224,7 +221,7 @@ bitflags! {
         const INTS_DATA_MASK = 0x2288;
         // const INTS_CMD_MASK = RE_BIT | CMD_BIT | RCRC_BIT | RTO_BIT | HTO_BIT | HLE_BIT;
         const INTS_CMD_MASK = 0x5446;
-        
+
     }
 }
 
@@ -327,8 +324,7 @@ impl FlagReg for MCICmd {
 }
 
 impl MCICmd {
-    
-    pub fn index_set(x:u32) -> Self {
+    pub fn index_set(x: u32) -> Self {
         Self::from_bits_truncate(set_reg32_bits!(x, 5, 0))
     }
 
@@ -424,15 +420,11 @@ impl MCIFifoTh {
     rx_wmark: FIFO threshold watermark level when receiving data to card.
     tx_wmark: FIFO threshold watermark level when transmitting data to card
     */
-    pub fn fifoth(
-        trans_size:MCIFifoThDMATransSize,
-        rx_wmark:u32,
-        tx_wmark:u32
-    ) -> Self {
-        let trans_size:u32 = trans_size.into();
-        (MCIFifoTh::DMA_TRANS_MASK & (trans_size << 28)) |
-        (MCIFifoTh::RX_WMARK_MASK & (rx_wmark << 16)) |
-        (MCIFifoTh::TX_WMARK_MASK & tx_wmark)
+    pub fn fifoth(trans_size: MCIFifoThDMATransSize, rx_wmark: u32, tx_wmark: u32) -> Self {
+        let trans_size: u32 = trans_size.into();
+        (MCIFifoTh::DMA_TRANS_MASK & (trans_size << 28))
+            | (MCIFifoTh::RX_WMARK_MASK & (rx_wmark << 16))
+            | (MCIFifoTh::TX_WMARK_MASK & tx_wmark)
     }
 }
 
@@ -450,7 +442,7 @@ pub enum MCIFifoThDMATransSize {
     DMATrans32 = 0b100,
     DMATrans64 = 0b101,
     DMATrans128 = 0b110,
-    DMATrans256 = 0b111
+    DMATrans256 = 0b111,
 }
 
 impl From<MCIFifoThDMATransSize> for u32 {
@@ -545,8 +537,8 @@ bitflags! {
         const CES = 1 << 5; /* RW 卡错误汇总 */
         const NIS = 1 << 8; /* RW 正常中断汇总 */
         const AIS = 1 << 9; /* RW 异常中断汇总 */
-        const EB_BIT0 = 1 << 10; 
-        const EB_BIT1 = 1 << 11; 
+        const EB_BIT0 = 1 << 10;
+        const EB_BIT1 = 1 << 11;
         const EB_BIT2 = 1 << 12;
         const FSM_BIT0 = 1 << 13;
         const FSM_BIT1 = 1 << 14;
@@ -672,19 +664,17 @@ impl MCIClkSrc {
     pub fn uhs_clk_div(x: u32) -> Self {
         Self::UHS_CLK_DIV_MASK & Self::from_bits_truncate(x << 8)
     }
-    
+
     pub fn uhs_clk_samp(x: u32) -> Self {
         Self::UHS_CLK_SAMP_MASK & Self::from_bits_truncate(x << 16)
     }
-    
+
     pub fn uhs_clk_drv(x: u32) -> Self {
         Self::UHS_CLK_DRV_MASK & Self::from_bits_truncate(x << 24)
     }
 
     pub fn uhs_reg(drv_phase: u32, samp_phase: u32, clk_div: u32) -> Self {
-        Self::uhs_clk_div(clk_div) | 
-        Self::uhs_clk_samp(samp_phase) | 
-        Self::uhs_clk_drv(drv_phase)
+        Self::uhs_clk_div(clk_div) | Self::uhs_clk_samp(samp_phase) | Self::uhs_clk_drv(drv_phase)
     }
 }
 
@@ -820,6 +810,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIDataReg {
     const REG: u32 = FSDIF_DATA_OFFSET; // 假设 FSDIF_DATA_OFFSET 是对应的寄存器偏移量
 }
@@ -861,6 +852,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIBytCnt {
     const REG: u32 = FSDIF_BYT_CNT_OFFSET; // 假设 FSDIF_BYT_CNT_OFFSET 是对应的寄存器偏移量
 }
@@ -903,6 +895,7 @@ bitflags! {
         const ALL_BITS = 0xFFFFFFFF;
     }
 }
+
 impl FlagReg for MCIBlkSiz {
     const REG: u32 = FSDIF_BLK_SIZ_OFFSET; // 假设 FSDIF_BLK_SIZ_OFFSET 是对应的寄存器偏移量
 }
@@ -944,6 +937,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCITranCardCnt {
     const REG: u32 = FSDIF_TRAN_CARD_CNT_OFFSET;
 }
@@ -985,6 +979,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCITranFifoCnt {
     const REG: u32 = FSDIF_TRAN_FIFO_CNT_OFFSET;
 }
@@ -1026,6 +1021,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIResp0 {
     const REG: u32 = FSDIF_RESP0_OFFSET;
 }
@@ -1067,6 +1063,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIResp1 {
     const REG: u32 = FSDIF_RESP1_OFFSET;
 }
@@ -1108,6 +1105,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIResp2 {
     const REG: u32 = FSDIF_RESP2_OFFSET;
 }
@@ -1149,6 +1147,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIResp3 {
     const REG: u32 = FSDIF_RESP3_OFFSET;
 }
@@ -1232,6 +1231,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIDebnce {
     const REG: u32 = FSDIF_DEBNCE_OFFSET;
 }
@@ -1273,6 +1273,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIUid {
     const REG: u32 = FSDIF_UID_OFFSET;
 }
@@ -1314,6 +1315,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIVid {
     const REG: u32 = FSDIF_VID_OFFSET;
 }
@@ -1355,9 +1357,11 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIHwconf {
     const REG: u32 = FSDIF_HWCONF_OFFSET;
 }
+
 // FSDIF_CUR_DESC_ADDRL_OFFSET Register
 bitflags! {
     pub struct MCICurDescAddrL: u32 {
@@ -1395,9 +1399,11 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCICurDescAddrL {
     const REG: u32 = FSDIF_CUR_DESC_ADDRL_OFFSET;
 }
+
 // FSDIF_CUR_DESC_ADDRH_OFFSET Register
 bitflags! {
     pub struct MCIDescAddrH: u32 {
@@ -1435,9 +1441,11 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIDescAddrH {
     const REG: u32 = FSDIF_CUR_DESC_ADDRH_OFFSET;
 }
+
 // FSDIF_CUR_BUF_ADDRL_OFFSET Register
 bitflags! {
     pub struct MCICurBufAddrL: u32 {
@@ -1475,9 +1483,11 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCICurBufAddrL {
     const REG: u32 = FSDIF_CUR_BUF_ADDRL_OFFSET;
 }
+
 // FSDIF_CUR_BUF_ADDRH_OFFSET Register
 bitflags! {
     pub struct MCIBufAddrH: u32 {
@@ -1515,9 +1525,11 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIBufAddrH {
     const REG: u32 = FSDIF_CUR_BUF_ADDRH_OFFSET;
 }
+
 // FSDIF_ENABLE_SHIFT_OFFSET Register
 bitflags! {
     pub struct MCIEnableShift: u32 {
@@ -1555,6 +1567,7 @@ bitflags! {
         const BIT31 = 1 << 31;
     }
 }
+
 impl FlagReg for MCIEnableShift {
     const REG: u32 = FSDIF_ENABLE_SHIFT_OFFSET;
 }

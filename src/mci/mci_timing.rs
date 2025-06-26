@@ -1,5 +1,5 @@
 use crate::iopad::constants::{FioPadDelay, FioPadDelayDir, FioPadDelayType};
-use crate::iopad::regs::{Aj49Reg1, J53Reg1, XReg1};
+use crate::iopad::regs::{Aj49Reg1, J57Reg1, XReg1};
 use crate::iopad::IoPad;
 use crate::regs::BitsOps;
 
@@ -10,7 +10,7 @@ pub struct MCITiming {
     clk_div: u32,
     clk_src: u32,
     shift: u32,
-    pad_delay: MCIPadDelay //* 用于调整IO的延时 */
+    pad_delay: MCIPadDelay, //* 用于调整IO的延时 */
 }
 
 impl MCITiming {
@@ -33,10 +33,18 @@ enum MCIPadDelay {
 }
 
 impl MCITiming {
-    pub(crate) fn pad_delay(&self,iopad:&mut IoPad,mci_id: MCIId) {
+    // pub(crate) fn pad_delay(&self, iopad: &mut IoPad, mci_id: MCIId) {
+    //     match self.pad_delay {
+    //         MCIPadDelay::Set => set_pad_delay(iopad, mci_id),
+    //         MCIPadDelay::Unset => unset_pad_delay(iopad, mci_id),
+    //         MCIPadDelay::None => {}
+    //     }
+    // }
+
+    pub(crate) fn pad_delay(&self, _iopad: &mut IoPad, _mci_id: MCIId) {
         match self.pad_delay {
-            MCIPadDelay::Set => set_pad_delay(iopad,mci_id),
-            MCIPadDelay::Unset => unset_pad_delay(iopad,mci_id),
+            MCIPadDelay::Set => {},
+            MCIPadDelay::Unset => {},
             MCIPadDelay::None => {}
         }
     }
@@ -95,7 +103,7 @@ pub const MMC_26MHZ: MCITiming = MCITiming {
     clk_div: 0x030204,
     clk_src: 0x000302,
     shift: 0x0,
-    pad_delay: MCIPadDelay::Set
+    pad_delay: MCIPadDelay::Set,
 };
 
 pub const MMC_52MHZ: MCITiming = MCITiming {
@@ -124,7 +132,7 @@ pub const MMC_100MHZ: MCITiming = MCITiming {
 
 /* 管脚相关定义 */
 type Fsdif0SdCclkOutDelay = Aj49Reg1;
-type Fsdif1SdCclkOutDelay = J53Reg1;
+type Fsdif1SdCclkOutDelay = J57Reg1;
 
 fn apply_delay_settings<T: XReg1 + BitsOps>(
     iopad: &mut IoPad,

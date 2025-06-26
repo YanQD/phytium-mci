@@ -7,22 +7,22 @@ use super::sd::constants::{SD_BLOCK_SIZE, SD_CLOCK_50MHZ, SD_MAX_RW_BLK};
 
 #[allow(unused)]
 pub struct MCIHostConfig {
-    pub(crate) host_id: MCIId,                     // 主机 ID
-    pub(crate) host_type: MCIHostType,           // 主机类型
-    pub(crate) card_type: MCIHostCardType,       // 卡类型
-    pub(crate) enable_irq: bool,                 // 是否启用中断
-    pub(crate) enable_dma: bool,                 // 是否启用 DMA
-    pub(crate) endian_mode: MCIHostEndianMode,   // 字节序模式
-    pub(crate) max_trans_size: usize,            // 最大传输大小
-    pub(crate) def_block_size: usize,            // 默认块大小
-    pub(crate) card_clock: u32,                  // 卡时钟频率
-    pub(crate) is_uhs_card: bool,                // 是否为 UHS 卡
-    /* for SDIO card, to support card customized interrupt handling */ // todo 暂时没实现这部分功能
+    pub(crate) host_id: MCIId,                 // 主机 ID
+    pub(crate) host_type: MCIHostType,         // 主机类型
+    pub(crate) card_type: MCIHostCardType,     // 卡类型
+    pub(crate) enable_irq: bool,               // 是否启用中断
+    pub(crate) enable_dma: bool,               // 是否启用 DMA
+    pub(crate) endian_mode: MCIHostEndianMode, // 字节序模式
+    pub(crate) max_trans_size: usize,          // 最大传输大小
+    pub(crate) def_block_size: usize,          // 默认块大小
+    pub(crate) card_clock: u32,                // 卡时钟频率
+    pub(crate) is_uhs_card: bool,              // 是否为 UHS 卡
+                                               /* for SDIO card, to support card customized interrupt handling */ // todo 暂时没实现这部分功能
 }
 
 #[allow(unused)]
 impl MCIHostConfig {
-    #[cfg(feature="dma")]
+    #[cfg(feature = "dma")]
     pub fn new() -> Self {
         Self {
             host_id: MCIId::MCI1,
@@ -38,7 +38,7 @@ impl MCIHostConfig {
         }
     }
 
-    #[cfg(feature="pio")]
+    #[cfg(feature = "pio")]
     pub fn new() -> Self {
         Self {
             host_id: MCIId::MCI0,
@@ -59,7 +59,7 @@ impl MCIHostConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MCIHostType {
     SDMMC,
-    SDIF
+    SDIF,
 }
 
 #[allow(unused)]
@@ -68,12 +68,12 @@ pub(crate) enum MCIHostCardType {
     StandardSD,
     MicroSD,
     EMMC,
-    SDIO
+    SDIO,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MCIHostEndianMode {
-    Big = 0, /* Big endian mode */
+    Big = 0,         /* Big endian mode */
     HalfWordBig = 1, /* Half word big endian mode */
-    Little = 2, /* Little endian mode */
+    Little = 2,      /* Little endian mode */
 }
