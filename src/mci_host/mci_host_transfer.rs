@@ -1,6 +1,5 @@
-use alloc::vec::Vec;
-
 use super::constants::*;
+use alloc::vec::Vec;
 
 pub(crate) struct MCIHostTransfer {
     data: Option<MCIHostData>,

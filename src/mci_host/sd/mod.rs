@@ -1,37 +1,37 @@
 #![allow(dead_code)]
-mod cid;
+
 pub(crate) mod constants;
+
+mod cid;
 mod csd;
 mod io_voltage;
 mod scr;
 mod status;
 mod usr_param;
 
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-use alloc::vec;
-use alloc::vec::Vec;
-use core::cmp::max;
-use core::ptr::NonNull;
-use core::str;
-use core::time::Duration;
-use io_voltage::SdIoVoltage;
-
+use super::{
+    constants::*,
+    err::{MCIHostError, MCIHostStatus},
+    mci_card_base::MCICardBase,
+    mci_host_card_detect::MCIHostCardDetect,
+    mci_host_config::MCIHostConfig,
+    mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer},
+    mci_sdif::constants::SDStatus,
+};
 use crate::mci_host::{mci_host_config::MCIHostType, mci_sdif::sdif_device::SDIFDev, MCIHost};
 use crate::osa::{osa_alloc_aligned, osa_init};
 use crate::sleep;
 use crate::tools::swap_word_byte_sequence_u32;
-
-use super::constants::*;
-use super::err::{MCIHostError, MCIHostStatus};
-use super::mci_card_base::MCICardBase;
-use super::mci_host_card_detect::MCIHostCardDetect;
-use super::mci_host_config::MCIHostConfig;
-use super::mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer};
-use super::mci_sdif::constants::SDStatus;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
 use cid::SdCid;
 use constants::*;
+use core::time::Duration;
+use core::{cmp::max, ptr::NonNull, str};
 use csd::{CsdFlags, SdCardCmdClass, SdCsd};
+use io_voltage::SdIoVoltage;
 use log::{debug, error, info, warn};
 use scr::{ScrFlags, SdScr};
 use status::SdStatus;
@@ -171,13 +171,13 @@ impl SdCard {
 
         usr_param.max_freq = host.config.card_clock;
 
-        self.usr_param.cd = Some(card_cd.clone());
+        self.usr_param.card_detect = Some(card_cd.clone());
 
         host.max_block_count
             .set(host.config.max_trans_size as u32 / host.config.def_block_size as u32);
         host.max_block_size = MCI_HOST_MAX_BLOCK_LENGTH;
         host.source_clock_hz = 1200000000;
-        host.cd = Some(card_cd.clone());
+        host.card_detect = Some(card_cd.clone());
 
         Ok(())
     }
@@ -486,7 +486,7 @@ impl SdCard {
 
         let cd = self
             .usr_param
-            .cd
+            .card_detect
             .as_ref()
             .ok_or(MCIHostError::HostNotReady)?;
         if cd.typ == MCIHostDetectCardType::ByGpioCD || cd.typ == MCIHostDetectCardType::ByHostDATA3
@@ -536,7 +536,7 @@ impl SdCard {
     fn polling_card_insert(&self, status: SDStatus) -> MCIHostStatus {
         let cd = self
             .usr_param
-            .cd
+            .card_detect
             .as_ref()
             .ok_or(MCIHostError::HostNotReady)?;
 

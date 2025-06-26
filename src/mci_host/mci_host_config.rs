@@ -1,9 +1,8 @@
 #[cfg(all(feature = "dma", feature = "pio"))]
 compile_error!("can't enable feature dma and pio at the same time!");
 
-use crate::mci::constants::MCIId;
-
 use super::sd::constants::{SD_BLOCK_SIZE, SD_CLOCK_50MHZ, SD_MAX_RW_BLK};
+use crate::mci::constants::MCIId;
 
 #[allow(unused)]
 pub struct MCIHostConfig {

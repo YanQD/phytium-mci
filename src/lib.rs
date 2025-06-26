@@ -2,16 +2,17 @@
 
 extern crate alloc;
 
-use core::time::Duration;
-
 #[macro_use]
-mod regs;
+pub mod regs;
 pub mod mci;
 pub mod mci_host;
 pub mod osa;
+
 mod tools;
 
 pub use mci_host::*;
+
+use core::time::Duration;
 
 pub trait Kernel {
     fn sleep(duration: Duration);

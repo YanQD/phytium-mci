@@ -8,7 +8,7 @@ pub(crate) struct SdUsrParam {
     pub(crate) power_off_delay_ms: u32,
     pub(crate) io_strength: Option<SdIoStrengthFn>,
     pub(crate) io_voltage: Option<SdIoVoltage>,
-    pub(crate) cd: Option<Rc<MCIHostCardDetect>>,
+    pub(crate) card_detect: Option<Rc<MCIHostCardDetect>>,
     pub(crate) max_freq: u32,
     pub(crate) capability: u32,
 }
@@ -24,7 +24,7 @@ impl SdUsrParam {
             power_off_delay_ms: 0,
             io_strength: None,
             io_voltage: None,
-            cd: None,
+            card_detect: None,
             max_freq: 0,
             capability: 0,
         }

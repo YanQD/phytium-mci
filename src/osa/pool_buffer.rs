@@ -1,14 +1,12 @@
 //! A managed memory buffer for aligned allocations.
 //!
 //! Provides [`PoolBuffer`] - a safe wrapper around pooled memory
+use super::{err::FMempError, osa_dealloc};
+use alloc::vec::Vec;
 use core::{
     ptr::{copy_nonoverlapping, write_bytes, NonNull},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
-
-use alloc::vec::Vec;
-
-use super::{err::FMempError, osa_dealloc};
 
 /// PoolBuffer definition
 pub struct PoolBuffer {

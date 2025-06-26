@@ -1,12 +1,10 @@
 #[cfg(all(feature = "dma", feature = "pio"))]
 compile_error!("can't enable feature dma and pio at the same time!");
 
-use core::ptr::NonNull;
-
 use super::constants::*;
 use super::mci_timing::*;
 use super::regs::*;
-
+use core::ptr::NonNull;
 use log::info;
 
 #[derive(Debug, PartialEq, Clone)]

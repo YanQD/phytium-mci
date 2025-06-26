@@ -103,8 +103,16 @@ impl MCI {
 
     /// deinitialization SDIF controller instance
     pub fn config_deinit(&mut self) -> MCIResult {
-        self.interrupt_mask_set(MCIIntrType::GeneralIntr, MCIIntMask::ALL_BITS.bits(), false); /* 关闭控制器中断位 */
-        self.interrupt_mask_set(MCIIntrType::DmaIntr, MCIDMACIntEn::ALL_BITS.bits(), false); /* 关闭DMA中断位 */
+        self.interrupt_mask_set(
+            MCIInterruptType::GeneralIntr,
+            MCIIntMask::ALL_BITS.bits(),
+            false,
+        ); /* 关闭控制器中断位 */
+        self.interrupt_mask_set(
+            MCIInterruptType::DmaIntr,
+            MCIDMACIntEn::ALL_BITS.bits(),
+            false,
+        ); /* 关闭DMA中断位 */
 
         self.raw_status_clear(); /* 清除中断状态 */
         self.dma_status_clear();

@@ -1,6 +1,5 @@
-use core::arch::asm;
-
 use bitflags::bitflags;
+use core::arch::asm;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MCIId {
@@ -44,7 +43,7 @@ pub enum MCITransMode {
 
 // 定义中断类型枚举
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MCIIntrType {
+pub enum MCIInterruptType {
     GeneralIntr, // 属于控制器的中断状态
     DmaIntr,     // 属于DMA的中断状态
 }

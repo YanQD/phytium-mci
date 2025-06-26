@@ -1,9 +1,7 @@
-use core::ops;
-
+use super::{FlagReg, Reg};
 use crate::mci::{constants::*, err::MCIError};
 use bitflags::bitflags;
-
-use super::{FlagReg, Reg};
+use core::ops;
 
 pub type MCIReg = Reg<MCIError>;
 

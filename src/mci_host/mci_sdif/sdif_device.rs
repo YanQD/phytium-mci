@@ -1,42 +1,37 @@
-use core::cell::{Cell, RefCell};
-use core::mem::take;
-use core::ptr::NonNull;
-use core::time::Duration;
-
-use alloc::vec::Vec;
-use log::*;
-
 use super::constants::SDStatus;
 use super::MCIHost;
-use crate::mci::constants::*;
-use crate::mci::mci_data::MCIData;
-use crate::mci::regs::MCIIntMask;
-use crate::mci::{MCICmdData, MCIConfig, MCI};
-use crate::mci_host::constants::*;
-use crate::mci_host::err::*;
-use crate::mci_host::mci_host_card_detect::MCIHostCardDetect;
-use crate::mci_host::mci_host_config::*;
-use crate::mci_host::mci_host_device::MCIHostDevice;
-use crate::mci_host::mci_host_transfer::MCIHostTransfer;
-use crate::mci_host::sd::constants::SdCmd;
-use crate::mci_host::MCIHostCardIntFn;
-use crate::sleep;
-use crate::tools::swap_half_word_byte_sequence_u32;
-
-#[cfg(feature = "dma")]
-use crate::mci::mci_dma::FSdifIDmaDesc;
+use crate::mci::{constants::*, mci_data::MCIData, regs::MCIIntMask, MCICmdData, MCIConfig, MCI};
+use crate::mci_host::{
+    constants::*, err::*, mci_host_card_detect::MCIHostCardDetect, mci_host_config::*,
+    mci_host_device::MCIHostDevice, mci_host_transfer::MCIHostTransfer, sd::constants::SdCmd,
+    MCIHostCardIntFn,
+};
 use crate::osa::osa_alloc_aligned;
 use crate::osa::pool_buffer::PoolBuffer;
 use crate::sd::constants::SD_BLOCK_SIZE;
+use crate::sleep;
+use crate::tools::swap_half_word_byte_sequence_u32;
+use alloc::vec::Vec;
+use core::{
+    cell::{Cell, RefCell},
+    mem::take,
+    ptr::NonNull,
+    time::Duration,
+};
+use log::*;
+
+#[cfg(feature = "dma")]
+use crate::mci::mci_dma::FSdifIDmaDesc;
+
 #[cfg(feature = "dma")]
 use dma_api::DSlice;
 
 pub(crate) struct SDIFDev {
-    hc: RefCell<MCI>,           // SDIF 硬件控制器
-    hc_cfg: RefCell<MCIConfig>, // SDIF 配置
+    hc: RefCell<MCI>,               // SDIF 硬件控制器
+    hc_cfg: RefCell<MCIConfig>,     // SDIF 配置
     #[cfg(feature = "dma")]
-    rw_desc: PoolBuffer, // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
-    desc_num: Cell<u32>,        // 描述符数量，表示 DMA 描述符的数量
+    rw_desc: PoolBuffer,            // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
+    desc_num: Cell<u32>,            // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
@@ -208,7 +203,7 @@ impl MCIHostDevice for SDIFDev {
     fn card_int_enable(&self, enable: bool, host: &MCIHost) -> MCIHostStatus {
         if MCIHostCardType::SDIO == host.config.card_type {
             self.hc.borrow().interrupt_mask_set(
-                MCIIntrType::GeneralIntr,
+                MCIInterruptType::GeneralIntr,
                 MCIIntMask::SDIO_BIT.bits(),
                 enable,
             );
@@ -243,7 +238,7 @@ impl MCIHostDevice for SDIFDev {
         _timeout: u32,
         host: &MCIHost,
     ) -> MCIHostStatus {
-        let cd = host.cd.as_ref().ok_or(MCIHostError::NoData)?;
+        let cd = host.card_detect.as_ref().ok_or(MCIHostError::NoData)?;
 
         let mut retry_times: usize = 100;
 
@@ -400,9 +395,6 @@ impl MCIHostDevice for SDIFDev {
                 drop(slice);
             }
 
-            // let buf_ptr = unsafe { NonNull::new_unchecked(buf.as_ptr() as usize as *mut u32) };
-            // let bus_addr = map(buf_ptr.cast(), size_of_val(&buf[..]), Direction::Bidirectional);
-            // out_data.buf_dma_set(bus_addr as usize);
             out_data.buf_set(Some(buf));
 
             #[cfg(feature = "dma")]
@@ -462,8 +454,6 @@ impl MCIHostDevice for SDIFDev {
                 return Err(MCIHostError::NoData);
             }
         }
-
-        // unsafe { dsb(); }
 
         //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
         if let Some(_) = content.data() {

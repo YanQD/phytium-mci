@@ -1,19 +1,18 @@
 #[allow(unused)]
-mod constants;
 pub mod err;
+pub mod mci_sdif;
+pub mod sd;
+
+mod constants;
 mod mci_card_base;
 mod mci_host_card_detect;
 mod mci_host_config;
 mod mci_host_device;
 mod mci_host_transfer;
-pub mod mci_sdif;
-pub mod sd;
-
-use core::{cell::Cell, ptr::NonNull};
 
 use alloc::{boxed::Box, rc::Rc};
-
 use constants::*;
+use core::{cell::Cell, ptr::NonNull};
 use err::{MCIHostError, MCIHostStatus};
 use log::error;
 use mci_host_card_detect::MCIHostCardDetect;
@@ -37,7 +36,7 @@ pub struct MCIHost {
     pub(crate) max_block_size: u32,
     pub(crate) tuning_type: u8,
 
-    pub(crate) cd: Option<Rc<MCIHostCardDetect>>, // 卡检测
+    pub(crate) card_detect: Option<Rc<MCIHostCardDetect>>, // 卡检测
     pub(crate) card_int: MCIHostCardIntFn,
     //? 这里 uint8_t tuningType sdmmc_osa_event_t hostEvent sdmmc_osa_mutex_t lock 都没有移植
 }
@@ -56,7 +55,7 @@ impl MCIHost {
             max_block_count: Cell::new(0),
             max_block_size: 0,
             tuning_type: 0,
-            cd: None,
+            card_detect: None,
             card_int: || {},
         }
     }

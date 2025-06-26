@@ -1,17 +1,17 @@
 //! An area managed by Tlsf algorithm
 #![deny(missing_docs)]
-use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
+
+mod consts;
+mod err;
+pub mod pool_buffer;
 
 use consts::MAX_POOL_SIZE;
+use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 use err::FMempError;
 use lazy_static::*;
 use pool_buffer::PoolBuffer;
 use rlsf::Tlsf;
 use spin::Mutex;
-
-mod consts;
-mod err;
-pub mod pool_buffer;
 
 /// Memory menaged by Tlsf pool
 static mut POOL: [MaybeUninit<u8>; MAX_POOL_SIZE] = [MaybeUninit::uninit(); MAX_POOL_SIZE];

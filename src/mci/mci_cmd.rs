@@ -1,10 +1,6 @@
-use log::*;
+use super::{constants::*, err::*, mci_cmddata::MCICmdData, regs::*, MCI};
 
-use super::constants::*;
-use super::err::*;
-use super::mci_cmddata::MCICmdData;
-use super::regs::*;
-use super::MCI;
+use log::*;
 
 impl MCI {
     pub(crate) fn private_cmd_send(&self, cmd: MCICmd, arg: u32) -> MCIResult {
@@ -95,7 +91,7 @@ impl MCI {
         debug!("    arg: 0x{:x}", cmd_data.cmdarg());
         /* enable related interrupt */
         self.interrupt_mask_set(
-            MCIIntrType::GeneralIntr,
+            MCIInterruptType::GeneralIntr,
             MCIIntMask::INTS_CMD_MASK.bits(),
             true,
         );
@@ -159,11 +155,15 @@ impl MCI {
 
         /* disable related interrupt */
         self.interrupt_mask_set(
-            MCIIntrType::GeneralIntr,
+            MCIInterruptType::GeneralIntr,
             (MCIIntMask::INTS_CMD_MASK | MCIIntMask::INTS_DATA_MASK).bits(),
             false,
         );
-        self.interrupt_mask_set(MCIIntrType::DmaIntr, MCIDMACIntEn::INTS_MASK.bits(), false);
+        self.interrupt_mask_set(
+            MCIInterruptType::DmaIntr,
+            MCIDMACIntEn::INTS_MASK.bits(),
+            false,
+        );
         trace!("cmd send done ...");
 
         self.prev_cmd = cmd_data.cmdidx();

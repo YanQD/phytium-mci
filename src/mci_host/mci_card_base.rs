@@ -1,6 +1,5 @@
-use crate::osa::pool_buffer::PoolBuffer;
-
 use super::MCIHost;
+use crate::osa::pool_buffer::PoolBuffer;
 
 pub(crate) struct MCICardBase {
     pub host: Option<MCIHost>,

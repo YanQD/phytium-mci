@@ -1,16 +1,10 @@
-use core::ptr::NonNull;
-
-use alloc::vec::Vec;
-
+use super::{
+    constants::*, err::*, mci_host_card_detect::MCIHostCardDetect,
+    mci_host_transfer::MCIHostTransfer, mci_sdif::constants::SDStatus, MCIHost, MCIHostCardIntFn,
+};
 use crate::mci::MCICmdData;
-
-use super::constants::*;
-use super::err::*;
-use super::mci_host_card_detect::MCIHostCardDetect;
-use super::mci_host_transfer::MCIHostTransfer;
-use super::mci_sdif::constants::SDStatus;
-use super::MCIHost;
-use super::MCIHostCardIntFn;
+use alloc::vec::Vec;
+use core::ptr::NonNull;
 
 #[allow(unused)]
 pub(crate) trait MCIHostDevice {
