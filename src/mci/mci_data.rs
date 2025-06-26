@@ -50,6 +50,7 @@ impl MCIData {
         self.buf.as_ref()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn buf_mut(&mut self) -> Option<&mut Vec<u32>> {
         self.buf.as_mut()
     }

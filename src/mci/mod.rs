@@ -33,7 +33,7 @@ pub use mci_cmddata::*;
 pub use mci_config::*;
 pub use mci_timing::*;
 
-use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep, IoPad};
+use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep};
 use core::time::Duration;
 
 pub struct MCI {
@@ -42,7 +42,6 @@ pub struct MCI {
     prev_cmd: u32, // todo 这里需要实现成一个实现了Command的enum
     curr_timing: MCITiming,
     cur_cmd: Option<MCICmdData>,
-    io_pad: Option<IoPad>,
     #[cfg(feature = "dma")]
     desc_list: FSdifIDmaDescList,
 }
@@ -62,7 +61,6 @@ impl MCI {
             prev_cmd: 0,
             curr_timing: MCITiming::new(),
             cur_cmd: None,
-            io_pad: None,
             #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
@@ -75,7 +73,6 @@ impl MCI {
             prev_cmd: 0,
             curr_timing: MCITiming::new(),
             cur_cmd: None,
-            io_pad: None,
             #[cfg(feature = "dma")]
             desc_list: FSdifIDmaDescList::new(),
         }
@@ -84,14 +81,6 @@ impl MCI {
 
 /// MCI pub API
 impl MCI {
-    pub fn iopad_set(&mut self, iopad: IoPad) {
-        self.io_pad = Some(iopad);
-    }
-
-    pub fn iopad_take(&mut self) -> Option<IoPad> {
-        self.io_pad.take()
-    }
-
     // todo 避免所有权问题先用了clone
     pub fn cur_cmd_set(&mut self, cmd: &MCICmdData) {
         self.cur_cmd = Some(cmd.clone());
@@ -183,10 +172,6 @@ impl MCI {
                 error!("No available timing !!!");
                 MCIError::InvalidTiming
             })?;
-
-            /* update pad delay */
-            info!("instance_id: {:?}", self.config.instance_id());
-            target_timing.pad_delay(self.io_pad.as_mut().unwrap(), self.config.instance_id());
 
             /* update clock source setting */
             self.update_exteral_clk(MCIClkSrc::from_bits_retain(target_timing.clk_src()))?;

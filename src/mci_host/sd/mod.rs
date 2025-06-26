@@ -17,12 +17,10 @@ use core::str;
 use core::time::Duration;
 use io_voltage::SdIoVoltage;
 
-use crate::mci_host::mci_host_config::MCIHostType;
-use crate::mci_host::mci_sdif::sdif_device::SDIFDev;
-use crate::mci_host::MCIHost;
+use crate::mci_host::{mci_host_config::MCIHostType, mci_sdif::sdif_device::SDIFDev, MCIHost};
 use crate::osa::{osa_alloc_aligned, osa_init};
+use crate::sleep;
 use crate::tools::swap_word_byte_sequence_u32;
-use crate::{sleep, IoPad};
 
 use super::constants::*;
 use super::err::{MCIHostError, MCIHostStatus};
@@ -56,12 +54,11 @@ pub struct SdCard {
 }
 
 impl SdCard {
-    pub fn new(addr: NonNull<u8>, iopad: IoPad) -> Self {
+    pub fn new(addr: NonNull<u8>) -> Self {
         osa_init();
 
         let mci_host_config = MCIHostConfig::new();
 
-        // 组装 base
         let internal_buffer = match osa_alloc_aligned(
             mci_host_config.max_trans_size,
             mci_host_config.def_block_size,
@@ -82,7 +79,7 @@ impl SdCard {
         // 组装 host
         let desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
         let sdif_device = SDIFDev::new(addr, desc_num);
-        sdif_device.iopad_set(iopad);
+
         let host = MCIHost::new(Box::new(sdif_device), mci_host_config);
         let host_type = host.config.host_type;
 

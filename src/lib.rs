@@ -6,13 +6,11 @@ use core::time::Duration;
 
 #[macro_use]
 mod regs;
-pub mod iopad;
 pub mod mci;
 pub mod mci_host;
 pub mod osa;
 mod tools;
 
-pub use iopad::*;
 pub use mci_host::*;
 
 pub trait Kernel {

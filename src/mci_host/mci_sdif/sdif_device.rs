@@ -20,8 +20,8 @@ use crate::mci_host::mci_host_device::MCIHostDevice;
 use crate::mci_host::mci_host_transfer::MCIHostTransfer;
 use crate::mci_host::sd::constants::SdCmd;
 use crate::mci_host::MCIHostCardIntFn;
+use crate::sleep;
 use crate::tools::swap_half_word_byte_sequence_u32;
-use crate::{sleep, IoPad};
 
 #[cfg(feature = "dma")]
 use crate::mci::mci_dma::FSdifIDmaDesc;
@@ -62,10 +62,6 @@ impl SDIFDev {
             desc_num: (desc_num as u32).into(),
         }
     }
-
-    pub fn iopad_set(&self, iopad: IoPad) {
-        self.hc.borrow_mut().iopad_set(iopad);
-    }
 }
 
 impl MCIHostDevice for SDIFDev {
@@ -77,14 +73,8 @@ impl MCIHostDevice for SDIFDev {
 
     fn do_init(&self, addr: NonNull<u8>, host: &MCIHost) -> MCIHostStatus {
         let mci_config = MCIConfig::lookup_config(addr);
-        let iopad = self
-            .hc
-            .borrow_mut()
-            .iopad_take()
-            .ok_or(MCIHostError::NoData)?;
 
         *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr));
-        self.hc.borrow_mut().iopad_set(iopad);
 
         // 强行 restart 一下
         let restart_mci = MCI::new_restart(MCIConfig::restart(addr));

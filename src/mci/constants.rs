@@ -39,7 +39,7 @@ bitflags! {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MCITransMode {
     DMA, // DMA传输模式
-    PIO, // PIO传输模式（通过读/写Fifo）
+    PIO, // PIO传输模式
 }
 
 // 定义中断类型枚举

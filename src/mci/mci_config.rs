@@ -34,7 +34,7 @@ impl MCIConfig {
     #[cfg(feature = "pio")]
     pub fn new(addr: NonNull<u8>) -> Self {
         info!("Using PIO mode for MCI");
-        
+
         Self {
             instance_id: MCIId::MCI0,
             reg: MCIReg::new(addr),

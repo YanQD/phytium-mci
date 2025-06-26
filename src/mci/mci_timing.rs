@@ -1,10 +1,3 @@
-use crate::iopad::constants::{FioPadDelay, FioPadDelayDir, FioPadDelayType};
-use crate::iopad::regs::{Aj49Reg1, J57Reg1, XReg1};
-use crate::iopad::IoPad;
-use crate::regs::BitsOps;
-
-use super::constants::*;
-
 pub struct MCITiming {
     use_hold: bool,
     clk_div: u32,
@@ -33,22 +26,6 @@ enum MCIPadDelay {
 }
 
 impl MCITiming {
-    // pub(crate) fn pad_delay(&self, iopad: &mut IoPad, mci_id: MCIId) {
-    //     match self.pad_delay {
-    //         MCIPadDelay::Set => set_pad_delay(iopad, mci_id),
-    //         MCIPadDelay::Unset => unset_pad_delay(iopad, mci_id),
-    //         MCIPadDelay::None => {}
-    //     }
-    // }
-
-    pub(crate) fn pad_delay(&self, _iopad: &mut IoPad, _mci_id: MCIId) {
-        match self.pad_delay {
-            MCIPadDelay::Set => {},
-            MCIPadDelay::Unset => {},
-            MCIPadDelay::None => {}
-        }
-    }
-
     pub(crate) fn clk_src(&self) -> u32 {
         self.clk_src
     }
@@ -129,62 +106,3 @@ pub const MMC_100MHZ: MCITiming = MCITiming {
     shift: 0x0,
     pad_delay: MCIPadDelay::Set,
 };
-
-/* 管脚相关定义 */
-type Fsdif0SdCclkOutDelay = Aj49Reg1;
-type Fsdif1SdCclkOutDelay = J57Reg1;
-
-fn apply_delay_settings<T: XReg1 + BitsOps>(
-    iopad: &mut IoPad,
-    coarse_delay: FioPadDelay,
-    fine_delay: FioPadDelay,
-    enable: bool,
-) where
-    T: 'static,
-{
-    iopad.delay_set::<T>(
-        FioPadDelayDir::OutputDelay,
-        FioPadDelayType::DelayCoarseTuning,
-        coarse_delay,
-    );
-    iopad.delay_set::<T>(
-        FioPadDelayDir::OutputDelay,
-        FioPadDelayType::DelayFineTuning,
-        fine_delay,
-    );
-    iopad.delay_enable_set::<T>(FioPadDelayDir::OutputDelay, enable);
-}
-
-pub fn set_pad_delay(iopad: &mut IoPad, mci_id: MCIId) {
-    match mci_id {
-        MCIId::MCI0 => apply_delay_settings::<Fsdif0SdCclkOutDelay>(
-            iopad,
-            FioPadDelay::Delay1,
-            FioPadDelay::Delay7,
-            true,
-        ),
-        MCIId::MCI1 => apply_delay_settings::<Fsdif1SdCclkOutDelay>(
-            iopad,
-            FioPadDelay::Delay1,
-            FioPadDelay::Delay7,
-            true,
-        ),
-    }
-}
-
-pub fn unset_pad_delay(iopad: &mut IoPad, mci_id: MCIId) {
-    match mci_id {
-        MCIId::MCI0 => apply_delay_settings::<Fsdif0SdCclkOutDelay>(
-            iopad,
-            FioPadDelay::DelayNone,
-            FioPadDelay::DelayNone,
-            false,
-        ),
-        MCIId::MCI1 => apply_delay_settings::<Fsdif1SdCclkOutDelay>(
-            iopad,
-            FioPadDelay::DelayNone,
-            FioPadDelay::DelayNone,
-            false,
-        ),
-    }
-}

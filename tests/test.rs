@@ -15,7 +15,7 @@ mod tests {
         time::spin_delay,
     };
     use log::*;
-    use phytium_mci::{iopad::PAD_ADDRESS, sd::SdCard, *};
+    use phytium_mci::{sd::SdCard, *};
 
     const SD_START_BLOCK: u32 = 131072;
     const SD_USE_BLOCK: u32 = 1;
@@ -41,11 +41,7 @@ mod tests {
 
         let mci_reg_base = iomap((reg.address as usize).into(), reg.size.unwrap());
 
-        let iopad_reg_base = iomap((PAD_ADDRESS as usize).into(), 0x2000);
-
-        let iopad = IoPad::new(iopad_reg_base);
-
-        let mut sdcard = SdCard::new(mci_reg_base, iopad);
+        let mut sdcard = SdCard::new(mci_reg_base);
 
         ////////////////////// SD card init finished //////////////////////
 
@@ -69,15 +65,7 @@ mod tests {
         for i in 0..receive_buf.len() {
             assert_eq!(receive_buf[i], buffer[i]);
         }
-        
-        // for i in 0..receive_buf.len() {
-        //     warn!("{:x},{:x},{:x},{:x}",
-        //     receive_buf[i] as u8,
-        //     (receive_buf[i] >> 8) as u8,
-        //     (receive_buf[i] >> 16) as u8,
-        //     (receive_buf[i] >> 24) as u8);
-        // }
-        
+
         info!("buffer len is {}", receive_buf.len());
 
         info!("test_work passed\n");
