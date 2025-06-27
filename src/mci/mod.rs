@@ -39,7 +39,7 @@ use mci_dma::{FSdifIDmaDesc, FSdifIDmaDescList};
 pub struct MCI {
     config: MCIConfig,
     is_ready: bool,
-    prev_cmd: u32, // todo 这里需要实现成一个实现了Command的enum
+    prev_cmd: u32, // TODO：这里需要实现成一个实现了Command的enum
     curr_timing: MCITiming,
     cur_cmd: Option<MCICmdData>,
     #[cfg(feature = "dma")]
@@ -108,7 +108,7 @@ impl MCI {
             MCIIntMask::ALL_BITS.bits(),
             false,
         ); /* 关闭控制器中断位 */
-        
+
         self.interrupt_mask_set(
             MCIInterruptType::DmaIntr,
             MCIDMACIntEn::ALL_BITS.bits(),
@@ -142,7 +142,7 @@ impl MCI {
             return Err(MCIError::InvalidState);
         }
 
-        // todo 不太优雅 后续考虑修改
+        // TODO：不太优雅 后续考虑修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(Vec::from_raw_parts(
                 desc.addr().as_ptr(),
@@ -311,7 +311,7 @@ impl MCI {
             if delay % 1000 == 0 {
                 debug!("polling dma end, reg_val = 0x{:x}", reg_val);
             }
-            // todo relax handler?
+            // TODO：relax handler?
 
             delay -= 1;
             if wait_bits & reg_val == wait_bits || delay == 0 {
@@ -459,12 +459,12 @@ impl MCI {
     }
 
     /* Read PIO data, it works in IRQ mode */
-    // todo 不知道协议栈层需要不需要调用,已经实现.
-    /* Get cmd response and received data after wait poll status or interrupt signal */ // todo 不知道协议栈层需要不需要调用,已经实现.
+    // TODO：不知道协议栈层需要不需要调用,已经实现.
+    /* Get cmd response and received data after wait poll status or interrupt signal */ // TODO：不知道协议栈层需要不需要调用,已经实现.
 
     /* Interrupt handler for SDIF instance */
-    //todo 在中断模式下会使用到
-    /* Register event call-back function as handler for interrupt events */ //todo 在中断模式下会使用到
+    // TODO：在中断模式下会使用到
+    /* Register event call-back function as handler for interrupt events */ // TODO：在中断模式下会使用到
 
     /// Reset controller from error state
     pub fn restart(&self) -> MCIResult {

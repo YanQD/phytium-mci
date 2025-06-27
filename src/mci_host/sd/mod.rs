@@ -1098,7 +1098,7 @@ impl SdCard {
         data.block_size_set(64);
         data.block_count_set(1);
         let tmp_buf = vec![0; 64];
-        data.rx_data_set(Some(tmp_buf)); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        data.rx_data_set(Some(tmp_buf)); //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
 
@@ -1460,7 +1460,7 @@ impl SdCard {
             .dev
             .execute_tuning(SdCmd::SendTuningBlock as u32, &mut buffer, 64);
 
-        // todo 性能问题
+        // TODO：性能问题
         self.base.internal_buffer.clear();
         // self.base.internal_buffer.extend(buffer.iter().flat_map(|&val| val.to_ne_bytes()));
         let buffer = buffer
@@ -1525,7 +1525,7 @@ impl SdCard {
         data.enable_auto_command12_set(false);
         data.block_size_set(block_size as usize);
         data.block_count_set(block_count);
-        // todo 减少内存开销
+        // TODO：减少内存开销
         let tmp_buf = buffer.clone();
         data.tx_data_set(Some(tmp_buf));
 
@@ -1610,7 +1610,7 @@ impl SdCard {
 
     /// ACMD 13
     fn status_read(&mut self) -> MCIHostStatus {
-        // todo polling card status
+        // TODO：polling card status
 
         Ok(())
     }
@@ -1698,7 +1698,7 @@ impl SdCard {
         data.block_size_set(8);
         data.block_count_set(1);
         let tmp_buf = vec![0; 8];
-        data.rx_data_set(Some(tmp_buf)); //todo 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        data.rx_data_set(Some(tmp_buf)); //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1734,7 +1734,7 @@ impl SdCard {
 impl SdCard {
     fn decode_cid(&mut self) {
         let cid = &mut self.cid;
-        // todo 可能存在性能问题
+        // TODO：可能存在性能问题
         // let rawcid = u8_to_u32_slice(&self.base.internal_buffer);
         let rawcid = match self.base.internal_buffer.to_vec::<u32>() {
             Err(e) => {
@@ -1764,7 +1764,7 @@ impl SdCard {
 
     fn decode_csd(&mut self) {
         let csd = &mut self.csd;
-        // todo 可能存在性能问题
+        // TODO：可能存在性能问题
         // let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
         let rawcsd = match self.base.internal_buffer.to_vec::<u32>() {
             Err(e) => {

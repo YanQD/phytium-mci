@@ -35,12 +35,12 @@ pub(crate) trait MCIHostDevice {
     ) -> MCIHostStatus;
 
     /* card related functions */
-    // todo 这里引入的 MCIHostCardDetect 如果是实现 MCIHostDevice 的一定有的成员,这里留一个获取它的接口 get_MCIHostDevice
+    // TODO：这里引入的 MCIHostCardDetect 如果是实现 MCIHostDevice 的一定有的成员,这里留一个获取它的接口 get_MCIHostDevice
     fn card_detect_init(&self, cd: &MCIHostCardDetect) -> MCIHostStatus;
     fn card_power_set(&self, enable: bool);
     fn force_clock_on(&self, enable: bool);
     fn card_int_enable(&self, enable: bool, host: &MCIHost) -> MCIHostStatus;
-    // todo 同上
+    // TODO：同上
     fn card_int_init(&self, sdio_int: &MCIHostCardIntFn) -> MCIHostStatus;
     fn card_bus_width_set(&self, data_bus_width: MCIHostBusWdith);
     fn card_detect_status_polling(

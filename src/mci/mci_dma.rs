@@ -22,9 +22,9 @@ pub struct FSdifIDmaDesc {
 
 pub struct FSdifIDmaDescList {
     pub first_desc: *mut FSdifIDmaDesc,
-    pub first_desc_dma: usize, // 第一个descriptor的物理地址
+    pub first_desc_dma: usize,  // 第一个descriptor的物理地址
     pub desc_num: u32,
-    pub desc_trans_sz: u32, // 单个descriptor传输的字节数
+    pub desc_trans_sz: u32,     // 单个descriptor传输的字节数
 }
 
 impl FSdifIDmaDescList {
@@ -177,7 +177,7 @@ impl MCI {
             }
         }
 
-        // todo 不太优雅 考虑后续修改
+        // TODO：不太优雅 考虑后续修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(Vec::from_raw_parts(
                 desc_list.first_desc,

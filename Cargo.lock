@@ -358,12 +358,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f769efcf10b9dfb4c913bebb409cda77b1a3f072b249bf5465e250bcb30eb49"
 
 [[package]]
-name = "nb"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
-
-[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -437,11 +431,9 @@ dependencies = [
  "bare-test-macros",
  "bitflags",
  "byte-unit",
- "bytemuck",
  "dma-api",
  "lazy_static",
  "log",
- "nb",
  "pcie",
  "rlsf",
  "spin 0.10.0",

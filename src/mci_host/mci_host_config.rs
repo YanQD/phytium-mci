@@ -16,7 +16,7 @@ pub struct MCIHostConfig {
     pub(crate) def_block_size: usize,          // 默认块大小
     pub(crate) card_clock: u32,                // 卡时钟频率
     pub(crate) is_uhs_card: bool,              // 是否为 UHS 卡
-                                               /* for SDIO card, to support card customized interrupt handling */ // todo 暂时没实现这部分功能
+                                               /* for SDIO card, to support card customized interrupt handling */ // TODO：暂时没实现这部分功能
 }
 
 #[allow(unused)]
@@ -27,13 +27,13 @@ impl MCIHostConfig {
             host_id: MCIId::MCI1,
             host_type: MCIHostType::SDIF,
             card_type: MCIHostCardType::MicroSD,
-            enable_irq: false, // todo 后续实现了irq相关会改为true
+            enable_irq: false, // TODO：后续实现了irq相关会改为true
             enable_dma: true,
             endian_mode: MCIHostEndianMode::Little,
             max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
             def_block_size: SD_BLOCK_SIZE,
             card_clock: SD_CLOCK_50MHZ,
-            is_uhs_card: false, // todo 需要测试能不能支持UHS模式
+            is_uhs_card: false, // TODO：需要测试能不能支持UHS模式
         }
     }
 
@@ -43,7 +43,7 @@ impl MCIHostConfig {
             host_id: MCIId::MCI0,
             host_type: MCIHostType::SDIF,
             card_type: MCIHostCardType::MicroSD,
-            enable_irq: false, // todo 后续实现了irq相关会改为true
+            enable_irq: false, // TODO：后续实现了irq相关会改为true
             enable_dma: false,
             endian_mode: MCIHostEndianMode::Little,
             max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,

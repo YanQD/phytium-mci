@@ -6,9 +6,11 @@ use crate::mci_host::{
     mci_host_device::MCIHostDevice, mci_host_transfer::MCIHostTransfer, sd::constants::SdCmd,
     MCIHostCardIntFn,
 };
+
 use crate::osa::osa_alloc_aligned;
 use crate::osa::pool_buffer::PoolBuffer;
 use crate::sd::constants::SD_BLOCK_SIZE;
+
 use crate::sleep;
 use crate::tools::swap_half_word_byte_sequence_u32;
 use alloc::vec::Vec;
@@ -27,11 +29,11 @@ use crate::mci::mci_dma::FSdifIDmaDesc;
 use dma_api::DSlice;
 
 pub(crate) struct SDIFDev {
-    hc: RefCell<MCI>,           // SDIF 硬件控制器
-    hc_cfg: RefCell<MCIConfig>, // SDIF 配置
+    hc: RefCell<MCI>, // SDIF 硬件控制器
     #[cfg(feature = "dma")]
-    rw_desc: PoolBuffer,        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
-    desc_num: Cell<u32>,        // 描述符数量，表示 DMA 描述符的数量
+    rw_desc: PoolBuffer, // DMA 描述符指针，用于管理数据传输 TODO：考虑直接用vec或DVec保存
+    #[cfg(feature = "dma")]
+    desc_num: Cell<u32>, // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
@@ -51,9 +53,9 @@ impl SDIFDev {
 
         Self {
             hc: MCI::new(MCIConfig::new(addr)).into(),
-            hc_cfg: MCIConfig::new(addr).into(),
             #[cfg(feature = "dma")]
             rw_desc,
+            #[cfg(feature = "dma")]
             desc_num: (desc_num as u32).into(),
         }
     }
@@ -61,8 +63,11 @@ impl SDIFDev {
 
 impl MCIHostDevice for SDIFDev {
     fn init(&self, addr: NonNull<u8>, host: &MCIHost) -> MCIHostStatus {
-        let num_of_desc = host.config.max_trans_size / host.config.def_block_size;
-        self.desc_num.set(num_of_desc as u32);
+        #[cfg(feature = "dma")]
+        {
+            let num_of_desc = host.config.max_trans_size / host.config.def_block_size;
+            self.desc_num.set(num_of_desc as u32);
+        }
         self.do_init(addr, host)
     }
 
@@ -98,12 +103,11 @@ impl MCIHostDevice for SDIFDev {
             }
         }
 
-        *self.hc_cfg.borrow_mut() = mci_config;
         Ok(())
     }
 
     fn deinit(&self) {
-        // todo FSDIFHOST_RevokeIrq
+        // TODO：FSDIFHOST_RevokeIrq
         let _ = self.hc.borrow_mut().config_deinit();
         info!("Sdio ctrl deinited !!!")
     }
@@ -149,7 +153,7 @@ impl MCIHostDevice for SDIFDev {
     }
 
     fn enable_ddr_mode(&self, _enable: bool, _nibble_pos: u32) {
-        // todo  暂时还没有实现
+        // TODO：暂时还没有实现
     }
 
     fn enable_hs400_mode(&self, _enable: bool) {
