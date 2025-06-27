@@ -3,6 +3,7 @@ pub struct MCITiming {
     clk_div: u32,
     clk_src: u32,
     shift: u32,
+    #[allow(unused)]
     pad_delay: MCIPadDelay, //* 用于调整IO的延时 */
 }
 

@@ -114,10 +114,9 @@ pub unsafe fn invalidate(addr: *const u8, size: usize) {
     asm!("dsb sy");
 }
 
-/** @name Register Map
- *
+/*
+ * @name Register Map
  * Register offsets from the base address of an SD device.
- * @{
  */
 pub const FSDIF_CNTRL_OFFSET: u32 = 0x00; // the controller config reg
 pub const FSDIF_PWREN_OFFSET: u32 = 0x04; // the power enable reg

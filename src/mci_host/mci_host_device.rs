@@ -58,10 +58,4 @@ pub(crate) trait MCIHostDevice {
     fn pre_command(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
     fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICmdData;
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
-
-    /* boot related functions */
-    // todo 永远不会用到它们
-    // fn start_boot(&self, host_config: &MCIHostBootConfig, cmd: &MCIHostCmd, buffer: &mut [u8]) -> MCIHostStatus;
-    // fn read_boot_data(&self, host_config: &MCIHostBootConfig, buffer: &mut [u8]) -> MCIHostStatus;
-    // fn enable_boot(&self, enable: bool);
 }

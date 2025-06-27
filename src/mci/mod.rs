@@ -1,40 +1,40 @@
 //! 注意不应把重名的子模块设为pub
 pub mod constants;
 pub mod err;
+pub mod mci_data;
+#[cfg(feature = "dma")]
+pub mod mci_dma;
 pub mod regs;
 
 mod mci_cmd;
 mod mci_cmddata;
 mod mci_config;
-pub mod mci_data;
-#[cfg(feature = "dma")]
-pub mod mci_dma;
 mod mci_hardware;
 mod mci_irq;
+mod mci_timing;
 
 #[cfg(feature = "pio")]
 mod mci_pio;
-mod mci_timing;
 
 pub use err::*;
+pub use mci_cmddata::*;
+pub use mci_config::*;
+pub use mci_timing::*;
 
+use crate::osa::pool_buffer::PoolBuffer;
 use alloc::vec::Vec;
+
+use crate::{regs::*, sleep};
 use constants::*;
+use core::time::Duration;
+use log::*;
+use regs::*;
+
 #[cfg(feature = "dma")]
 use dma_api::DSlice;
 
 #[cfg(feature = "dma")]
 use mci_dma::{FSdifIDmaDesc, FSdifIDmaDescList};
-
-use log::*;
-use regs::*;
-
-pub use mci_cmddata::*;
-pub use mci_config::*;
-pub use mci_timing::*;
-
-use crate::{osa::pool_buffer::PoolBuffer, regs::*, sleep};
-use core::time::Duration;
 
 pub struct MCI {
     config: MCIConfig,
@@ -81,7 +81,7 @@ impl MCI {
 
 /// MCI pub API
 impl MCI {
-    // todo 避免所有权问题先用了clone
+    // TODO: 避免所有权问题先用了clone
     pub fn cur_cmd_set(&mut self, cmd: &MCICmdData) {
         self.cur_cmd = Some(cmd.clone());
     }
@@ -108,6 +108,7 @@ impl MCI {
             MCIIntMask::ALL_BITS.bits(),
             false,
         ); /* 关闭控制器中断位 */
+        
         self.interrupt_mask_set(
             MCIInterruptType::DmaIntr,
             MCIDMACIntEn::ALL_BITS.bits(),
@@ -376,7 +377,7 @@ impl MCI {
             /* while in PIO mode, max data transferred is 0x800 */
             if data.datalen() > MCI_MAX_FIFO_CNT {
                 error!(
-                    "Fifo do not support writing more than {:x}.",
+                    "Fifo do not support writing more than 0x{:x}.",
                     MCI_MAX_FIFO_CNT
                 );
                 return Err(MCIError::NotSupport);

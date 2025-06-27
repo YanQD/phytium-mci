@@ -38,7 +38,6 @@ pub struct MCIHost {
 
     pub(crate) card_detect: Option<Rc<MCIHostCardDetect>>, // 卡检测
     pub(crate) card_int: MCIHostCardIntFn,
-    //? 这里 uint8_t tuningType sdmmc_osa_event_t hostEvent sdmmc_osa_mutex_t lock 都没有移植
 }
 
 #[allow(unused)]
@@ -197,9 +196,4 @@ impl MCIHost {
     pub(crate) fn init(&mut self, addr: NonNull<u8>) -> MCIHostStatus {
         self.dev.init(addr, self)
     }
-}
-
-#[allow(unused)]
-impl MCIHost {
-    // todo 将 dev 的操作套壳
 }

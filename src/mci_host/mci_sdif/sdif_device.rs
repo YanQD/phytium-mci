@@ -27,11 +27,11 @@ use crate::mci::mci_dma::FSdifIDmaDesc;
 use dma_api::DSlice;
 
 pub(crate) struct SDIFDev {
-    hc: RefCell<MCI>,               // SDIF 硬件控制器
-    hc_cfg: RefCell<MCIConfig>,     // SDIF 配置
+    hc: RefCell<MCI>,           // SDIF 硬件控制器
+    hc_cfg: RefCell<MCIConfig>, // SDIF 配置
     #[cfg(feature = "dma")]
-    rw_desc: PoolBuffer,            // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
-    desc_num: Cell<u32>,            // 描述符数量，表示 DMA 描述符的数量
+    rw_desc: PoolBuffer,        // DMA 描述符指针，用于管理数据传输 todo 考虑直接用vec或DVec保存
+    desc_num: Cell<u32>,        // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
