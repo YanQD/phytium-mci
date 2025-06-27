@@ -2,7 +2,7 @@ use super::constants::*;
 use super::mci_data::MCIData;
 
 #[derive(Debug, Clone)]
-pub struct MCICmdData {
+pub struct MCICommand {
     cmdidx: u32,
     cmdarg: u32,
     response: [u32; 4],
@@ -12,9 +12,9 @@ pub struct MCICmdData {
 }
 
 #[allow(unused)]
-impl MCICmdData {
+impl MCICommand {
     pub(crate) fn new() -> Self {
-        MCICmdData {
+        MCICommand {
             cmdidx: 0,
             cmdarg: 0,
             response: [0; 4],

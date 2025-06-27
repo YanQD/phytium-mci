@@ -2,7 +2,7 @@ use super::{
     constants::*, err::*, mci_host_card_detect::MCIHostCardDetect,
     mci_host_transfer::MCIHostTransfer, mci_sdif::constants::SDStatus, MCIHost, MCIHostCardIntFn,
 };
-use crate::mci::MCICmdData;
+use crate::mci::MCICommand;
 use alloc::vec::Vec;
 use core::ptr::NonNull;
 
@@ -56,6 +56,6 @@ pub(crate) trait MCIHostDevice {
 
     /* data transfer related functions */
     fn pre_command(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
-    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICmdData;
+    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand;
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
 }

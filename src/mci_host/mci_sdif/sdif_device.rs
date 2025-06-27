@@ -1,6 +1,6 @@
 use super::constants::SDStatus;
 use super::MCIHost;
-use crate::mci::{constants::*, mci_data::MCIData, regs::MCIIntMask, MCICmdData, MCIConfig, MCI};
+use crate::mci::{constants::*, mci_data::MCIData, regs::MCIIntMask, MCICommand, MCIConfig, MCI};
 use crate::mci_host::{
     constants::*, err::*, mci_host_card_detect::MCIHostCardDetect, mci_host_config::*,
     mci_host_device::MCIHostDevice, mci_host_transfer::MCIHostTransfer, sd::constants::SdCmd,
@@ -326,7 +326,7 @@ impl MCIHostDevice for SDIFDev {
         Ok(())
     }
 
-    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICmdData {
+    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand {
         let in_cmd = match in_trans.cmd() {
             Some(cmd) => cmd,
             None => panic!("Not Inited intrans"),
@@ -414,7 +414,7 @@ impl MCIHostDevice for SDIFDev {
             None
         };
 
-        let mut out_trans = MCICmdData::new();
+        let mut out_trans = MCICommand::new();
 
         out_trans.cmdidx_set(index);
         out_trans.cmdarg_set(arg);
@@ -430,7 +430,7 @@ impl MCIHostDevice for SDIFDev {
 
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus {
         self.pre_command(content, host)?;
-        let mut cmd_data = MCICmdData::new();
+        let mut cmd_data = MCICommand::new();
         let trans_data = MCIData::new();
 
         if let Some(_) = content.data() {

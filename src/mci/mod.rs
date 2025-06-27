@@ -41,7 +41,7 @@ pub struct MCI {
     is_ready: bool,
     prev_cmd: u32, // TODO：这里需要实现成一个实现了Command的enum
     curr_timing: MCITiming,
-    cur_cmd: Option<MCICmdData>,
+    cur_cmd: Option<MCICommand>,
     #[cfg(feature = "dma")]
     desc_list: FSdifIDmaDescList,
 }
@@ -82,7 +82,7 @@ impl MCI {
 /// MCI pub API
 impl MCI {
     // TODO: 避免所有权问题先用了clone
-    pub fn cur_cmd_set(&mut self, cmd: &MCICmdData) {
+    pub fn cur_cmd_set(&mut self, cmd: &MCICommand) {
         self.cur_cmd = Some(cmd.clone());
     }
 
@@ -343,7 +343,7 @@ impl MCI {
 
     /// Start command and data transfer in PIO mode
     #[cfg(feature = "pio")]
-    pub fn pio_transfer(&self, cmd_data: &mut MCICmdData) -> MCIResult {
+    pub fn pio_transfer(&self, cmd_data: &mut MCICommand) -> MCIResult {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
         let reg = self.config.reg();
 
@@ -400,7 +400,7 @@ impl MCI {
 
     /// Wait PIO transfer finished by poll
     #[cfg(feature = "pio")]
-    pub fn poll_wait_pio_end(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+    pub fn poll_wait_pio_end(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
         let reg = self.config.reg();
 
@@ -539,7 +539,7 @@ impl MCI {
     }
 
     /// Dump command and data info
-    pub fn cmd_info_dump(cmd_data: &MCICmdData) {
+    pub fn cmd_info_dump(cmd_data: &MCICommand) {
         debug!("cmd struct @{:p}", cmd_data);
         debug!("   opcode: {}", cmd_data.cmdidx());
         debug!("   arg: 0x{:x}", cmd_data.cmdarg());

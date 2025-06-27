@@ -1,4 +1,4 @@
-use super::{constants::*, err::*, mci_cmddata::MCICmdData, regs::*, MCI};
+use super::{constants::*, err::*, mci_cmddata::MCICommand, regs::*, MCI};
 
 use log::*;
 
@@ -36,7 +36,7 @@ impl MCI {
         Ok(())
     }
 
-    pub(crate) fn cmd_transfer<'a>(&self, cmd_data: &'a MCICmdData) -> MCIResult {
+    pub(crate) fn cmd_transfer<'a>(&self, cmd_data: &'a MCICommand) -> MCIResult {
         let mut raw_cmd = MCICmd::empty();
         let reg = self.config.reg();
 
@@ -99,7 +99,7 @@ impl MCI {
         Ok(())
     }
 
-    pub(crate) fn cmd_response_get(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+    pub(crate) fn cmd_response_get(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
 
         if !self.is_ready {

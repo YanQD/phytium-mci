@@ -6,7 +6,7 @@ use log::*;
 
 /// 直接操作寄存器相关的 API
 impl MCI {
-    pub(crate) fn status_get(&self) -> MCIStatus {
+    pub(crate) fn status(&self) -> MCIStatus {
         let reg = self.config.reg();
         reg.read_reg::<MCIStatus>()
     }
@@ -187,7 +187,7 @@ impl MCI {
     }
 
     pub(crate) fn check_if_card_busy(&self) -> bool {
-        self.status_get().contains(MCIStatus::DATA_BUSY)
+        self.status().contains(MCIStatus::DATA_BUSY)
     }
 
     pub(crate) fn trans_bytes_set(&self, bytes: u32) {
