@@ -236,7 +236,7 @@ impl MCI {
 
     /// Start command and data transfer in DMA mode
     #[cfg(feature = "dma")]
-    pub fn dma_transfer(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+    pub fn dma_transfer(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
         cmd_data.success_set(false);
         self.cur_cmd_set(&cmd_data);
 
@@ -286,7 +286,7 @@ impl MCI {
 
     /// Wait DMA transfer finished by poll
     #[cfg(feature = "dma")]
-    pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICmdData) -> MCIResult {
+    pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
         let wait_bits = if cmd_data.get_data().is_none() {
             MCIIntMask::CMD_BIT.bits()
         } else {
