@@ -1698,7 +1698,8 @@ impl SdCard {
         data.block_size_set(8);
         data.block_count_set(1);
         let tmp_buf = vec![0; 8];
-        data.rx_data_set(Some(tmp_buf)); //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        data.rx_data_set(Some(tmp_buf));
+        //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));
@@ -1764,8 +1765,6 @@ impl SdCard {
 
     fn decode_csd(&mut self) {
         let csd = &mut self.csd;
-        // TODO：可能存在性能问题
-        // let rawcsd = u8_to_u32_slice(&self.base.internal_buffer);
         let rawcsd = match self.base.internal_buffer.to_vec::<u32>() {
             Err(e) => {
                 error!(

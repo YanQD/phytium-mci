@@ -101,7 +101,6 @@ impl MCI {
 
     pub(crate) fn cmd_response_get(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
         let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
-
         if !self.is_ready {
             error!("device is not yet initialized!!!");
             return Err(MCIError::NotInit);

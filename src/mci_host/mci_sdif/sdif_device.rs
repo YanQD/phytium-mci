@@ -376,8 +376,6 @@ impl MCIHostDevice for SDIFDev {
             let buf = if let Some(rx_data) = in_data.rx_data_mut() {
                 // Handle receive data
                 flag |= MCICmdFlag::READ_DATA;
-                //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
-                // rx_data.clone()
                 take(rx_data)
             } else if let Some(tx_data) = in_data.tx_data_mut() {
                 // Handle transmit data
@@ -430,12 +428,6 @@ impl MCIHostDevice for SDIFDev {
 
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus {
         self.pre_command(content, host)?;
-        let mut cmd_data = MCICommand::new();
-        let trans_data = MCIData::new();
-
-        if let Some(_) = content.data() {
-            cmd_data.set_data(Some(trans_data));
-        }
 
         let mut cmd_data = self.covert_command_info(content);
 

@@ -1,0 +1,649 @@
+Run test: test_work
+💡 35.597s    [test::tests:36] mci0 reg: 0x28000000,mci0 reg size: 0x1000
+🔍 35.604s    [page_table_generic::table:118] map_region: [0xfffffeffa8000000, 0xfffffeffa8001000) -> [0x28000000, 0x28001000) PRW- | U---, Device)
+💡 35.619s    [phytium_mci::mci_host::sd:73] Internal buffer@0x0xffffff000015c200, length = 0x524288
+🐛 35.630s    [phytium_mci::mci:487] DMA enabled, reseting internal DMA!
+💡 35.639s    [phytium_mci::mci::mci_hardware:52] invalid uhs config
+💡 35.647s    [phytium_mci::mci:637] Reset hardware done !!!
+💡 35.654s    [phytium_mci::mci:99] Device initialize success !!!
+🐛 35.662s    [phytium_mci::mci:159] idma_list set success!
+💡 35.679s    [phytium_mci::mci_host::sd:226] Start card identification
+💡 36.084s    [phytium_mci::mci_host::mci_sdif::sdif_device:226] Set bus width to 1 bit
+💡 36.091s    [phytium_mci::mci:172] Set clk as 400000
+💡 36.098s    [phytium_mci::mci:203] clk_src: 0x502 clk_div: 0x7e7dfa, shift: 0x0
+💡 36.107s    [phytium_mci::mci_host::mci_sdif::sdif_device:288] BUS CLOCK: 400000
+💥 36.116s    [phytium_mci::mci_host:138] cmd0 starts
+🐛 36.123s    [phytium_mci::mci::mci_cmd:78] ============[CMD-0]@0xfffffeffa8000000 begin ============
+🐛 36.134s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20008000
+🐛 36.142s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 36.149s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.157s    [phytium_mci::mci::mci_cmd:143] ============[CMD-0]@0xfffffeffa8000000 end ============
+🔍 36.168s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.176s    [phytium_mci::mci::mci_cmd:143] ============[CMD-0]@0xfffffeffa8000000 end ============
+🔍 36.187s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.195s    [phytium_mci::mci::mci_cmd:78] ============[CMD-8]@0xfffffeffa8000000 begin ============
+🐛 36.206s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000148
+🐛 36.214s    [phytium_mci::mci::mci_cmd:91]     arg: 0x1aa
+🐛 36.221s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.229s    [phytium_mci::mci::mci_cmd:138]     resp: 0x1aa
+🐛 36.237s    [phytium_mci::mci::mci_cmd:143] ============[CMD-8]@0xfffffeffa8000000 end ============
+🔍 36.248s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.255s    [phytium_mci::mci::mci_cmd:138]     resp: 0x1aa
+🐛 36.263s    [phytium_mci::mci::mci_cmd:143] ============[CMD-8]@0xfffffeffa8000000 end ============
+🔍 36.274s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.282s    [phytium_mci::mci::mci_cmd:78] ============[CMD-55]@0xfffffeffa8000000 begin ============
+🐛 36.293s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000177
+🐛 36.301s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 36.308s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.316s    [phytium_mci::mci::mci_cmd:138]     resp: 0x120
+🐛 36.324s    [phytium_mci::mci::mci_cmd:143] ============[CMD-55]@0xfffffeffa8000000 end ============
+🔍 36.335s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.343s    [phytium_mci::mci::mci_cmd:138]     resp: 0x120
+🐛 36.350s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-55]@0xfffffeffa8000000 end ============
+🔍 36.361s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.369s    [phytium_mci::mci::mci_cmd:78] ============[ACMD-41]@0xfffffeffa8000000 begin ============
+🐛 36.380s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000069
+🐛 36.388s    [phytium_mci::mci::mci_cmd:91]     arg: 0x40320000
+🐛 36.396s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.404s    [phytium_mci::mci::mci_cmd:138]     resp: 0x40ff8000
+🐛 36.412s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-41]@0xfffffeffa8000000 end ============
+🔍 36.423s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.431s    [phytium_mci::mci::mci_cmd:138]     resp: 0x40ff8000
+🐛 36.439s    [phytium_mci::mci::mci_cmd:143] ============[CMD-41]@0xfffffeffa8000000 end ============
+🔍 36.450s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.468s    [phytium_mci::mci::mci_cmd:78] ============[CMD-55]@0xfffffeffa8000000 begin ============
+🐛 36.476s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000177
+🐛 36.484s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 36.491s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.499s    [phytium_mci::mci::mci_cmd:138]     resp: 0x120
+🐛 36.507s    [phytium_mci::mci::mci_cmd:143] ============[CMD-55]@0xfffffeffa8000000 end ============
+🔍 36.518s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.526s    [phytium_mci::mci::mci_cmd:138]     resp: 0x120
+🐛 36.533s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-55]@0xfffffeffa8000000 end ============
+🔍 36.545s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.552s    [phytium_mci::mci::mci_cmd:78] ============[ACMD-41]@0xfffffeffa8000000 begin ============
+🐛 36.564s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000069
+🐛 36.572s    [phytium_mci::mci::mci_cmd:91]     arg: 0x40320000
+🐛 36.579s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.587s    [phytium_mci::mci::mci_cmd:138]     resp: 0xc0ff8000
+🐛 36.595s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-41]@0xfffffeffa8000000 end ============
+🔍 36.607s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.614s    [phytium_mci::mci::mci_cmd:138]     resp: 0xc0ff8000
+🐛 36.622s    [phytium_mci::mci::mci_cmd:143] ============[CMD-41]@0xfffffeffa8000000 end ============
+🔍 36.634s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 36.641s    [phytium_mci::mci_host::sd:1657] Is high capcity card > 2GB
+💡 36.650s    [phytium_mci::mci_host::sd:1665] Not UHS card only support 3.3v
+🐛 36.659s    [phytium_mci::mci::mci_cmd:78] ============[CMD-2]@0xfffffeffa8000000 begin ============
+🐛 36.670s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x200001c2
+🐛 36.677s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 36.685s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.693s    [phytium_mci::mci::mci_cmd:129]     resp: 0xed01616f-0x8558c19d-0x44363447-0x3534453
+🐛 36.703s    [phytium_mci::mci::mci_cmd:143] ============[CMD-2]@0xfffffeffa8000000 end ============
+🔍 36.715s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.722s    [phytium_mci::mci::mci_cmd:129]     resp: 0xed01616f-0x8558c19d-0x44363447-0x3534453
+🐛 36.733s    [phytium_mci::mci::mci_cmd:143] ============[CMD-2]@0xfffffeffa8000000 end ============
+🔍 36.744s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.753s    [phytium_mci::mci::mci_cmd:78] ============[CMD-3]@0xfffffeffa8000000 begin ============
+🐛 36.763s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000143
+🐛 36.771s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 36.778s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.786s    [phytium_mci::mci::mci_cmd:138]     resp: 0xaaaa0520
+🐛 36.794s    [phytium_mci::mci::mci_cmd:143] ============[CMD-3]@0xfffffeffa8000000 end ============
+🔍 36.805s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.813s    [phytium_mci::mci::mci_cmd:138]     resp: 0xaaaa0520
+🐛 36.821s    [phytium_mci::mci::mci_cmd:143] ============[CMD-3]@0xfffffeffa8000000 end ============
+🔍 36.832s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.840s    [phytium_mci::mci::mci_cmd:78] ============[CMD-9]@0xfffffeffa8000000 begin ============
+🐛 36.851s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x200001c9
+🐛 36.859s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 36.867s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 36.875s    [phytium_mci::mci::mci_cmd:129]     resp: 0xa4040df-0xdbd37f80-0x5b590001-0x400e0032
+🐛 36.885s    [phytium_mci::mci::mci_cmd:143] ============[CMD-9]@0xfffffeffa8000000 end ============
+🔍 36.896s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 36.904s    [phytium_mci::mci::mci_cmd:129]     resp: 0xa4040df-0xdbd37f80-0x5b590001-0x400e0032
+🐛 36.915s    [phytium_mci::mci::mci_cmd:143] ============[CMD-9]@0xfffffeffa8000000 end ============
+🔍 36.926s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 36.934s    [phytium_mci::mci_host::sd:1216] in csd_send response is: [a4040df, dbd37f80, 5b590001, 400e0032]
+💡 36.946s    [phytium_mci::mci_host::sd:1781] csd structure is 1
+⚠️ 36.953s    [phytium_mci::mci_host::sd:1787] card_command_classes is 10110110101
+💡 36.963s    [phytium_mci::mci_host::sd:1817]    csd structure: 2.0
+💡 36.971s    [phytium_mci::mci_host::sd:1821] device size is 121811, supports sdxc
+💡 36.980s    [phytium_mci::mci_host::sd:1861] Card block count 124735488, block size 512
+🐛 36.991s    [phytium_mci::mci::mci_cmd:78] ============[CMD-7]@0xfffffeffa8000000 begin ============
+🐛 37.001s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000147
+🐛 37.009s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 37.017s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.025s    [phytium_mci::mci::mci_cmd:138]     resp: 0x700
+🐛 37.032s    [phytium_mci::mci::mci_cmd:143] ============[CMD-7]@0xfffffeffa8000000 end ============
+🔍 37.043s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.051s    [phytium_mci::mci::mci_cmd:138]     resp: 0x700
+🐛 37.058s    [phytium_mci::mci::mci_cmd:143] ============[CMD-7]@0xfffffeffa8000000 end ============
+🔍 37.070s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 37.077s    [phytium_mci::mci:172] Set clk as 25000000
+💡 37.084s    [phytium_mci::mci:203] clk_src: 0x302 clk_div: 0x30204, shift: 0x0
+💡 37.093s    [phytium_mci::mci_host::mci_sdif::sdif_device:288] BUS CLOCK: 25000000
+🐛 37.103s    [phytium_mci::mci::mci_cmd:78] ============[CMD-55]@0xfffffeffa8000000 begin ============
+🐛 37.114s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000177
+🐛 37.122s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 37.130s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.138s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.145s    [phytium_mci::mci::mci_cmd:143] ============[CMD-55]@0xfffffeffa8000000 end ============
+🔍 37.156s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.164s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.172s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-55]@0xfffffeffa8000000 end ============
+🔍 37.183s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.191s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f5ca0, blksz: 8, datalen: 8
+🐛 37.202s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f5ca0 use 1 desc, total 1024 available
+🐛 37.213s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 37.221s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 37.230s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 37.238s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 37.245s    [phytium_mci::mci::mci_dma:58] 	len: 0x8
+🐛 37.252s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 37.259s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f5ca0
+🐛 37.267s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 37.274s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 37.282s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 37.289s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 37.296s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 37.303s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 8, block size: 8
+⚠️ 37.315s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 37.321s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 37.328s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 37.335s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 37.341s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 37.348s    [phytium_mci::mci:501] ctype: 0x0
+⚠️ 37.355s    [phytium_mci::mci:502] blksz: 0x8
+⚠️ 37.361s    [phytium_mci::mci:503] blkcnt: 0x8
+⚠️ 37.368s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 37.374s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 37.381s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 37.388s    [phytium_mci::mci:507] resp0: 0x920
+⚠️ 37.394s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 37.401s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 37.408s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 37.415s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 37.422s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 37.429s    [phytium_mci::mci:513] status: 0x1b906
+⚠️ 37.435s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 37.443s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 37.449s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 37.456s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 37.462s    [phytium_mci::mci:518] trans_cardcnt: 0x1000
+⚠️ 37.469s    [phytium_mci::mci:519] trans_fifocnt: 0x0
+⚠️ 37.477s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 37.484s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 37.490s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 37.497s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 37.504s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 37.511s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 37.517s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 37.524s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 37.532s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 37.538s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 37.545s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 37.552s    [phytium_mci::mci:531] curdescaddrl: 0x0
+⚠️ 37.559s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 37.566s    [phytium_mci::mci:533] curbufaddrl: 0x0
+⚠️ 37.573s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 37.580s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 37.587s    [phytium_mci::mci:536] clock_src: 0x302
+⚠️ 37.594s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 37.601s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 37.608s    [phytium_mci::mci::mci_cmd:78] ============[ACMD-51]@0xfffffeffa8000000 begin ============
+🐛 37.619s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000373
+🐛 37.627s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 37.634s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.642s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.650s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-51]@0xfffffeffa8000000 end ============
+🔍 37.661s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.669s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.676s    [phytium_mci::mci::mci_cmd:143] ============[CMD-51]@0xfffffeffa8000000 end ============
+🔍 37.688s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 37.695s    [phytium_mci::mci_host::sd:1713] in scr_send raw_src is 1000011100000000100010100000010
+💡 37.706s    [phytium_mci::mci_host::sd:1891]    SCR version: 2.0
+💡 37.714s    [phytium_mci::mci_host::sd:1894]    SCR version: 3.0
+💡 37.722s    [phytium_mci::mci_host::sd:1902]    Card support 4-bit bus width
+💡 37.731s    [phytium_mci::mci_host::sd:1907]    Card support speed class control command
+💡 37.741s    [phytium_mci::mci_host::sd:1912]    Card support set block count command
+⚠️ 37.750s    [phytium_mci::mci_host::sd:316] card support 4 bit width
+🐛 37.759s    [phytium_mci::mci::mci_cmd:78] ============[CMD-55]@0xfffffeffa8000000 begin ============
+🐛 37.770s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000177
+🐛 37.778s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 37.785s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.793s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.801s    [phytium_mci::mci::mci_cmd:143] ============[CMD-55]@0xfffffeffa8000000 end ============
+🔍 37.812s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.820s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.827s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-55]@0xfffffeffa8000000 end ============
+🔍 37.839s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.846s    [phytium_mci::mci::mci_cmd:78] ============[ACMD-6]@0xfffffeffa8000000 begin ============
+🐛 37.858s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000146
+🐛 37.865s    [phytium_mci::mci::mci_cmd:91]     arg: 0x2
+🐛 37.873s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.881s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.888s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-6]@0xfffffeffa8000000 end ============
+🔍 37.899s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 37.907s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 37.915s    [phytium_mci::mci::mci_cmd:143] ============[CMD-6]@0xfffffeffa8000000 end ============
+🔍 37.926s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 37.934s    [phytium_mci::mci_host::mci_sdif::sdif_device:230] Set bus width to 4 bit
+🐛 37.943s    [phytium_mci::mci::mci_cmd:78] ============[CMD-16]@0xfffffeffa8000000 begin ============
+🐛 37.954s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000150
+🐛 37.962s    [phytium_mci::mci::mci_cmd:91]     arg: 0x200
+🐛 37.970s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 37.978s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 37.985s    [phytium_mci::mci::mci_cmd:143] ============[CMD-16]@0xfffffeffa8000000 end ============
+🔍 37.996s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 38.004s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 38.012s    [phytium_mci::mci::mci_cmd:143] ============[CMD-16]@0xfffffeffa8000000 end ============
+🔍 38.023s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+⚠️ 38.031s    [phytium_mci::mci_host::sd:767] card version is 4
+⚠️ 38.038s    [phytium_mci::mci_host::sd:768] card_command_classes is 10110110101
+🐛 38.048s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f7800, blksz: 64, datalen: 64
+🐛 38.059s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f7800 use 1 desc, total 1024 available
+🐛 38.071s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 38.078s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 38.087s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 38.095s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 38.103s    [phytium_mci::mci::mci_dma:58] 	len: 0x40
+🐛 38.110s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 38.117s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f7800
+🐛 38.124s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 38.132s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 38.139s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 38.146s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 38.153s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 38.161s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 64, block size: 64
+⚠️ 38.172s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 38.179s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 38.186s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 38.192s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 38.199s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 38.206s    [phytium_mci::mci:501] ctype: 0x1
+⚠️ 38.212s    [phytium_mci::mci:502] blksz: 0x40
+⚠️ 38.219s    [phytium_mci::mci:503] blkcnt: 0x40
+⚠️ 38.225s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 38.232s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 38.239s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 38.245s    [phytium_mci::mci:507] resp0: 0x900
+⚠️ 38.252s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 38.259s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 38.266s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 38.273s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 38.280s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 38.286s    [phytium_mci::mci:513] status: 0x8106
+⚠️ 38.293s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 38.300s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 38.307s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 38.313s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 38.320s    [phytium_mci::mci:518] trans_cardcnt: 0x8
+⚠️ 38.327s    [phytium_mci::mci:519] trans_fifocnt: 0x8
+⚠️ 38.334s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 38.341s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 38.348s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 38.355s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 38.362s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 38.368s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 38.375s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 38.382s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 38.389s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 38.396s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 38.403s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 38.410s    [phytium_mci::mci:531] curdescaddrl: 0x801dc400
+⚠️ 38.417s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 38.424s    [phytium_mci::mci:533] curbufaddrl: 0xfb7f5ca8
+⚠️ 38.432s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 38.439s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 38.446s    [phytium_mci::mci:536] clock_src: 0x302
+⚠️ 38.453s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 38.460s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 38.467s    [phytium_mci::mci::mci_cmd:78] ============[CMD-6]@0xfffffeffa8000000 begin ============
+🐛 38.478s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000346
+🐛 38.486s    [phytium_mci::mci::mci_cmd:91]     arg: 0xfffff1
+🐛 38.493s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 38.501s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 38.509s    [phytium_mci::mci::mci_cmd:143] ============[CMD-6]@0xfffffeffa8000000 end ============
+🔍 38.520s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 38.528s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 38.535s    [phytium_mci::mci::mci_cmd:143] ============[CMD-6]@0xfffffeffa8000000 end ============
+🔍 38.546s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 38.554s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f7800, blksz: 64, datalen: 64
+🐛 38.566s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f7800 use 1 desc, total 1024 available
+🐛 38.577s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 38.584s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 38.594s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 38.602s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 38.609s    [phytium_mci::mci::mci_dma:58] 	len: 0x40
+🐛 38.616s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 38.623s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f7800
+🐛 38.631s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 38.638s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 38.645s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 38.653s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 38.659s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 38.667s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 64, block size: 64
+⚠️ 38.678s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 38.685s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 38.692s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 38.699s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 38.705s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 38.712s    [phytium_mci::mci:501] ctype: 0x1
+⚠️ 38.719s    [phytium_mci::mci:502] blksz: 0x40
+⚠️ 38.725s    [phytium_mci::mci:503] blkcnt: 0x40
+⚠️ 38.732s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 38.739s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 38.745s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 38.752s    [phytium_mci::mci:507] resp0: 0x900
+⚠️ 38.758s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 38.765s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 38.772s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 38.779s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 38.786s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 38.793s    [phytium_mci::mci:513] status: 0x3106
+⚠️ 38.799s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 38.807s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 38.813s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 38.820s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 38.826s    [phytium_mci::mci:518] trans_cardcnt: 0x40
+⚠️ 38.833s    [phytium_mci::mci:519] trans_fifocnt: 0x40
+⚠️ 38.841s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 38.847s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 38.854s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 38.861s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 38.868s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 38.875s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 38.881s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 38.888s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 38.895s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 38.902s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 38.909s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 38.916s    [phytium_mci::mci:531] curdescaddrl: 0x801dc400
+⚠️ 38.924s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 38.931s    [phytium_mci::mci:533] curbufaddrl: 0xfb7f7840
+⚠️ 38.938s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 38.945s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 38.953s    [phytium_mci::mci:536] clock_src: 0x302
+⚠️ 38.960s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 38.966s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 38.973s    [phytium_mci::mci::mci_cmd:78] ============[CMD-6]@0xfffffeffa8000000 begin ============
+🐛 38.984s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000346
+🐛 38.992s    [phytium_mci::mci::mci_cmd:91]     arg: 0x80fffff1
+🐛 39.000s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 39.008s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.015s    [phytium_mci::mci::mci_cmd:143] ============[CMD-6]@0xfffffeffa8000000 end ============
+🔍 39.026s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.034s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.042s    [phytium_mci::mci::mci_cmd:143] ============[CMD-6]@0xfffffeffa8000000 end ============
+🔍 39.053s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 39.061s    [phytium_mci::mci:172] Set clk as 50000000
+💡 39.068s    [phytium_mci::mci:203] clk_src: 0x502 clk_div: 0x30204, shift: 0x0
+💡 39.077s    [phytium_mci::mci_host::mci_sdif::sdif_device:288] BUS CLOCK: 50000000
+💡 39.086s    [phytium_mci::mci_host::sd:1922] Card Name: SD64G
+💡 39.094s    [phytium_mci::mci_host::sd:1935] Card Version: 3.0
+💡 39.101s    [phytium_mci::mci_host::sd:1940]  SDHC
+💡 39.108s    [phytium_mci::mci_host::sd:1944]  SDXC
+💡 39.115s    [phytium_mci::mci_host::sd:1947]
+
+💡 39.121s    [phytium_mci::mci_host::sd:1949]   Size: 59 GB
+
+💡 39.128s    [phytium_mci::mci_host::sd:1955]   Bus-Speed: 50 MHz
+
+💡 39.136s    [phytium_mci::mci_host::sd:1967]   Voltage: 3.3v
+
+💡 39.144s    [phytium_mci::mci_host::sd:1990]   Timing: High-Speed
+
+💡 39.152s    [phytium_mci::mci_host::sd:2008]   Max. Current: 200mA
+
+💡 39.160s    [phytium_mci::mci_host::sd:2026]   Drv. Type: B
+
+💡 39.168s    [phytium_mci::mci_host::sd:234] SD init finished, error = Ok(())
+🐛 39.197s    [phytium_mci::mci_host::sd:926] write block(s) one time, relative addr(u32) from 0 - 128, block count 1
+🐛 39.207s    [phytium_mci::mci::mci_cmd:78] ============[CMD-13]@0xfffffeffa8000000 begin ============
+🐛 39.218s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x2000014d
+🐛 39.225s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 39.233s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 39.241s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.249s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 39.260s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.268s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.275s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 39.286s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.294s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f7a00, blksz: 512, datalen: 512
+🐛 39.306s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f7a00 use 1 desc, total 1024 available
+🐛 39.317s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 39.325s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 39.334s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 39.342s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 39.349s    [phytium_mci::mci::mci_dma:58] 	len: 0x200
+🐛 39.356s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 39.363s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f7a00
+🐛 39.371s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 39.378s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 39.386s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 39.393s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 39.400s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 39.407s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 512, block size: 512
+⚠️ 39.419s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 39.426s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 39.432s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 39.439s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 39.446s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 39.453s    [phytium_mci::mci:501] ctype: 0x1
+⚠️ 39.459s    [phytium_mci::mci:502] blksz: 0x200
+⚠️ 39.466s    [phytium_mci::mci:503] blkcnt: 0x200
+⚠️ 39.472s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 39.479s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 39.486s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 39.493s    [phytium_mci::mci:507] resp0: 0x900
+⚠️ 39.499s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 39.506s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 39.513s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 39.520s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 39.527s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 39.534s    [phytium_mci::mci:513] status: 0x6906
+⚠️ 39.540s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 39.547s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 39.554s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 39.561s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 39.567s    [phytium_mci::mci:518] trans_cardcnt: 0x40
+⚠️ 39.574s    [phytium_mci::mci:519] trans_fifocnt: 0x40
+⚠️ 39.581s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 39.588s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 39.595s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 39.602s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 39.609s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 39.615s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 39.622s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 39.629s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 39.636s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 39.643s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 39.650s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 39.657s    [phytium_mci::mci:531] curdescaddrl: 0x801dc400
+⚠️ 39.665s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 39.672s    [phytium_mci::mci:533] curbufaddrl: 0xfb7f7840
+⚠️ 39.679s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 39.686s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 39.693s    [phytium_mci::mci:536] clock_src: 0x502
+⚠️ 39.700s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 39.707s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 39.714s    [phytium_mci::mci::mci_cmd:78] ============[CMD-24]@0xfffffeffa8000000 begin ============
+🐛 39.725s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000758
+🐛 39.733s    [phytium_mci::mci::mci_cmd:91]     arg: 0x20000
+🐛 39.740s    [phytium_mci::mci:312] polling dma end, reg_val = 0x10
+🐛 39.749s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.756s    [phytium_mci::mci::mci_cmd:143] ============[CMD-24]@0xfffffeffa8000000 end ============
+🔍 39.767s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.775s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.783s    [phytium_mci::mci::mci_cmd:143] ============[CMD-24]@0xfffffeffa8000000 end ============
+🔍 39.794s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.802s    [phytium_mci::mci::mci_cmd:78] ============[CMD-13]@0xfffffeffa8000000 begin ============
+🐛 39.813s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x2000014d
+🐛 39.821s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 39.828s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 39.836s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.844s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 39.855s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.863s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 39.870s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 39.882s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.889s    [phytium_mci::mci::mci_cmd:78] ============[CMD-55]@0xfffffeffa8000000 begin ============
+🐛 39.901s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000177
+🐛 39.908s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 39.916s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 39.924s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 39.932s    [phytium_mci::mci::mci_cmd:143] ============[CMD-55]@0xfffffeffa8000000 end ============
+🔍 39.943s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.951s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 39.958s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-55]@0xfffffeffa8000000 end ============
+🔍 39.970s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 39.977s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f5c90, blksz: 4, datalen: 4
+🐛 39.989s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f5c90 use 1 desc, total 1024 available
+🐛 40.000s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 40.008s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 40.017s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 40.025s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 40.032s    [phytium_mci::mci::mci_dma:58] 	len: 0x4
+🐛 40.039s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 40.046s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f5c90
+🐛 40.054s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 40.061s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 40.068s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 40.076s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 40.082s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 40.090s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 4, block size: 4
+⚠️ 40.101s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 40.108s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 40.115s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 40.121s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 40.128s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 40.135s    [phytium_mci::mci:501] ctype: 0x1
+⚠️ 40.141s    [phytium_mci::mci:502] blksz: 0x4
+⚠️ 40.148s    [phytium_mci::mci:503] blkcnt: 0x4
+⚠️ 40.154s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 40.161s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 40.168s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 40.174s    [phytium_mci::mci:507] resp0: 0x920
+⚠️ 40.181s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 40.188s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 40.195s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 40.202s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 40.209s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 40.215s    [phytium_mci::mci:513] status: 0x1b906
+⚠️ 40.222s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 40.229s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 40.236s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 40.242s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 40.249s    [phytium_mci::mci:518] trans_cardcnt: 0x200
+⚠️ 40.256s    [phytium_mci::mci:519] trans_fifocnt: 0x200
+⚠️ 40.263s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 40.270s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 40.277s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 40.284s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 40.291s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 40.297s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 40.304s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 40.311s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 40.318s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 40.325s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 40.332s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 40.339s    [phytium_mci::mci:531] curdescaddrl: 0x801dc400
+⚠️ 40.347s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 40.354s    [phytium_mci::mci:533] curbufaddrl: 0xfb7f7c00
+⚠️ 40.361s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 40.368s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 40.375s    [phytium_mci::mci:536] clock_src: 0x502
+⚠️ 40.382s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 40.389s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 40.396s    [phytium_mci::mci::mci_cmd:78] ============[ACMD-22]@0xfffffeffa8000000 begin ============
+🐛 40.407s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000356
+🐛 40.415s    [phytium_mci::mci::mci_cmd:91]     arg: 0x0
+🐛 40.422s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 40.430s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 40.438s    [phytium_mci::mci::mci_cmd:143] ============[ACMD-22]@0xfffffeffa8000000 end ============
+🔍 40.449s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 40.457s    [phytium_mci::mci::mci_cmd:138]     resp: 0x920
+🐛 40.464s    [phytium_mci::mci::mci_cmd:143] ============[CMD-22]@0xfffffeffa8000000 end ============
+🔍 40.476s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 40.483s    [phytium_mci::mci_host::sd:1546] written blocks this time is 537460736
+🐛 40.493s    [phytium_mci::mci::mci_cmd:78] ============[CMD-13]@0xfffffeffa8000000 begin ============
+🐛 40.504s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x2000014d
+🐛 40.512s    [phytium_mci::mci::mci_cmd:91]     arg: 0xaaaa0000
+🐛 40.520s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 40.528s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 40.535s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 40.546s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 40.554s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 40.562s    [phytium_mci::mci::mci_cmd:143] ============[CMD-13]@0xfffffeffa8000000 end ============
+🔍 40.573s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 40.581s    [phytium_mci::mci_host::sd:1407] read cmd, block_size = 512, block_count = 1
+🐛 40.591s    [phytium_mci::mci_host::mci_sdif::sdif_device:405] buf PA: 0xfb7f7a00, blksz: 512, datalen: 512
+🐛 40.602s    [phytium_mci::mci::mci_dma:101] DMA transfer 0xfb7f7a00 use 1 desc, total 1024 available
+🐛 40.613s    [phytium_mci::mci::mci_dma:50] 1 dma desc in use!
+🐛 40.621s    [phytium_mci::mci::mci_dma:55] descriptor no 0 @0xffffff00001dc400
+🐛 40.630s    [phytium_mci::mci::mci_dma:56] 	attribute: 0x8000003c
+🐛 40.638s    [phytium_mci::mci::mci_dma:57] 	non1: 0x0
+🐛 40.646s    [phytium_mci::mci::mci_dma:58] 	len: 0x200
+🐛 40.653s    [phytium_mci::mci::mci_dma:59] 	non2: 0x0
+🐛 40.660s    [phytium_mci::mci::mci_dma:60] 	addr_lo: 0xfb7f7a00
+🐛 40.668s    [phytium_mci::mci::mci_dma:61] 	addr_hi: 0x0
+🐛 40.675s    [phytium_mci::mci::mci_dma:62] 	desc_lo: 0x0
+🐛 40.682s    [phytium_mci::mci::mci_dma:63] 	desc_hi: 0x0
+🐛 40.689s    [phytium_mci::mci::mci_dma:67] dump ok
+🐛 40.696s    [phytium_mci::mci::mci_dma:191] set dma desc ok
+💡 40.704s    [phytium_mci::mci::mci_dma:212] Descriptor@0xffffff00001dc400, trans bytes: 512, block size: 512
+⚠️ 40.715s    [phytium_mci::mci:496] cntrl: 0x2000010
+⚠️ 40.722s    [phytium_mci::mci:497] pwren: 0x1
+⚠️ 40.729s    [phytium_mci::mci:498] clkdiv: 0x30204
+⚠️ 40.736s    [phytium_mci::mci:499] clkena: 0x1
+⚠️ 40.742s    [phytium_mci::mci:500] tmout: 0xffffffff
+⚠️ 40.749s    [phytium_mci::mci:501] ctype: 0x1
+⚠️ 40.756s    [phytium_mci::mci:502] blksz: 0x200
+⚠️ 40.762s    [phytium_mci::mci:503] blkcnt: 0x200
+⚠️ 40.769s    [phytium_mci::mci:504] intmask: 0x2289
+⚠️ 40.776s    [phytium_mci::mci:505] cmdarg: 0x0
+⚠️ 40.782s    [phytium_mci::mci:506] cmd: 0x200000
+⚠️ 40.789s    [phytium_mci::mci:507] resp0: 0x900
+⚠️ 40.796s    [phytium_mci::mci:508] reps1: 0xdbd37f80
+⚠️ 40.803s    [phytium_mci::mci:509] resp2: 0x5b590001
+⚠️ 40.810s    [phytium_mci::mci:510] resp3: 0x400e0032
+⚠️ 40.817s    [phytium_mci::mci:511] maskints: 0x0
+⚠️ 40.823s    [phytium_mci::mci:512] rawints: 0x0
+⚠️ 40.830s    [phytium_mci::mci:513] status: 0x6906
+⚠️ 40.837s    [phytium_mci::mci:514] fifoth: 0x20070100
+⚠️ 40.844s    [phytium_mci::mci:515] carddet: 0x0
+⚠️ 40.850s    [phytium_mci::mci:516] wrtprt: 0x0
+⚠️ 40.857s    [phytium_mci::mci:517] cksts: 0x1
+⚠️ 40.863s    [phytium_mci::mci:518] trans_cardcnt: 0x4
+⚠️ 40.870s    [phytium_mci::mci:519] trans_fifocnt: 0x4
+⚠️ 40.878s    [phytium_mci::mci:520] debnce: 0xffffff
+⚠️ 40.884s    [phytium_mci::mci:521] uid: 0x59595959
+⚠️ 40.891s    [phytium_mci::mci:522] vid: 0x6488280a
+⚠️ 40.898s    [phytium_mci::mci:523] hwconf: 0x10001
+⚠️ 40.905s    [phytium_mci::mci:524] uhsreg: 0x0
+⚠️ 40.912s    [phytium_mci::mci:525] cardreset: 0x0
+⚠️ 40.918s    [phytium_mci::mci:526] busmode: 0x280
+⚠️ 40.925s    [phytium_mci::mci:527] descaddrl: 0x801dc400
+⚠️ 40.932s    [phytium_mci::mci:528] descaddrh: 0x0
+⚠️ 40.939s    [phytium_mci::mci:529] dmacstatus: 0x0
+⚠️ 40.946s    [phytium_mci::mci:530] dmacinten: 0x314
+⚠️ 40.953s    [phytium_mci::mci:531] curdescaddrl: 0x801dc400
+⚠️ 40.961s    [phytium_mci::mci:532] curdescaddrh: 0x0
+⚠️ 40.968s    [phytium_mci::mci:533] curbufaddrl: 0xfb7f5c94
+⚠️ 40.975s    [phytium_mci::mci:534] curbufaddrh: 0x0
+⚠️ 40.982s    [phytium_mci::mci:535] card_thrctl: 0x800001
+⚠️ 40.990s    [phytium_mci::mci:536] clock_src: 0x502
+⚠️ 40.997s    [phytium_mci::mci:537] emmcddr: 0x0
+⚠️ 41.003s    [phytium_mci::mci:538] enableshift: 0x0
+🐛 41.010s    [phytium_mci::mci::mci_cmd:78] ============[CMD-17]@0xfffffeffa8000000 begin ============
+🐛 41.021s    [phytium_mci::mci::mci_cmd:90]     cmd: 0x20000351
+🐛 41.029s    [phytium_mci::mci::mci_cmd:91]     arg: 0x20000
+🐛 41.037s    [phytium_mci::mci:312] polling dma end, reg_val = 0x0
+🐛 41.045s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 41.052s    [phytium_mci::mci::mci_cmd:143] ============[CMD-17]@0xfffffeffa8000000 end ============
+🔍 41.063s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+🐛 41.071s    [phytium_mci::mci::mci_cmd:138]     resp: 0x900
+🐛 41.079s    [phytium_mci::mci::mci_cmd:143] ============[CMD-17]@0xfffffeffa8000000 end ============
+🔍 41.090s    [phytium_mci::mci::mci_cmd:167] cmd send done ...
+💡 41.098s    [test::tests:69] buffer len is 128
+💡 41.104s    [test::tests:71] test_work passed

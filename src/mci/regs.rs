@@ -1404,7 +1404,7 @@ impl FlagReg for MCICurDescAddrL {
 
 // FSDIF_CUR_DESC_ADDRH_OFFSET Register
 bitflags! {
-    pub struct MCIDescAddrH: u32 {
+    pub struct MCICurDescAddrH: u32 {
         const BIT0 = 1 << 0;
         const BIT1 = 1 << 1;
         const BIT2 = 1 << 2;
@@ -1440,7 +1440,7 @@ bitflags! {
     }
 }
 
-impl FlagReg for MCIDescAddrH {
+impl FlagReg for MCICurDescAddrH {
     const REG: u32 = FSDIF_CUR_DESC_ADDRH_OFFSET;
 }
 

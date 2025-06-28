@@ -142,6 +142,7 @@ impl MCIHostData {
 }
 
 #[allow(unused)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MCIHostCmd {
     index: u32,                                  // 命令索引
     argument: u32,                               // 命令参数

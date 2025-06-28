@@ -5,7 +5,6 @@ use super::constants::*;
 use super::mci_timing::*;
 use super::regs::*;
 use core::ptr::NonNull;
-use log::info;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct MCIConfig {
@@ -19,7 +18,6 @@ pub struct MCIConfig {
 impl MCIConfig {
     #[cfg(feature = "dma")]
     pub fn new(addr: NonNull<u8>) -> Self {
-        info!("Using DMA mode for MCI");
         Self {
             instance_id: MCIId::MCI1,
             reg: MCIReg::new(addr),
@@ -31,8 +29,6 @@ impl MCIConfig {
 
     #[cfg(feature = "pio")]
     pub fn new(addr: NonNull<u8>) -> Self {
-        info!("Using PIO mode for MCI");
-
         Self {
             instance_id: MCIId::MCI0,
             reg: MCIReg::new(addr),

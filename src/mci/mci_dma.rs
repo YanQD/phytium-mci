@@ -2,6 +2,9 @@ use alloc::vec::Vec;
 use dma_api::DSlice;
 use log::*;
 
+#[cfg(feature = "dma")]
+use crate::mci::MCICommand;
+
 use super::constants::*;
 use super::err::*;
 use super::mci_data::MCIData;
@@ -219,6 +222,114 @@ impl MCI {
         self.descriptor_set(self.desc_list.first_desc_dma);
         self.trans_bytes_set(data_len);
         self.blksize_set(data.blksz());
+
+        self.register_dump();
+
+        Ok(())
+    }
+
+    /// Start command and data transfer in DMA mode
+    pub fn dma_transfer(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
+        cmd_data.success_set(false);
+
+        debug!("Starting DMA transfer for command: {}", cmd_data.cmdidx());
+        debug!("Command argument: 0x{:x}", cmd_data.cmdarg());
+
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            return Err(MCIError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            return Err(MCIError::InvalidState);
+        }
+
+        // for removable media, check if card exists
+        if !self.config.non_removable() && !self.check_if_card_exist() {
+            error!("card is not detected !!!");
+            return Err(MCIError::NoCard);
+        }
+
+        // wait previous command finished and card not busy
+        self.poll_wait_busy_card()?;
+
+        // 清除原始中断寄存器
+        self.config
+            .reg()
+            .write_reg(MCIRawInts::from_bits_truncate(0xFFFFE));
+
+        /* reset fifo and DMA before transfer */
+        self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
+
+        // enable use of DMA
+        self.config
+            .reg()
+            .modify_reg(|reg| MCICtrl::USE_INTERNAL_DMAC | reg);
+        self.config.reg().modify_reg(|reg| MCIBusMode::DE | reg);
+
+        // transfer data
+        if cmd_data.get_data().is_some() {
+            self.dma_transfer_data(cmd_data.get_data().unwrap())?;
+        }
+
+        // transfer command
+        self.cmd_transfer(&cmd_data)?;
+
+        Ok(())
+    }
+
+    /// Wait DMA transfer finished by poll
+    pub fn poll_wait_dma_end(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
+        let wait_bits = if cmd_data.get_data().is_none() {
+            MCIIntMask::CMD_BIT.bits()
+        } else {
+            MCIIntMask::CMD_BIT.bits() | MCIIntMask::DTO_BIT.bits()
+        };
+        let mut reg_val;
+
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            return Err(MCIError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            return Err(MCIError::InvalidState);
+        }
+
+        /* wait command done or data timeout */
+        let mut delay = RETRIES_TIMEOUT;
+        loop {
+            reg_val = self.config.reg().read_reg::<MCIRawInts>().bits();
+            if delay % 1000 == 0 {
+                debug!("Polling dma end, reg_val = 0x{:x}", reg_val);
+            }
+
+            delay -= 1;
+            if wait_bits & reg_val == wait_bits || delay == 0 {
+                break;
+            }
+        }
+
+        /* clear status to ack data done */
+        self.raw_status_clear();
+
+        if wait_bits & reg_val != wait_bits && delay <= 0 {
+            error!("Wait command done timeout, raw ints: 0x{:x}!", reg_val);
+            return Err(MCIError::CmdTimeout);
+        }
+
+        if cmd_data.get_data().is_some() {
+            let read = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
+            if !read {
+                unsafe {
+                    dsb();
+                }
+            }
+        }
+
+        self.cmd_response_get(cmd_data)?;
 
         Ok(())
     }
