@@ -21,20 +21,14 @@ pub use mci_cmddata::*;
 pub use mci_config::*;
 pub use mci_timing::*;
 
-use crate::osa::pool_buffer::PoolBuffer;
-use alloc::vec::Vec;
-
-use crate::{regs::*, sleep};
+use crate::{regs::*, mci_sleep};
 use constants::*;
 use core::time::Duration;
 use log::*;
 use regs::*;
 
 #[cfg(feature = "dma")]
-use dma_api::DSlice;
-
-#[cfg(feature = "dma")]
-use mci_dma::{FSdifIDmaDesc, FSdifIDmaDescList};
+use mci_dma::FSdifIDmaDescList;
 
 pub struct MCI {
     config: MCIConfig,
@@ -51,7 +45,7 @@ impl MCI {
     const EXT_APP_CMD: u32 = 55;
 
     pub(crate) fn relax_handler() {
-        sleep(Duration::from_micros(10));
+        mci_sleep(Duration::from_micros(10));
     }
 
     pub(crate) fn new(config: MCIConfig) -> Self {
@@ -121,38 +115,6 @@ impl MCI {
         reg.clear_reg(MCIUhsReg::VOLT_180); /* 恢复为3.3v默认电压 */
 
         self.is_ready = false;
-        Ok(())
-    }
-
-    /// Setup DMA descriptor for SDIF controller instance
-    #[cfg(feature = "dma")]
-    pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
-        if !self.is_ready {
-            error!("Device is not yet initialized!");
-            return Err(MCIError::NotInit);
-        }
-
-        if self.config.trans_mode() != MCITransMode::DMA {
-            error!("Device is not configured in DMA transfer mode!");
-            return Err(MCIError::InvalidState);
-        }
-
-        // TODO：不太优雅 后续考虑修改
-        let desc_vec = unsafe {
-            core::mem::ManuallyDrop::new(Vec::from_raw_parts(
-                desc.addr().as_ptr(),
-                desc_num as usize,
-                desc_num as usize,
-            ))
-        };
-        let slice = DSlice::from(&desc_vec[..]); // 获取物理地址
-        self.desc_list.first_desc_dma = slice.bus_addr() as usize;
-        self.desc_list.first_desc = desc.addr().as_ptr() as *mut FSdifIDmaDesc;
-        self.desc_list.desc_num = desc_num;
-        self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
-
-        debug!("idma_list set success!");
-
         Ok(())
     }
 
@@ -230,12 +192,14 @@ impl MCI {
     }
 
     /* Read PIO data, it works in IRQ mode */
+    // TODO:不知道协议栈层需要不需要调用,已经实现.
+    /* Get cmd response and received data after wait poll status or interrupt signal */
     // TODO：不知道协议栈层需要不需要调用,已经实现.
-    /* Get cmd response and received data after wait poll status or interrupt signal */ // TODO：不知道协议栈层需要不需要调用,已经实现.
 
     /* Interrupt handler for SDIF instance */
     // TODO：在中断模式下会使用到
-    /* Register event call-back function as handler for interrupt events */ // TODO：在中断模式下会使用到
+    /* Register event call-back function as handler for interrupt events */
+    // TODO：在中断模式下会使用到
 
     /// Reset controller from error state
     pub fn restart(&self) -> MCIResult {

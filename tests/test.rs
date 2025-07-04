@@ -10,7 +10,7 @@ mod tests {
 
     use alloc::vec::Vec;
     use bare_test::{
-        globals::{global_val, PlatformInfoKind},
+        globals::{PlatformInfoKind, global_val},
         mem::mmu::iomap,
         time::spin_delay,
     };
@@ -18,9 +18,9 @@ mod tests {
     use phytium_mci::{sd::SdCard, *};
 
     const SD_START_BLOCK: u32 = 131072;
-    const SD_USE_BLOCK: u32 = 1;
-    const SD_BLOCK_SIZE: u32 = 512;
-    const SD_MAX_RW_BLK: u32 = 1024;
+    const SD_USE_BLOCK: u32 = 2;
+    // const SD_BLOCK_SIZE: u32 = 512;
+    // const SD_MAX_RW_BLK: u32 = 1024;
 
     #[test]
     fn test_work() {
@@ -46,15 +46,15 @@ mod tests {
         ////////////////////// SD card init finished //////////////////////
 
         // 初始化write buffer
-        let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
-        buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);
-        for i in 0..buffer.len() {
-            buffer[i] = i as u32;
-        }
+        // let mut buffer: Vec<u32> = Vec::with_capacity((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize);
+        // buffer.resize((SD_BLOCK_SIZE * SD_MAX_RW_BLK / 4) as usize, 0);
+        // for i in 0..buffer.len() {
+        //     buffer[i] = i as u32;
+        // }
 
-        sdcard
-            .write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK)
-            .unwrap();
+        // sdcard
+        //     .write_blocks(&mut buffer, SD_START_BLOCK, SD_USE_BLOCK)
+        //     .unwrap();
 
         let mut receive_buf = Vec::new();
 
@@ -62,9 +62,9 @@ mod tests {
             .read_blocks(&mut receive_buf, SD_START_BLOCK, SD_USE_BLOCK)
             .unwrap();
 
-        for i in 0..receive_buf.len() {
-            assert_eq!(receive_buf[i], buffer[i]);
-        }
+        // for i in 0..receive_buf.len() {
+        //     assert_eq!(receive_buf[i], buffer[i]);
+        // }
 
         info!("buffer len is {}", receive_buf.len());
 

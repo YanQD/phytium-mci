@@ -4,7 +4,7 @@
 use super::{err::FMempError, osa_dealloc};
 use alloc::vec::Vec;
 use core::{
-    ptr::{copy_nonoverlapping, write_bytes, NonNull},
+    ptr::{NonNull, copy_nonoverlapping, write_bytes},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 

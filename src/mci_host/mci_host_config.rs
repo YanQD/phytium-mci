@@ -10,13 +10,14 @@ pub struct MCIHostConfig {
     pub(crate) host_type: MCIHostType,         // 主机类型
     pub(crate) card_type: MCIHostCardType,     // 卡类型
     pub(crate) enable_irq: bool,               // 是否启用中断
-    pub(crate) enable_dma: bool,               // 是否启用 DMA
+    // pub(crate) enable_dma: bool, // 是否启用 DMA (是否有必要继续存在这个字段？)
     pub(crate) endian_mode: MCIHostEndianMode, // 字节序模式
     pub(crate) max_trans_size: usize,          // 最大传输大小
     pub(crate) def_block_size: usize,          // 默认块大小
     pub(crate) card_clock: u32,                // 卡时钟频率
     pub(crate) is_uhs_card: bool,              // 是否为 UHS 卡
-                                               /* for SDIO card, to support card customized interrupt handling */ // TODO：暂时没实现这部分功能
+    /* for SDIO card, to support card customized interrupt handling */
+    // TODO：暂时没实现这部分功能
 }
 
 #[allow(unused)]
@@ -28,7 +29,6 @@ impl MCIHostConfig {
             host_type: MCIHostType::SDIF,
             card_type: MCIHostCardType::MicroSD,
             enable_irq: false, // TODO：后续实现了irq相关会改为true
-            enable_dma: true,
             endian_mode: MCIHostEndianMode::Little,
             max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
             def_block_size: SD_BLOCK_SIZE,
@@ -44,7 +44,6 @@ impl MCIHostConfig {
             host_type: MCIHostType::SDIF,
             card_type: MCIHostCardType::MicroSD,
             enable_irq: false, // TODO：后续实现了irq相关会改为true
-            enable_dma: false,
             endian_mode: MCIHostEndianMode::Little,
             max_trans_size: SD_MAX_RW_BLK * SD_BLOCK_SIZE,
             def_block_size: SD_BLOCK_SIZE,

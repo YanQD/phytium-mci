@@ -1,6 +1,6 @@
 use super::{
-    constants::*, err::*, mci_host_card_detect::MCIHostCardDetect,
-    mci_host_transfer::MCIHostTransfer, mci_sdif::constants::SDStatus, MCIHost, MCIHostCardIntFn,
+    MCIHost, MCIHostCardIntFn, constants::*, err::*, mci_host_card_detect::MCIHostCardDetect,
+    mci_host_transfer::MCIHostTransfer, mci_sdif::constants::SDStatus,
 };
 use crate::mci::MCICommand;
 use alloc::vec::Vec;
@@ -56,6 +56,6 @@ pub(crate) trait MCIHostDevice {
 
     /* data transfer related functions */
     fn pre_command(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
-    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand;
+    fn convert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand;
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus;
 }

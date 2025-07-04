@@ -1,9 +1,7 @@
-#![allow(unused)]
-
-use crate::sleep;
-use bitflags::{bitflags, Flags};
+use crate::mci_sleep;
+use bitflags::Flags;
 use core::{marker::PhantomData, ops, ptr::NonNull, time::Duration};
-use log::info;
+use log::debug;
 
 /*
  * 为所有的 bitflag! 实现一个 BitsOps trait
@@ -86,6 +84,7 @@ impl<E: RegError> Reg<E> {
     pub fn write_32(&self, reg: u32, val: u32) {
         unsafe {
             let ptr = self.addr.add(reg as _);
+            debug!("Writing 0x{:x} to register 0x{:x}", val, reg);
             ptr.cast().write_volatile(val);
         }
     }
@@ -126,7 +125,7 @@ impl<E: RegError> Reg<E> {
                 return Ok(());
             }
 
-            sleep(interval);
+            mci_sleep(interval);
         }
         Err(E::timeout())
     }

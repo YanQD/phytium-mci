@@ -1,3 +1,4 @@
 /target
 .bare-test*
 /docs/*
+*.log

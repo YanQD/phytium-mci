@@ -18,9 +18,10 @@ use super::{
     mci_host_transfer::{MCIHostCmd, MCIHostData, MCIHostTransfer},
     mci_sdif::constants::SDStatus,
 };
-use crate::mci_host::{mci_host_config::MCIHostType, mci_sdif::sdif_device::SDIFDev, MCIHost};
+
+use crate::mci_host::{MCIHost, mci_host_config::MCIHostType, mci_sdif::sdif_device::SDIFDev};
 use crate::osa::{osa_alloc_aligned, osa_init};
-use crate::sleep;
+use crate::mci_sleep;
 use crate::tools::swap_word_byte_sequence_u32;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -71,14 +72,14 @@ impl SdCard {
         };
         let base = MCICardBase::from_buffer(internal_buffer);
         info!(
-            "Internal buffer@0x{:p}, length = 0x{}",
+            "Internal buffer@{:p}, length = 0x{:x}",
             base.internal_buffer.addr().as_ptr(),
             base.internal_buffer.size()
         );
 
         // 组装 host
-        let desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
-        let sdif_device = SDIFDev::new(addr, desc_num);
+        let max_desc_num = mci_host_config.max_trans_size / mci_host_config.def_block_size;
+        let sdif_device = SDIFDev::new(addr, max_desc_num);
 
         let host = MCIHost::new(Box::new(sdif_device), mci_host_config);
         let host_type = host.config.host_type;
@@ -183,7 +184,7 @@ impl SdCard {
     }
 
     fn sdmmc_config(&self) -> MCIHostStatus {
-        // todo
+        // TODO: 目前 SDMMC 模式下的配置不支持
         Ok(())
     }
 
@@ -231,7 +232,7 @@ impl SdCard {
             }
         }
 
-        info!("SD init finished, error = {:?}", status);
+        info!("SD init finished, status = {:?}", status);
         status
     }
 
@@ -529,7 +530,7 @@ impl SdCard {
             }
         };
 
-        sleep(Duration::from_millis(power_delay as u64));
+        mci_sleep(Duration::from_millis(power_delay as u64));
         Ok(())
     }
 
@@ -546,7 +547,7 @@ impl SdCard {
             loop {
                 if card_detect() && status == SDStatus::Inserted {
                     let cd_debounce_ms = cd.cd_debounce_ms;
-                    sleep(Duration::from_millis(cd_debounce_ms as u64));
+                    mci_sleep(Duration::from_millis(cd_debounce_ms as u64));
                     if card_detect() {
                         break;
                     }
@@ -588,7 +589,7 @@ impl SdCard {
                 }
             } else {
                 /* Delay 125us to throttle the polling rate */
-                sleep(Duration::from_micros(125));
+                mci_sleep(Duration::from_micros(125));
                 status_timeout_us -= 125;
             }
         }
@@ -871,7 +872,7 @@ impl SdCard {
         let mut block_count_one_time: u32;
 
         while block_left != 0 {
-            // todo如果修正当前的性能问题,则需要考虑对齐问题
+            // TODO: 如果修正当前的性能问题,则需要考虑对齐问题
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
             if block_left > host.max_block_count.get() {
                 block_left -= host.max_block_count.get();
@@ -948,8 +949,7 @@ impl SdCard {
         Ok(())
     }
 
-    fn transfer(&mut self, content: &mut MCIHostTransfer, retry: u32) -> MCIHostStatus {
-        let mut retry = retry;
+    fn transfer(&mut self, content: &mut MCIHostTransfer, mut retry: u32) -> MCIHostStatus {
         let mut retuning_count = 3;
         loop {
             let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
@@ -1098,7 +1098,8 @@ impl SdCard {
         data.block_size_set(64);
         data.block_count_set(1);
         let tmp_buf = vec![0; 64];
-        data.rx_data_set(Some(tmp_buf)); //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        data.rx_data_set(Some(tmp_buf));
+        // TODO: 似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
 
@@ -1251,7 +1252,7 @@ impl SdCard {
          */
         if !host.dev.card_is_busy() {
             /* Delay 1ms to allow card to drive lines low */
-            sleep(Duration::from_millis(1));
+            mci_sleep(Duration::from_millis(1));
             if !host.dev.card_is_busy() {
                 /* Card did not drive CMD and DAT lines low */
                 info!("\r\nError: card not drive lines low\r\n");
@@ -1272,7 +1273,7 @@ impl SdCard {
         }
 
         /* Gate for 10ms, even though spec requires 5 */
-        sleep(Duration::from_millis(10));
+        mci_sleep(Duration::from_millis(10));
 
         /* 重新获取 host 实例 */
         let host = self.base.host.as_ref().ok_or(MCIHostError::HostNotReady)?;
@@ -1284,7 +1285,7 @@ impl SdCard {
          * If SD does not drive at least one of
          * DAT[3:0] high within 1ms, switch failed
          */
-        sleep(Duration::from_millis(1));
+        mci_sleep(Duration::from_millis(1));
 
         if host.dev.card_is_busy() {
             info!("Card failed to switch voltages");
@@ -1669,7 +1670,7 @@ impl SdCard {
             }
 
             i -= 1;
-            sleep(Duration::from_millis(10));
+            mci_sleep(Duration::from_millis(10));
         }
 
         info!("\r\nError: send ACMD41 timeout\r\n");
@@ -1699,7 +1700,7 @@ impl SdCard {
         data.block_count_set(1);
         let tmp_buf = vec![0; 8];
         data.rx_data_set(Some(tmp_buf));
-        //TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
+        // TODO：似乎影响性能 DMA 似乎是最好不要往栈上读写的?
 
         let mut content = MCIHostTransfer::new();
         content.set_cmd(Some(command));

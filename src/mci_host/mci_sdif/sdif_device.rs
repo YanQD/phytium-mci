@@ -1,17 +1,17 @@
-use super::constants::SDStatus;
 use super::MCIHost;
-use crate::mci::{constants::*, mci_data::MCIData, regs::MCIIntMask, MCICommand, MCIConfig, MCI};
+use super::constants::SDStatus;
+use crate::mci::{MCI, MCICommand, MCIConfig, constants::*, mci_data::MCIData, regs::MCIIntMask};
 use crate::mci_host::{
-    constants::*, err::*, mci_host_card_detect::MCIHostCardDetect, mci_host_config::*,
-    mci_host_device::MCIHostDevice, mci_host_transfer::MCIHostTransfer, sd::constants::SdCmd,
-    MCIHostCardIntFn,
+    MCIHostCardIntFn, constants::*, err::*, mci_host_card_detect::MCIHostCardDetect,
+    mci_host_config::*, mci_host_device::MCIHostDevice, mci_host_transfer::MCIHostTransfer,
+    sd::constants::SdCmd,
 };
 
 use crate::osa::osa_alloc_aligned;
 use crate::osa::pool_buffer::PoolBuffer;
 use crate::sd::constants::SD_BLOCK_SIZE;
 
-use crate::sleep;
+use crate::mci_sleep;
 use crate::tools::swap_half_word_byte_sequence_u32;
 use alloc::vec::Vec;
 use core::{
@@ -33,7 +33,7 @@ pub(crate) struct SDIFDev {
     #[cfg(feature = "dma")]
     rw_desc: PoolBuffer, // DMA 描述符指针，用于管理数据传输 TODO：考虑直接用vec或DVec保存
     #[cfg(feature = "dma")]
-    desc_num: Cell<u32>, // 描述符数量，表示 DMA 描述符的数量
+    max_desc_num: Cell<u32>, // 描述符数量，表示 DMA 描述符的数量
 }
 
 impl SDIFDev {
@@ -56,7 +56,7 @@ impl SDIFDev {
             #[cfg(feature = "dma")]
             rw_desc,
             #[cfg(feature = "dma")]
-            desc_num: (desc_num as u32).into(),
+            max_desc_num: (desc_num as u32).into(),
         }
     }
 }
@@ -66,8 +66,9 @@ impl MCIHostDevice for SDIFDev {
         #[cfg(feature = "dma")]
         {
             let num_of_desc = host.config.max_trans_size / host.config.def_block_size;
-            self.desc_num.set(num_of_desc as u32);
+            self.max_desc_num.set(num_of_desc as u32);
         }
+        
         self.do_init(addr, host)
     }
 
@@ -76,7 +77,6 @@ impl MCIHostDevice for SDIFDev {
 
         *self.hc.borrow_mut() = MCI::new(MCIConfig::lookup_config(addr));
 
-        // 强行 restart 一下
         let restart_mci = MCI::new_restart(MCIConfig::restart(addr));
         restart_mci
             .restart()
@@ -88,15 +88,15 @@ impl MCIHostDevice for SDIFDev {
         }
 
         if host.config.enable_irq {
-            // todo
+            // TODO
         }
 
         #[cfg(feature = "dma")]
-        if host.config.enable_dma {
+        {
             if let Err(_) = self
                 .hc
                 .borrow_mut()
-                .set_idma_list(&self.rw_desc, self.desc_num.get())
+                .set_idma_list(&self.rw_desc, self.max_desc_num.get())
             {
                 error!("idma list set failed!");
                 return Err(MCIHostError::Fail);
@@ -249,7 +249,7 @@ impl MCIHostDevice for SDIFDev {
         /* Wait card inserted. */
         loop {
             let is_card_inserted = self.card_detect_status() == SDStatus::Inserted;
-            sleep(Duration::from_millis(cd.cd_debounce_ms as u64));
+            mci_sleep(Duration::from_millis(cd.cd_debounce_ms as u64));
             if wait_card_status == SDStatus::Inserted && is_card_inserted {
                 break;
             }
@@ -326,7 +326,7 @@ impl MCIHostDevice for SDIFDev {
         Ok(())
     }
 
-    fn covert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand {
+    fn convert_command_info(&self, in_trans: &mut MCIHostTransfer) -> MCICommand {
         let in_cmd = match in_trans.cmd() {
             Some(cmd) => cmd,
             None => panic!("Not Inited intrans"),
@@ -429,29 +429,58 @@ impl MCIHostDevice for SDIFDev {
     fn transfer_function(&self, content: &mut MCIHostTransfer, host: &MCIHost) -> MCIHostStatus {
         self.pre_command(content, host)?;
 
-        let mut cmd_data = self.covert_command_info(content);
+        let mut cmd_data = self.convert_command_info(content);
+        let is_read_transfer = cmd_data.flag().contains(MCICmdFlag::READ_DATA);
+        let is_write_transfer = cmd_data.flag().contains(MCICmdFlag::WRITE_DATA);
 
-        if host.config.enable_dma {
-            #[cfg(feature = "dma")]
-            if let Err(_) = self.hc.borrow_mut().dma_transfer(&mut cmd_data) {
+        let transfer_type = match (is_read_transfer, is_write_transfer) {
+            (true, false) => "READ",
+            (false, true) => "WRITE", 
+            (true, true) => "READ_WRITE",
+            (false, false) => "NO_DATA",
+        };
+
+        debug!("Starting transfer ({})", transfer_type);
+
+        #[cfg(feature = "dma")]
+        {
+            if let Err(e) = self.hc.borrow_mut().dma_transfer(&mut cmd_data) {
+                error!("DMA transfer failed: {:?}", e);
                 return Err(MCIHostError::NoData);
             }
-            #[cfg(feature = "dma")]
-            if let Err(_) = self.hc.borrow_mut().poll_wait_dma_end(&mut cmd_data) {
-                return Err(MCIHostError::NoData);
-            }
-        } else {
-            #[cfg(feature = "pio")]
-            if let Err(_) = self.hc.borrow_mut().pio_transfer(&mut cmd_data) {
-                return Err(MCIHostError::NoData);
-            }
-            #[cfg(feature = "pio")]
-            if let Err(_) = self.hc.borrow_mut().poll_wait_pio_end(&mut cmd_data) {
+
+            if let Err(e) = self.hc.borrow_mut().poll_wait_dma_end(&mut cmd_data) {
+                error!("DMA wait failed: {:?}", e);
                 return Err(MCIHostError::NoData);
             }
         }
 
-        //TODO 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
+        #[cfg(feature = "pio")]
+        {
+            if let Err(e) = self.hc.borrow_mut().pio_transfer(&mut cmd_data) {
+                error!("PIO transfer failed: {:?}", e);
+                return Err(MCIHostError::NoData);
+            }
+
+            if let Err(e) = self.hc.borrow_mut().poll_wait_pio_end(&mut cmd_data) {
+                error!("PIO wait failed: {:?}", e);
+                return Err(MCIHostError::NoData);
+            }
+        }
+
+        debug!(
+            "MCI transfer completed - cmd: 0x{:x?}, arg: 0x{:x?}, flags: {:x?}",
+            cmd_data.cmdidx(),
+            cmd_data.cmdarg(),
+            cmd_data.flag(),
+        );
+
+        if let Err(_) = self.hc.borrow_mut().cmd_response_get(&mut cmd_data) {
+            info!("Transfer cmd and data failed !!!");
+            return Err(MCIHostError::Timeout);
+        }
+
+        // TODO: 这里的CLONE 会降低驱动速度,需要解决这个性能问题 可能Take出来直接用更好
         if let Some(_) = content.data() {
             let data = cmd_data.get_data().unwrap();
             unsafe {
@@ -462,14 +491,10 @@ impl MCIHostDevice for SDIFDev {
             }
             if let Some(rx_data) = data.buf() {
                 if let Some(in_data) = content.data_mut() {
+                    error!("Transfer data size: {:x?}", rx_data);
                     in_data.rx_data_set(Some(rx_data.clone()));
                 }
             }
-        }
-
-        if let Err(_) = self.hc.borrow_mut().cmd_response_get(&mut cmd_data) {
-            info!("Transfer cmd and data failed !!!");
-            return Err(MCIHostError::Timeout);
         }
 
         if let Some(cmd) = content.cmd_mut() {

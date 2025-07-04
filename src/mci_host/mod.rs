@@ -14,7 +14,8 @@ use alloc::{boxed::Box, rc::Rc};
 use constants::*;
 use core::{cell::Cell, ptr::NonNull};
 use err::{MCIHostError, MCIHostStatus};
-use log::{error, info};
+use log::error;
+
 use mci_host_card_detect::MCIHostCardDetect;
 use mci_host_config::MCIHostConfig;
 use mci_host_device::MCIHostDevice;

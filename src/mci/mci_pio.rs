@@ -1,10 +1,10 @@
 use crate::mci::MCICommand;
 
+use super::MCI;
 use super::constants::*;
 use super::err::*;
 use super::mci_data::MCIData;
 use super::regs::*;
-use super::MCI;
 use log::*;
 
 impl MCI {
@@ -44,9 +44,11 @@ impl MCI {
             );
             return Err(MCIError::NotSupport);
         }
+
         for _i in 0..rd_times {
             buf.push(reg.read_reg::<MCIDataReg>().bits());
         }
+
         Ok(())
     }
 
@@ -102,7 +104,9 @@ impl MCI {
                 self.pio_write_data(data)?;
             }
         }
+
         self.cmd_transfer(cmd_data)?;
+        
         Ok(())
     }
 
@@ -159,9 +163,9 @@ impl MCI {
                 reg.read_reg::<MCITranFifoCnt>()
             );
         }
+        
         /* clear status to ack cmd done */
         self.raw_status_clear();
-        self.cmd_response_get(cmd_data)?;
         Ok(())
     }
 }

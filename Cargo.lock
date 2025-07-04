@@ -438,7 +438,6 @@ dependencies = [
  "rlsf",
  "spin 0.10.0",
  "spin_on",
- "tock-registers",
 ]
 
 [[package]]

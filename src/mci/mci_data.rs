@@ -4,10 +4,10 @@ use alloc::vec::Vec;
 pub(crate) struct MCIData {
     buf: Option<Vec<u32>>,
     #[cfg(feature = "dma")]
-    buf_dma: usize,
-    blksz: u32,
-    blkcnt: u32,
-    datalen: u32,
+    buf_dma: usize, // 作为第一个desc的地址
+    blksz: u32,     // 块大小
+    blkcnt: u32,    // 块数量
+    datalen: u32,   // 数据长度
 }
 
 impl MCIData {

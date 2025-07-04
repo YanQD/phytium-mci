@@ -2,14 +2,14 @@ use alloc::vec::Vec;
 use dma_api::DSlice;
 use log::*;
 
-#[cfg(feature = "dma")]
 use crate::mci::MCICommand;
+use crate::osa::pool_buffer::PoolBuffer;
 
+use super::MCI;
 use super::constants::*;
 use super::err::*;
 use super::mci_data::MCIData;
 use super::regs::*;
-use super::MCI;
 
 #[derive(Default)]
 pub struct FSdifIDmaDesc {
@@ -17,17 +17,17 @@ pub struct FSdifIDmaDesc {
     pub non1: u32,
     pub len: u32,
     pub non2: u32,
-    pub addr_lo: u32,
-    pub addr_hi: u32,
-    pub desc_lo: u32,
-    pub desc_hi: u32,
+    pub cur_addr_lo: u32,
+    pub cur_addr_hi: u32,
+    pub cur_desc_lo: u32,
+    pub cur_desc_hi: u32,
 }
 
 pub struct FSdifIDmaDescList {
     pub first_desc: *mut FSdifIDmaDesc,
-    pub first_desc_dma: usize,  // 第一个descriptor的物理地址
+    pub first_desc_dma: usize, // 第一个descriptor的物理地址
     pub desc_num: u32,
-    pub desc_trans_sz: u32,     // 单个descriptor传输的字节数
+    pub desc_trans_sz: u32, // 单个descriptor传输的字节数
 }
 
 impl FSdifIDmaDescList {
@@ -60,14 +60,92 @@ impl MCI {
                     debug!("\tnon1: 0x{:x}", (*cur_desc).non1);
                     debug!("\tlen: 0x{:x}", (*cur_desc).len);
                     debug!("\tnon2: 0x{:x}", (*cur_desc).non2);
-                    debug!("\taddr_lo: 0x{:x}", (*cur_desc).addr_lo);
-                    debug!("\taddr_hi: 0x{:x}", (*cur_desc).addr_hi);
-                    debug!("\tdesc_lo: 0x{:x}", (*cur_desc).desc_lo);
-                    debug!("\tdesc_hi: 0x{:x}", (*cur_desc).desc_hi);
+                    debug!("\tcur_addr_lo: 0x{:x}", (*cur_desc).cur_addr_lo);
+                    debug!("\tcur_addr_hi: 0x{:x}", (*cur_desc).cur_addr_hi);
+                    debug!("\tcur_desc_lo: 0x{:x}", (*cur_desc).cur_desc_lo);
+                    debug!("\tcur_desc_hi: 0x{:x}", (*cur_desc).cur_desc_hi);
                 }
             }
         }
         debug!("dump ok");
+    }
+
+    /// Start command and data transfer in DMA mode
+    pub fn dma_transfer(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
+        cmd_data.success_set(false);
+
+        if !self.is_ready {
+            error!("Device is not yet initialized!");
+            return Err(MCIError::NotInit);
+        }
+
+        if self.config.trans_mode() != MCITransMode::DMA {
+            error!("Device is not configured in DMA transfer mode!");
+            return Err(MCIError::InvalidState);
+        }
+
+        // for removable media, check if card exists
+        if !self.config.non_removable() && !self.check_if_card_exist() {
+            error!("card is not detected !!!");
+            return Err(MCIError::NoCard);
+        }
+
+        // wait previous command finished and card not busy
+        self.poll_wait_busy_card()?;
+
+        // 清除原始中断寄存器
+        self.config
+            .reg()
+            .write_reg(MCIRawInts::from_bits_truncate(0xFFFFE));
+
+        /* reset fifo and DMA before transfer */
+        self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
+
+        // enable use of DMA
+        self.config
+            .reg()
+            .modify_reg(|reg| MCICtrl::USE_INTERNAL_DMAC | reg);
+        self.config.reg().modify_reg(|reg| MCIBusMode::DE | reg);
+
+        // transfer data
+        if cmd_data.get_data().is_some() {
+            self.dma_transfer_data(cmd_data.get_data().unwrap())?;
+        }
+
+        // transfer command
+        self.cmd_transfer(&cmd_data)?;
+
+        Ok(())
+    }
+
+    /// start DMA transfers for data
+    pub(crate) fn dma_transfer_data(&mut self, data: &MCIData) -> MCIResult {
+        self.interrupt_mask_set(
+            MCIInterruptType::GeneralIntr,
+            MCIIntMask::INTS_DATA_MASK.bits(),
+            true,
+        );
+        self.interrupt_mask_set(
+            MCIInterruptType::DmaIntr,
+            MCIDMACIntEn::INTS_MASK.bits(),
+            true,
+        );
+
+        self.setup_dma_descriptor(&data)?;
+
+        let data_len = data.blkcnt() * data.blksz();
+        debug!(
+            "Descriptor@{:p}, trans bytes: {}, block size: {}",
+            self.desc_list.first_desc,
+            data_len,
+            data.blksz()
+        );
+
+        self.descriptor_set(self.desc_list.first_desc_dma);
+        self.trans_bytes_set(data_len);
+        self.blksize_set(data.blksz());
+
+        Ok(())
     }
 
     /// setup DMA descriptor list before do transcation
@@ -83,7 +161,7 @@ impl MCI {
 
         let mut desc_num = 1u32;
         let data_len = data.blkcnt() * data.blksz();
-        // 计算需要多少desc来传输
+
         if data_len > desc_list.desc_trans_sz {
             desc_num = data_len / desc_list.desc_trans_sz;
             desc_num += if data_len % desc_list.desc_trans_sz == 0 {
@@ -152,11 +230,11 @@ impl MCI {
                 }
 
                 if cfg!(target_arch = "aarch64") {
-                    (*cur_desc).addr_hi = ((buf_addr >> 32) & 0xFFFF_FFFF) as u32;
-                    (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_addr_hi = ((buf_addr >> 32) & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
                 } else {
-                    (*cur_desc).addr_hi = 0;
-                    (*cur_desc).addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_addr_hi = 0;
+                    (*cur_desc).cur_addr_lo = (buf_addr & 0xFFFF_FFFF) as u32;
                 }
 
                 // set address of next descriptor entry, NULL for last entry
@@ -168,11 +246,11 @@ impl MCI {
                 }
 
                 if cfg!(target_arch = "aarch64") {
-                    (*cur_desc).desc_hi = ((next_desc_addr >> 32) & 0xFFFF_FFFF) as u32;
-                    (*cur_desc).desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_desc_hi = ((next_desc_addr >> 32) & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
                 } else {
-                    (*cur_desc).desc_hi = 0;
-                    (*cur_desc).desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
+                    (*cur_desc).cur_desc_hi = 0;
+                    (*cur_desc).cur_desc_lo = (next_desc_addr & 0xFFFF_FFFF) as u32;
                 }
 
                 buf_addr += (*cur_desc).len as usize;
@@ -180,7 +258,8 @@ impl MCI {
             }
         }
 
-        // TODO：不太优雅 考虑后续修改
+        // 这边需要创建一个 DMA 
+        // TODO: 不太优雅 考虑后续修改
         let desc_vec = unsafe {
             core::mem::ManuallyDrop::new(Vec::from_raw_parts(
                 desc_list.first_desc,
@@ -196,45 +275,8 @@ impl MCI {
         Ok(())
     }
 
-    /// start DMA transfers for data
-    pub(crate) fn dma_transfer_data(&mut self, data: &MCIData) -> MCIResult {
-        self.interrupt_mask_set(
-            MCIInterruptType::GeneralIntr,
-            MCIIntMask::INTS_DATA_MASK.bits(),
-            true,
-        );
-        self.interrupt_mask_set(
-            MCIInterruptType::DmaIntr,
-            MCIDMACIntEn::INTS_MASK.bits(),
-            true,
-        );
-
-        self.setup_dma_descriptor(&data)?;
-
-        let data_len = data.blkcnt() * data.blksz();
-        info!(
-            "Descriptor@{:p}, trans bytes: {}, block size: {}",
-            self.desc_list.first_desc,
-            data_len,
-            data.blksz()
-        );
-
-        self.descriptor_set(self.desc_list.first_desc_dma);
-        self.trans_bytes_set(data_len);
-        self.blksize_set(data.blksz());
-
-        self.register_dump();
-
-        Ok(())
-    }
-
-    /// Start command and data transfer in DMA mode
-    pub fn dma_transfer(&mut self, cmd_data: &mut MCICommand) -> MCIResult {
-        cmd_data.success_set(false);
-
-        debug!("Starting DMA transfer for command: {}", cmd_data.cmdidx());
-        debug!("Command argument: 0x{:x}", cmd_data.cmdarg());
-
+    /// Setup DMA descriptor for SDIF controller instance
+    pub fn set_idma_list(&mut self, desc: &PoolBuffer, desc_num: u32) -> MCIResult {
         if !self.is_ready {
             error!("Device is not yet initialized!");
             return Err(MCIError::NotInit);
@@ -245,36 +287,23 @@ impl MCI {
             return Err(MCIError::InvalidState);
         }
 
-        // for removable media, check if card exists
-        if !self.config.non_removable() && !self.check_if_card_exist() {
-            error!("card is not detected !!!");
-            return Err(MCIError::NoCard);
-        }
+        // TODO：不太优雅 后续考虑修改
+        let desc_vec = unsafe {
+            core::mem::ManuallyDrop::new(Vec::from_raw_parts(
+                desc.addr().as_ptr(),
+                desc_num as usize,
+                desc_num as usize,
+            ))
+        };
 
-        // wait previous command finished and card not busy
-        self.poll_wait_busy_card()?;
+        let slice = DSlice::from(&desc_vec[..]); // 获取物理地址
 
-        // 清除原始中断寄存器
-        self.config
-            .reg()
-            .write_reg(MCIRawInts::from_bits_truncate(0xFFFFE));
+        self.desc_list.first_desc_dma = slice.bus_addr() as usize;
+        self.desc_list.first_desc = desc.addr().as_ptr() as *mut FSdifIDmaDesc;
+        self.desc_list.desc_num = desc_num;
+        self.desc_list.desc_trans_sz = FSDIF_IDMAC_MAX_BUF_SIZE;
 
-        /* reset fifo and DMA before transfer */
-        self.ctrl_reset(MCICtrl::FIFO_RESET | MCICtrl::DMA_RESET)?;
-
-        // enable use of DMA
-        self.config
-            .reg()
-            .modify_reg(|reg| MCICtrl::USE_INTERNAL_DMAC | reg);
-        self.config.reg().modify_reg(|reg| MCIBusMode::DE | reg);
-
-        // transfer data
-        if cmd_data.get_data().is_some() {
-            self.dma_transfer_data(cmd_data.get_data().unwrap())?;
-        }
-
-        // transfer command
-        self.cmd_transfer(&cmd_data)?;
+        debug!("idma_list set success!");
 
         Ok(())
     }
@@ -302,14 +331,20 @@ impl MCI {
         let mut delay = RETRIES_TIMEOUT;
         loop {
             reg_val = self.config.reg().read_reg::<MCIRawInts>().bits();
-            if delay % 1000 == 0 {
+            if delay % 100 == 0 {
                 debug!("Polling dma end, reg_val = 0x{:x}", reg_val);
+                debug!(
+                    "Current delay: {} wait_bits: {}, reg_val: {}",
+                    delay, wait_bits, reg_val
+                );
+                debug!("result: {}", wait_bits & reg_val == wait_bits);
             }
 
-            delay -= 1;
             if wait_bits & reg_val == wait_bits || delay == 0 {
                 break;
             }
+
+            delay -= 1;
         }
 
         /* clear status to ack data done */
@@ -328,8 +363,6 @@ impl MCI {
                 }
             }
         }
-
-        self.cmd_response_get(cmd_data)?;
 
         Ok(())
     }

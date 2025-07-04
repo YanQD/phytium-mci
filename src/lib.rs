@@ -10,6 +10,8 @@ pub mod osa;
 
 mod tools;
 
+use alloc::{format, vec::Vec};
+use log::error;
 pub use mci_host::*;
 
 use core::time::Duration;
@@ -18,8 +20,8 @@ pub trait Kernel {
     fn sleep(duration: Duration);
 }
 
-pub(crate) fn sleep(duration: Duration) {
-    extern "Rust" {
+pub(crate) fn mci_sleep(duration: Duration) {
+    unsafe extern "Rust" {
         fn _phytium_mci_sleep(duration: Duration);
     }
 
@@ -31,9 +33,28 @@ pub(crate) fn sleep(duration: Duration) {
 #[macro_export]
 macro_rules! set_impl {
     ($t: ty) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         unsafe fn _phytium_mci_sleep(duration: core::time::Duration) {
             <$t as $crate::Kernel>::sleep(duration)
         }
     };
+}
+
+pub unsafe fn dump_memory_region(addr: usize, size: usize) {
+    let start_ptr: *const u32 = addr as *const u32;
+    let word_count = size / 4;
+
+    error!("Memory dump from 0x{:08x}:", addr);
+
+    for chunk_start in (0..word_count).step_by(8) {
+        let mut values = Vec::new();
+        let chunk_end = (chunk_start + 8).min(word_count);
+
+        for i in chunk_start..chunk_end {
+            let value = unsafe { *start_ptr.add(i) };
+            values.push(format!("{:08x}", value));
+        }
+
+        error!("  0x{:08x}: [{}]", addr + chunk_start * 4, values.join(" "));
+    }
 }

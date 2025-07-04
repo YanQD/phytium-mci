@@ -1,7 +1,7 @@
+use super::MCI;
 use super::constants::*;
 use super::err::*;
 use super::regs::*;
-use super::MCI;
 use log::*;
 
 /// 直接操作寄存器相关的 API
@@ -116,6 +116,7 @@ impl MCI {
                 return Err(e);
             }
         }
+        
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use super::{constants::*, err::*, mci_cmddata::MCICommand, regs::*, MCI};
+use super::{MCI, constants::*, err::*, mci_cmddata::MCICommand, regs::*};
 
 use log::*;
 
@@ -15,8 +15,8 @@ impl MCI {
         unsafe { dsb() }; /* drain writebuffer */
 
         let cmd_reg = MCICmd::START | cmd;
-
         reg.write_reg(cmd_reg);
+
         reg.retry_for(
             |reg: MCICmd| !reg.contains(MCICmd::START),
             Some(RETRIES_TIMEOUT),
@@ -74,6 +74,7 @@ impl MCI {
                 raw_cmd |= MCICmd::RESP_LONG;
             }
         }
+
         raw_cmd |= MCICmd::from_bits_truncate(set_reg32_bits!(cmd_data.cmdidx(), 5, 0));
         debug!(
             "============[{}-{}]@0x{:x} begin ============",
@@ -95,7 +96,9 @@ impl MCI {
             MCIIntMask::INTS_CMD_MASK.bits(),
             true,
         );
+
         self.private_cmd_send(raw_cmd, cmd_data.cmdarg())?;
+
         Ok(())
     }
 
@@ -163,7 +166,7 @@ impl MCI {
             MCIDMACIntEn::INTS_MASK.bits(),
             false,
         );
-        trace!("cmd send done ...");
+        // trace!("cmd send done ...");
 
         self.prev_cmd = cmd_data.cmdidx();
 
