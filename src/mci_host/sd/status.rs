@@ -1,7 +1,7 @@
 #[derive(Debug, Default)]
 pub(crate) struct SdStatus {
     // Current bus width
-    bus_width: u8,  // Note: Fixed typo in field name from "witdh" to "width"
+    bus_width: u8, // Note: Fixed typo in field name from "witdh" to "width"
     // Secured mode status
     secure_mode: u8,
     // SD card type
@@ -43,5 +43,4 @@ impl SdStatus {
             uhs_au_size: 0,
         }
     }
-    
 }

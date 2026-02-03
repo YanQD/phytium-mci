@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct MCIData {
     //TODO 使用智能指针会不会影响性能?
     buf: Option<Vec<u32>>,
@@ -12,7 +12,6 @@ pub(crate) struct MCIData {
 }
 
 impl MCIData {
-
     pub(crate) fn new() -> Self {
         MCIData {
             buf: None,
@@ -28,7 +27,7 @@ impl MCIData {
         self.blksz
     }
 
-    pub(crate) fn blksz_set(&mut self,blksz: u32) {
+    pub(crate) fn blksz_set(&mut self, blksz: u32) {
         self.blksz = blksz
     }
 
@@ -36,7 +35,7 @@ impl MCIData {
         self.blkcnt
     }
 
-    pub(crate) fn blkcnt_set(&mut self,blkcnt: u32) {
+    pub(crate) fn blkcnt_set(&mut self, blkcnt: u32) {
         self.blkcnt = blkcnt
     }
 
@@ -44,7 +43,7 @@ impl MCIData {
         self.datalen
     }
 
-    pub(crate) fn datalen_set(&mut self,datalen: u32) {
+    pub(crate) fn datalen_set(&mut self, datalen: u32) {
         self.datalen = datalen
     }
 
@@ -56,7 +55,7 @@ impl MCIData {
         self.buf.as_mut()
     }
 
-    pub(crate) fn buf_set(&mut self,buf: Option<Vec<u32>>) {
+    pub(crate) fn buf_set(&mut self, buf: Option<Vec<u32>>) {
         self.buf = buf
     }
 
@@ -69,5 +68,4 @@ impl MCIData {
     pub(crate) fn buf_dma_set(&mut self, buf_dma: usize) {
         self.buf_dma = buf_dma;
     }
-
 }
